@@ -1,7 +1,7 @@
 <script lang="ts">
     import { page } from '$app/state'
     import { afterNavigate } from '$app/navigation'
-    import { Header, Footer, getBreadcrumbContext } from '@humanspeak/docs-kit'
+    import { Header, Footer, getBreadcrumbContext, enhanceCodeBlocks } from '@humanspeak/docs-kit'
     import { docsConfig } from '$lib/docs-config'
     import favicon from '$lib/assets/logo.svg'
     import { buildBreadcrumbs } from '$lib/docsNav'
@@ -22,7 +22,7 @@
 
 <div class="bg-background relative flex min-h-screen flex-col">
     <Header config={docsConfig} {favicon} />
-    <div class="flex flex-1 flex-col">
+    <div class="flex flex-1 flex-col" use:enhanceCodeBlocks>
         {@render children?.()}
     </div>
     <Footer />

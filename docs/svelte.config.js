@@ -40,7 +40,23 @@ const config = {
     ],
 
     kit: {
-        adapter: adapter()
+        adapter: adapter(),
+        csp: {
+            mode: 'hash',
+            directives: {
+                'default-src': ['self'],
+                'script-src': ['self', 'unsafe-inline', 'wasm-unsafe-eval'],
+                'style-src': ['self', 'unsafe-inline'],
+                'img-src': ['self', 'data:', 'https:'],
+                'font-src': ['self', 'data:'],
+                'worker-src': ['self', 'blob:'],
+                'connect-src': ['self', 'https:'],
+                'frame-ancestors': ['none'],
+                'form-action': ['self'],
+                'base-uri': ['self'],
+                'upgrade-insecure-requests': true
+            }
+        }
     },
 
     extensions: ['.svelte', '.svx']

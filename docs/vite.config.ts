@@ -9,5 +9,19 @@ export default defineConfig({
         fs: {
             allow: ['..']
         }
+    },
+    build: {
+        rollupOptions: {
+            output: {
+                manualChunks(id) {
+                    if (id.includes('node_modules/shiki')) {
+                        return 'shiki'
+                    }
+                    if (id.includes('node_modules/marked')) {
+                        return 'marked'
+                    }
+                }
+            }
+        }
     }
 })
