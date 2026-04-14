@@ -1,0 +1,119 @@
+{
+    "name": "@humanspeak/svelte-virtual-chat",
+    "version": "0.0.1",
+    "description": "A high-performance virtual chat viewport for Svelte 5. Purpose-built for LLM conversations, support chat, and any message-based UI. Follow-bottom, streaming-stable, history-prepend with anchor preservation.",
+    "keywords": [
+        "svelte",
+        "virtual-chat",
+        "chat-ui",
+        "llm",
+        "virtual-scroll",
+        "streaming",
+        "ai-chat",
+        "svelte5",
+        "conversation",
+        "chat-viewport"
+    ],
+    "homepage": "https://virtualchat.svelte.page",
+    "bugs": {
+        "url": "https://github.com/humanspeak/svelte-virtual-chat/issues"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/humanspeak/svelte-virtual-chat.git"
+    },
+    "funding": {
+        "type": "github",
+        "url": "https://github.com/sponsors/humanspeak"
+    },
+    "license": "MIT",
+    "author": "Humanspeak, Inc.",
+    "sideEffects": [
+        "**/*.css"
+    ],
+    "type": "module",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "svelte": "./dist/index.js"
+        }
+    },
+    "svelte": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "files": [
+        "dist",
+        "!dist/**/*.test.*",
+        "!dist/**/*.spec.*",
+        "!dist/test/**/*"
+    ],
+    "scripts": {
+        "build": "vite build && pnpm run package",
+        "cf-typegen": "pnpm --filter docs cf-typegen",
+        "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+        "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+        "dev": "vite dev",
+        "dev:all": "mprocs",
+        "dev:pkg": "svelte-kit sync && svelte-package --watch",
+        "format": "prettier --write .",
+        "lint": "prettier --check . && eslint .",
+        "lint:fix": "pnpm run format && eslint . --fix",
+        "package": "svelte-kit sync && svelte-package && publint",
+        "prepare": "npx husky",
+        "prepublishOnly": "npm run package",
+        "preview": "vite preview",
+        "test": "vitest run --coverage --",
+        "test:all": "pnpm run test && pnpm run test:e2e",
+        "test:e2e": "playwright test",
+        "test:only": "vitest run --",
+        "test:unit": "vitest run --coverage",
+        "test:watch": "vitest --"
+    },
+    "dependencies": {
+        "esm-env": "^1.2.2"
+    },
+    "devDependencies": {
+        "@eslint/compat": "^2.0.5",
+        "@eslint/js": "^10.0.1",
+        "@playwright/test": "^1.59.1",
+        "@sveltejs/adapter-auto": "^7.0.1",
+        "@sveltejs/kit": "^2.57.1",
+        "@sveltejs/package": "^2.5.7",
+        "@sveltejs/vite-plugin-svelte": "^7.0.0",
+        "@tailwindcss/vite": "^4.2.2",
+        "@testing-library/jest-dom": "^6.9.1",
+        "@testing-library/svelte": "^5.3.1",
+        "@testing-library/user-event": "^14.6.1",
+        "@types/node": "^25.6.0",
+        "@typescript-eslint/eslint-plugin": "^8.58.1",
+        "@typescript-eslint/parser": "^8.58.1",
+        "@vitest/coverage-v8": "^4.1.4",
+        "eslint": "^10.2.0",
+        "eslint-config-prettier": "^10.1.8",
+        "eslint-plugin-svelte": "^3.17.0",
+        "eslint-plugin-unused-imports": "^4.4.1",
+        "globals": "^17.5.0",
+        "jsdom": "^29.0.2",
+        "mprocs": "^0.9.2",
+        "prettier": "^3.8.2",
+        "prettier-plugin-organize-imports": "^4.3.0",
+        "prettier-plugin-svelte": "^3.5.1",
+        "prettier-plugin-tailwindcss": "^0.7.2",
+        "publint": "^0.3.18",
+        "svelte": "^5.55.3",
+        "svelte-check": "^4.4.6",
+        "tailwindcss": "^4.2.2",
+        "typescript": "^6.0.2",
+        "typescript-eslint": "^8.58.1",
+        "vite": "^8.0.8",
+        "vitest": "^4.1.4"
+    },
+    "peerDependencies": {
+        "svelte": "^5.0.0"
+    },
+    "volta": {
+        "node": "24.13.0"
+    },
+    "publishConfig": {
+        "access": "public"
+    }
+}

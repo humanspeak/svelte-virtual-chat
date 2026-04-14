@@ -1,0 +1,9 @@
+procs:
+    urls:
+        shell: node --no-warnings scripts/dev-urls.mjs
+        autostart: true
+        autorestart: false
+    pkg:
+        shell: pnpm -w -r --filter @humanspeak/svelte-virtual-chat run dev
+    docs:
+        shell: pnpm --filter docs run dev

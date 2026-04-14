@@ -1,0 +1,36 @@
+{
+    "name": "docs",
+    "version": "0.0.1",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "build": "vite build",
+        "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+        "dev": "vite dev",
+        "format": "prettier --write .",
+        "lint": "prettier --check . && eslint .",
+        "preview": "vite preview"
+    },
+    "dependencies": {
+        "@humanspeak/svelte-virtual-chat": "workspace:*",
+        "@humanspeak/svelte-markdown": "^1.4.1"
+    },
+    "devDependencies": {
+        "@sveltejs/adapter-auto": "^7.0.1",
+        "@sveltejs/kit": "^2.57.1",
+        "@sveltejs/vite-plugin-svelte": "^7.0.0",
+        "@tailwindcss/vite": "^4.2.2",
+        "eslint": "^10.2.0",
+        "prettier": "^3.8.2",
+        "prettier-plugin-svelte": "^3.5.1",
+        "prettier-plugin-tailwindcss": "^0.7.2",
+        "svelte": "^5.55.3",
+        "svelte-check": "^4.4.6",
+        "tailwindcss": "^4.2.2",
+        "typescript": "^6.0.2",
+        "vite": "^8.0.8"
+    },
+    "volta": {
+        "node": "24.13.0"
+    }
+}
