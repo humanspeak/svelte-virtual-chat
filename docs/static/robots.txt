@@ -1,0 +1,29 @@
+User-agent: *
+Allow: /
+
+# AI crawlers — explicit welcome
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Anthropic-ai
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+Sitemap: https://virtualchat.svelte.page/sitemap.xml
+
+# LLM discovery — see https://llmstxt.org
+LLMsTxt: https://virtualchat.svelte.page/llms.txt

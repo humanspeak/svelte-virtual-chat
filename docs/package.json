@@ -15,15 +15,20 @@
         "sitemap:manifest": "node ./scripts/generate-sitemap-manifest.mjs"
     },
     "dependencies": {
+        "@humanspeak/docs-kit": "github:humanspeak/docs-kit#2026.3.31",
         "@humanspeak/svelte-markdown": "^1.4.1",
         "@humanspeak/svelte-virtual-chat": "workspace:*"
     },
     "devDependencies": {
+        "@icons-pack/svelte-simple-icons": "^7.2.0",
+        "@lucide/svelte": "^1.8.0",
         "@sveltejs/adapter-cloudflare": "^7.2.8",
         "@sveltejs/kit": "^2.57.1",
         "@sveltejs/vite-plugin-svelte": "^7.0.0",
+        "@tailwindcss/typography": "^0.5.19",
         "@tailwindcss/vite": "^4.2.2",
         "eslint": "^10.2.0",
+        "mode-watcher": "^1.1.0",
         "prettier": "^3.8.2",
         "prettier-plugin-svelte": "^3.5.1",
         "prettier-plugin-tailwindcss": "^0.7.2",
