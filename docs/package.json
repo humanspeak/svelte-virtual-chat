@@ -5,7 +5,9 @@
     "type": "module",
     "scripts": {
         "build": "vite build",
+        "cf-typegen": "wrangler types && mv worker-configuration.d.ts src/",
         "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+        "deploy": "npm run build && wrangler deploy",
         "dev": "vite dev",
         "format": "prettier --write .",
         "lint": "prettier --check . && eslint .",
@@ -16,7 +18,7 @@
         "@humanspeak/svelte-virtual-chat": "workspace:*"
     },
     "devDependencies": {
-        "@sveltejs/adapter-auto": "^7.0.1",
+        "@sveltejs/adapter-cloudflare": "^7.2.8",
         "@sveltejs/kit": "^2.57.1",
         "@sveltejs/vite-plugin-svelte": "^7.0.0",
         "@tailwindcss/vite": "^4.2.2",
@@ -28,7 +30,8 @@
         "svelte-check": "^4.4.6",
         "tailwindcss": "^4.2.2",
         "typescript": "^6.0.2",
-        "vite": "^8.0.8"
+        "vite": "^8.0.8",
+        "wrangler": "^4.81.1"
     },
     "volta": {
         "node": "24.13.0"

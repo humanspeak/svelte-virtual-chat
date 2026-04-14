@@ -1,0 +1,20 @@
+{
+    "$schema": "node_modules/wrangler/config-schema.json",
+    "name": "svelte-page-virtual-chat",
+    "compatibility_date": "2026-01-20",
+    "compatibility_flags": ["nodejs_als", "nodejs_compat"],
+    "main": ".svelte-kit/cloudflare/_worker.js",
+    "assets": {
+        "directory": ".svelte-kit/cloudflare",
+        "binding": "ASSETS"
+    },
+    "observability": {
+        "enabled": true
+    },
+    "upload_source_maps": true,
+    "vars": {
+        "PUBLIC_ENVIRONMENT": "production",
+        "ENVIRONMENT": "production",
+        "NODE_ENV": "production"
+    }
+}
