@@ -1,6 +1,6 @@
 {
     "$schema": "node_modules/wrangler/config-schema.json",
-    "name": "svelte-page-virtual-chat",
+    "name": "svelte-page-virtualchat",
     "compatibility_date": "2026-01-20",
     "compatibility_flags": ["nodejs_als", "nodejs_compat"],
     "main": ".svelte-kit/cloudflare/_worker.js",

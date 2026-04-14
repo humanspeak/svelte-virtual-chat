@@ -47,3 +47,4 @@ mprocs.log
 docs/static/social-cards/**
 docs/src/lib/github-stats.json
 tmp/
+/docs/.wrangler
