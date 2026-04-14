@@ -1,16 +1,5 @@
 import { expect, test } from '@playwright/test'
-import {
-    getRenderedIds,
-    getStat,
-    getScrollState,
-    isFollowing,
-    messageInDom,
-    rafWait,
-    scrollTo,
-    SETTLE_MS,
-    VIEWPORT,
-    waitForMount
-} from '../helpers.js'
+import { getRenderedIds, getStat, rafWait, scrollTo, SETTLE_MS, waitForMount } from '../helpers.js'
 
 test.describe('Prepend History', () => {
     test.beforeEach(async ({ page }) => {

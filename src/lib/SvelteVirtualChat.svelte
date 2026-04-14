@@ -43,9 +43,6 @@
     // When content is shorter than viewport, push messages to the bottom
     const topGap = $derived(Math.max(0, viewportHeight - totalHeight))
 
-    // ── Derived: effective content height (at least viewport height) ─
-    const contentHeight = $derived(Math.max(totalHeight, viewportHeight))
-
     // ── Derived: visible range ──────────────────────────────────────
     const visibleRange: VisibleRange = $derived.by(() => {
         void heightCache.version
@@ -103,9 +100,7 @@
 
     // ── Derived: slice of messages to render ────────────────────────
     const renderedMessages = $derived(
-        messages.length === 0
-            ? []
-            : messages.slice(visibleRange.start, visibleRange.end + 1)
+        messages.length === 0 ? [] : messages.slice(visibleRange.start, visibleRange.end + 1)
     )
 
     // ── Scroll event handler ────────────────────────────────────────
@@ -267,13 +262,15 @@
         const index = messages.findIndex((m) => getMessageId(m) === id)
         if (index === -1) return
 
-        const offset = topGap + calculateOffsetForIndex(
-            messages,
-            index,
-            getMessageId,
-            heightCache,
-            estimatedMessageHeight
-        )
+        const offset =
+            topGap +
+            calculateOffsetForIndex(
+                messages,
+                index,
+                getMessageId,
+                heightCache,
+                estimatedMessageHeight
+            )
 
         viewportEl?.scrollTo({
             top: offset,

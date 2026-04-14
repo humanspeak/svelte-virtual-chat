@@ -44,13 +44,25 @@
     <h1 class="mb-4 text-lg font-semibold">Test: Basic Chat</h1>
 
     <div class="mb-3 flex gap-2">
-        <button onclick={addUserMessage} data-testid="add-user" class="rounded bg-blue-500 px-3 py-1 text-sm text-white">
+        <button
+            onclick={addUserMessage}
+            data-testid="add-user"
+            class="rounded bg-blue-500 px-3 py-1 text-sm text-white"
+        >
             Add user message
         </button>
-        <button onclick={addAssistantMessage} data-testid="add-assistant" class="rounded bg-green-500 px-3 py-1 text-sm text-white">
+        <button
+            onclick={addAssistantMessage}
+            data-testid="add-assistant"
+            class="rounded bg-green-500 px-3 py-1 text-sm text-white"
+        >
             Add assistant message
         </button>
-        <button onclick={() => chat?.scrollToBottom()} data-testid="scroll-bottom" class="rounded bg-gray-500 px-3 py-1 text-sm text-white">
+        <button
+            onclick={() => chat?.scrollToBottom()}
+            data-testid="scroll-bottom"
+            class="rounded bg-gray-500 px-3 py-1 text-sm text-white"
+        >
             Scroll to bottom
         </button>
     </div>
@@ -78,14 +90,18 @@
             testId="chat"
         >
             {#snippet renderMessage(message: Message, index: number)}
-                <div
-                    class="border-b border-gray-200 px-4 py-3"
-                    data-testid="msg-{message.id}"
-                >
+                <div class="border-b border-gray-200 px-4 py-3" data-testid="msg-{message.id}">
                     <div class="flex items-center gap-2">
-                        <span class="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-xs text-gray-500">[{index}]</span>
+                        <span
+                            class="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-xs text-gray-500"
+                            >[{index}]</span
+                        >
                         <span class="font-mono text-xs text-gray-400">id={message.id}</span>
-                        <span class="text-xs font-bold {message.role === 'user' ? 'text-blue-500' : 'text-green-500'}">{message.role}</span>
+                        <span
+                            class="text-xs font-bold {message.role === 'user'
+                                ? 'text-blue-500'
+                                : 'text-green-500'}">{message.role}</span
+                        >
                     </div>
                     <div class="mt-1 text-sm">{message.content}</div>
                 </div>

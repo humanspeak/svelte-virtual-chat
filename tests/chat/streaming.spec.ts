@@ -1,13 +1,5 @@
 import { expect, test } from '@playwright/test'
-import {
-    getStat,
-    getScrollState,
-    isFollowing,
-    rafWait,
-    SETTLE_MS,
-    VIEWPORT,
-    waitForMount
-} from '../helpers.js'
+import { getScrollState, getStat, isFollowing, rafWait, waitForMount } from '../helpers.js'
 
 test.describe('Streaming Growth', () => {
     test.beforeEach(async ({ page }) => {
@@ -111,16 +103,18 @@ test.describe('Streaming Growth', () => {
         await page.locator('[data-testid="start-stream"]').click()
 
         // Wait for streaming to finish (stream text is ~500 chars / words at ~30ms each ≈ 5s)
-        await page.waitForFunction(
-            () => {
-                const stats = document.querySelector('[data-testid="debug-stats"]')?.textContent
-                // Token count in the stats should stop increasing
-                return stats && !stats.includes('streaming')
-            },
-            { timeout: 15000 }
-        ).catch(() => {
-            // Streaming may still be running — stop it
-        })
+        await page
+            .waitForFunction(
+                () => {
+                    const stats = document.querySelector('[data-testid="debug-stats"]')?.textContent
+                    // Token count in the stats should stop increasing
+                    return stats && !stats.includes('streaming')
+                },
+                { timeout: 15000 }
+            )
+            .catch(() => {
+                // Streaming may still be running — stop it
+            })
 
         await page.locator('[data-testid="stop-stream"]').click()
         await rafWait(page, 2)

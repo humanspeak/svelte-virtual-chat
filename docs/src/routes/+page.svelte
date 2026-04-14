@@ -1,3 +1,27 @@
+<script lang="ts">
+    const installCmd = 'npm install @humanspeak/svelte-virtual-chat'
+
+    const usageCode =
+        `<script lang="ts">
+  import SvelteVirtualChat from '@humanspeak/svelte-virtual-chat'
+
+  let messages = $state([...])
+</` +
+        `script>
+
+<SvelteVirtualChat
+  {messages}
+  getMessageId={(msg) => msg.id}
+  estimatedMessageHeight={72}
+  containerClass="h-[600px]"
+  viewportClass="h-full"
+>
+  {#snippet renderMessage(message, index)}
+    <div class="p-4">{message.content}</div>
+  {/snippet}
+</SvelteVirtualChat>`
+</script>
+
 <svelte:head>
     <title>SvelteVirtualChat — Examples</title>
 </svelte:head>
@@ -48,26 +72,12 @@
 
     <div class="mt-12 rounded-xl border border-gray-200 bg-white p-6">
         <h2 class="mb-4 text-lg font-semibold">Quick Start</h2>
-        <pre
-            class="overflow-x-auto rounded-lg bg-gray-900 p-4 text-sm text-gray-100"><code>{`npm install @humanspeak/svelte-virtual-chat`}</code></pre>
+        <pre class="overflow-x-auto rounded-lg bg-gray-900 p-4 text-sm text-gray-100"><code
+                >{installCmd}</code
+            ></pre>
 
-        <pre
-            class="mt-4 overflow-x-auto rounded-lg bg-gray-900 p-4 text-sm text-gray-100"><code>{`<script lang="ts">
-  import SvelteVirtualChat from '@humanspeak/svelte-virtual-chat'
-
-  let messages = $state([...])
-<\/script>
-
-<SvelteVirtualChat
-  \{messages\}
-  getMessageId=\{(msg) => msg.id\}
-  estimatedMessageHeight=\{72\}
-  containerClass="h-[600px]"
-  viewportClass="h-full"
->
-  \{#snippet renderMessage(message, index)\}
-    <div class="p-4">\{message.content\}</div>
-  \{/snippet\}
-</SvelteVirtualChat>`}</code></pre>
+        <pre class="mt-4 overflow-x-auto rounded-lg bg-gray-900 p-4 text-sm text-gray-100"><code
+                >{usageCode}</code
+            ></pre>
     </div>
 </div>

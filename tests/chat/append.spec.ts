@@ -1,11 +1,9 @@
 import { expect, test } from '@playwright/test'
 import {
-    domMessageCount,
     getRenderedIds,
-    getStat,
     getScrollState,
+    getStat,
     isFollowing,
-    messageInDom,
     rafWait,
     SETTLE_MS,
     waitForFollowing,

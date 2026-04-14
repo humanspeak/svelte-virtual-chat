@@ -15,21 +15,15 @@
         },
         {
             title: 'Tests — Streaming',
-            links: [
-                { href: resolve('/tests/chat/streaming'), label: 'Streaming growth' }
-            ]
+            links: [{ href: resolve('/tests/chat/streaming'), label: 'Streaming growth' }]
         },
         {
             title: 'Tests — History',
-            links: [
-                { href: resolve('/tests/chat/history'), label: 'Prepend history' }
-            ]
+            links: [{ href: resolve('/tests/chat/history'), label: 'Prepend history' }]
         },
         {
             title: 'Tests — Performance',
-            links: [
-                { href: resolve('/tests/chat/bulk'), label: 'Bulk messages (1000+)' }
-            ]
+            links: [{ href: resolve('/tests/chat/bulk'), label: 'Bulk messages (1000+)' }]
         }
     ]
 </script>

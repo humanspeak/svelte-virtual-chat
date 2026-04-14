@@ -59,7 +59,7 @@ export class ChatHeightCache {
  */
 export function calculateTotalHeight<T>(
     messages: T[],
-    getMessageId: (message: T) => string,
+    getMessageId: (_message: T) => string,
     heightCache: ChatHeightCache,
     estimatedHeight: number
 ): number {
@@ -77,7 +77,7 @@ export function calculateTotalHeight<T>(
 export function calculateOffsetForIndex<T>(
     messages: T[],
     index: number,
-    getMessageId: (message: T) => string,
+    getMessageId: (_message: T) => string,
     heightCache: ChatHeightCache,
     estimatedHeight: number
 ): number {

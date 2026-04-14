@@ -1,6 +1,7 @@
 <script lang="ts">
-    import SvelteVirtualChat from '@humanspeak/svelte-virtual-chat'
-    import type { SvelteVirtualChatDebugInfo } from '@humanspeak/svelte-virtual-chat'
+    import SvelteVirtualChat, {
+        type SvelteVirtualChatDebugInfo
+    } from '@humanspeak/svelte-virtual-chat'
 
     type Message = {
         id: string
@@ -13,11 +14,11 @@
         "That's a great question! Virtual scrolling works by only rendering the items that are currently visible in the viewport, plus a small buffer for smooth scrolling.",
         "I'd be happy to help with that. The key insight is that you don't need DOM nodes for items the user can't see.",
         "Here's how it works: as the user scrolls, items entering the viewport are rendered while items leaving are removed. Height caching ensures smooth positioning.",
-        "The follow-bottom behavior is crucial for chat UIs. When the user is at the bottom, new messages should automatically scroll into view.",
-        "One of the trickiest parts is handling streaming content. As message heights change during token streaming, the viewport needs to stay stable.",
+        'The follow-bottom behavior is crucial for chat UIs. When the user is at the bottom, new messages should automatically scroll into view.',
+        'One of the trickiest parts is handling streaming content. As message heights change during token streaming, the viewport needs to stay stable.',
         "History loading is another interesting challenge. When older messages are prepended at the top, we need to preserve the user's scroll position.",
         'For optimal performance, measurements are batched per animation frame rather than reacting to every individual height change.',
-        "The component uses ResizeObserver to track message heights, which is much more reliable than calculating heights from content alone."
+        'The component uses ResizeObserver to track message heights, which is much more reliable than calculating heights from content alone.'
     ]
 
     let messages: Message[] = $state([
@@ -46,7 +47,6 @@
             timestamp: Date.now()
         })
 
-        const userMsg = inputText.trim()
         inputText = ''
 
         // Simulate assistant response
@@ -154,12 +154,26 @@
                         {Math.round(debugInfo.totalHeight)}px
                     </div>
                 </div>
-                <div class="rounded-lg {debugInfo.isFollowingBottom ? 'bg-green-50' : 'bg-amber-50'} p-2.5">
-                    <div class="text-xs {debugInfo.isFollowingBottom ? 'text-green-500' : 'text-amber-500'}">
+                <div
+                    class="rounded-lg {debugInfo.isFollowingBottom
+                        ? 'bg-green-50'
+                        : 'bg-amber-50'} p-2.5"
+                >
+                    <div
+                        class="text-xs {debugInfo.isFollowingBottom
+                            ? 'text-green-500'
+                            : 'text-amber-500'}"
+                    >
                         Scroll
                     </div>
-                    <div class="font-mono text-sm font-semibold {debugInfo.isFollowingBottom ? 'text-green-700' : 'text-amber-700'}">
-                        {debugInfo.isFollowingBottom ? 'Following' : `${Math.round(debugInfo.scrollTop)}px`}
+                    <div
+                        class="font-mono text-sm font-semibold {debugInfo.isFollowingBottom
+                            ? 'text-green-700'
+                            : 'text-amber-700'}"
+                    >
+                        {debugInfo.isFollowingBottom
+                            ? 'Following'
+                            : `${Math.round(debugInfo.scrollTop)}px`}
                     </div>
                 </div>
             </div>

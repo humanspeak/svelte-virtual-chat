@@ -12,8 +12,8 @@
         "preview": "vite preview"
     },
     "dependencies": {
-        "@humanspeak/svelte-virtual-chat": "workspace:*",
-        "@humanspeak/svelte-markdown": "^1.4.1"
+        "@humanspeak/svelte-markdown": "^1.4.1",
+        "@humanspeak/svelte-virtual-chat": "workspace:*"
     },
     "devDependencies": {
         "@sveltejs/adapter-auto": "^7.0.1",

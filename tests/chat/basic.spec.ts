@@ -2,12 +2,10 @@ import { expect, test } from '@playwright/test'
 import {
     domMessageCount,
     getStat,
-    getScrollState,
     isFollowing,
     messageInDom,
     rafWait,
     scrollTo,
-    scrollToBottom,
     SETTLE_MS,
     waitForMount
 } from '../helpers.js'
@@ -54,9 +52,6 @@ test.describe('Basic Chat', () => {
     test('bottom gravity — few messages sit at the bottom', async ({ page }) => {
         // With only 3 messages in a 400px viewport, content is shorter than viewport.
         // Messages should be at the bottom, not the top.
-        const scroll = await getScrollState(page)
-        // scrollTop should be 0 or near 0 since content fits, but messages should
-        // be visually at the bottom. Check the first message isn't at the very top of viewport.
         const firstMsgBox = await page.locator('[data-testid="msg-1"]').boundingBox()
         const viewportBox = await page.locator('[data-testid="chat-viewport"]').boundingBox()
         if (firstMsgBox && viewportBox) {

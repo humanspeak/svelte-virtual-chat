@@ -1,6 +1,7 @@
 <script lang="ts">
-    import SvelteVirtualChat from '@humanspeak/svelte-virtual-chat'
-    import type { SvelteVirtualChatDebugInfo } from '@humanspeak/svelte-virtual-chat'
+    import SvelteVirtualChat, {
+        type SvelteVirtualChatDebugInfo
+    } from '@humanspeak/svelte-virtual-chat'
 
     type Message = {
         id: string
@@ -80,7 +81,9 @@
 
 <div class="mx-auto w-full max-w-4xl">
     <!-- Info bar -->
-    <div class="mb-4 flex items-center gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+    <div
+        class="mb-4 flex items-center gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+    >
         <div>
             <div class="text-xs font-medium uppercase text-gray-400">Messages</div>
             <div class="font-mono text-lg font-semibold text-gray-900">{messages.length}</div>
@@ -96,7 +99,8 @@
         <div class="ml-auto">
             {#if isLoadingHistory}
                 <span class="flex items-center gap-1.5 text-sm font-medium text-indigo-600">
-                    <span class="inline-block h-2 w-2 animate-pulse rounded-full bg-indigo-500"></span>
+                    <span class="inline-block h-2 w-2 animate-pulse rounded-full bg-indigo-500"
+                    ></span>
                     Loading history...
                 </span>
             {:else if !hasMoreHistory}

@@ -2,7 +2,12 @@
     import SvelteVirtualChat from '$lib/index.js'
     import type { SvelteVirtualChatDebugInfo } from '$lib/types.js'
 
-    type Message = { id: string; role: 'user' | 'assistant'; content: string; isStreaming?: boolean }
+    type Message = {
+        id: string
+        role: 'user' | 'assistant'
+        content: string
+        isStreaming?: boolean
+    }
 
     const STREAM_TEXT =
         'Virtual scrolling renders only visible items. Instead of creating DOM nodes for every message in a conversation, the component calculates which messages are currently visible in the viewport and renders only those, plus a small buffer above and below. This dramatically reduces memory usage and improves performance for long conversations. The key challenge is maintaining stable scroll position as message heights change during streaming — each new token can cause the message to grow, and the viewport needs to compensate without jittering.'
@@ -71,13 +76,27 @@
     </p>
 
     <div class="mb-3 flex gap-2">
-        <button onclick={startStream} data-testid="start-stream" class="rounded bg-green-500 px-3 py-1 text-sm text-white" disabled={isStreaming}>
+        <button
+            onclick={startStream}
+            data-testid="start-stream"
+            class="rounded bg-green-500 px-3 py-1 text-sm text-white"
+            disabled={isStreaming}
+        >
             Start stream
         </button>
-        <button onclick={stopStream} data-testid="stop-stream" class="rounded bg-red-500 px-3 py-1 text-sm text-white" disabled={!isStreaming}>
+        <button
+            onclick={stopStream}
+            data-testid="stop-stream"
+            class="rounded bg-red-500 px-3 py-1 text-sm text-white"
+            disabled={!isStreaming}
+        >
             Stop
         </button>
-        <button onclick={reset} data-testid="reset" class="rounded bg-gray-500 px-3 py-1 text-sm text-white">
+        <button
+            onclick={reset}
+            data-testid="reset"
+            class="rounded bg-gray-500 px-3 py-1 text-sm text-white"
+        >
             Reset
         </button>
     </div>
@@ -90,8 +109,9 @@
             range={debugInfo.startIndex}-{debugInfo.endIndex}
             tokens={tokenCount}
             following={debugInfo.isFollowingBottom}
-            height={Math.round(debugInfo.totalHeight)}px
-            viewport={Math.round(debugInfo.viewportHeight)}px
+            height={Math.round(debugInfo.totalHeight)}px viewport={Math.round(
+                debugInfo.viewportHeight
+            )}px
         </div>
     {/if}
 
@@ -108,14 +128,27 @@
             {#snippet renderMessage(message: Message, index: number)}
                 <div class="border-b border-gray-200 px-4 py-3" data-testid="msg-{message.id}">
                     <div class="flex items-center gap-2">
-                        <span class="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-xs text-gray-500">[{index}]</span>
+                        <span
+                            class="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-xs text-gray-500"
+                            >[{index}]</span
+                        >
                         <span class="font-mono text-xs text-gray-400">id={message.id}</span>
-                        <span class="text-xs font-bold {message.role === 'user' ? 'text-blue-500' : 'text-green-500'}">{message.role}</span>
+                        <span
+                            class="text-xs font-bold {message.role === 'user'
+                                ? 'text-blue-500'
+                                : 'text-green-500'}">{message.role}</span
+                        >
                         {#if message.isStreaming}
-                            <span class="rounded bg-green-100 px-1.5 py-0.5 text-xs text-green-700">streaming</span>
+                            <span class="rounded bg-green-100 px-1.5 py-0.5 text-xs text-green-700"
+                                >streaming</span
+                            >
                         {/if}
                     </div>
-                    <div class="mt-1 text-sm">{message.content}{#if message.isStreaming}<span class="animate-pulse">|</span>{/if}</div>
+                    <div class="mt-1 text-sm">
+                        {message.content}{#if message.isStreaming}<span class="animate-pulse"
+                                >|</span
+                            >{/if}
+                    </div>
                 </div>
             {/snippet}
         </SvelteVirtualChat>

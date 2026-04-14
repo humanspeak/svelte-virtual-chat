@@ -1,6 +1,7 @@
 <script lang="ts">
-    import SvelteVirtualChat from '@humanspeak/svelte-virtual-chat'
-    import type { SvelteVirtualChatDebugInfo } from '@humanspeak/svelte-virtual-chat'
+    import SvelteVirtualChat, {
+        type SvelteVirtualChatDebugInfo
+    } from '@humanspeak/svelte-virtual-chat'
     import SvelteMarkdown from '@humanspeak/svelte-markdown'
 
     type Message = {
@@ -305,11 +306,23 @@ count.update(n => n + 1)
                         {Math.round(debugInfo.totalHeight)}px
                     </div>
                 </div>
-                <div class="rounded-lg {debugInfo.isFollowingBottom ? 'bg-green-50' : 'bg-amber-50'} p-2.5">
-                    <div class="text-xs {debugInfo.isFollowingBottom ? 'text-green-500' : 'text-amber-500'}">
+                <div
+                    class="rounded-lg {debugInfo.isFollowingBottom
+                        ? 'bg-green-50'
+                        : 'bg-amber-50'} p-2.5"
+                >
+                    <div
+                        class="text-xs {debugInfo.isFollowingBottom
+                            ? 'text-green-500'
+                            : 'text-amber-500'}"
+                    >
                         Bottom
                     </div>
-                    <div class="font-mono text-sm font-semibold {debugInfo.isFollowingBottom ? 'text-green-700' : 'text-amber-700'}">
+                    <div
+                        class="font-mono text-sm font-semibold {debugInfo.isFollowingBottom
+                            ? 'text-green-700'
+                            : 'text-amber-700'}"
+                    >
                         {debugInfo.isFollowingBottom ? 'Following' : 'Scrolled'}
                     </div>
                 </div>

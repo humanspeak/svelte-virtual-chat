@@ -11,7 +11,8 @@
             <nav class="flex gap-6 text-sm">
                 <a href="/examples/basic-chat" class="hover:text-indigo-600">Basic Chat</a>
                 <a href="/examples/streaming" class="hover:text-indigo-600">Streaming</a>
-                <a href="/examples/history-loading" class="hover:text-indigo-600">History Loading</a>
+                <a href="/examples/history-loading" class="hover:text-indigo-600">History Loading</a
+                >
                 <a
                     href="https://github.com/humanspeak/svelte-virtual-chat"
                     target="_blank"

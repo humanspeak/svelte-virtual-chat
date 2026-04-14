@@ -44,16 +44,32 @@
     </p>
 
     <div class="mb-3 flex gap-2">
-        <button onclick={appendMessage} data-testid="append-one" class="rounded bg-blue-500 px-3 py-1 text-sm text-white">
+        <button
+            onclick={appendMessage}
+            data-testid="append-one"
+            class="rounded bg-blue-500 px-3 py-1 text-sm text-white"
+        >
             Append 1
         </button>
-        <button onclick={startAutoAppend} data-testid="auto-start" class="rounded bg-green-500 px-3 py-1 text-sm text-white">
+        <button
+            onclick={startAutoAppend}
+            data-testid="auto-start"
+            class="rounded bg-green-500 px-3 py-1 text-sm text-white"
+        >
             Auto append
         </button>
-        <button onclick={stopAutoAppend} data-testid="auto-stop" class="rounded bg-red-500 px-3 py-1 text-sm text-white">
+        <button
+            onclick={stopAutoAppend}
+            data-testid="auto-stop"
+            class="rounded bg-red-500 px-3 py-1 text-sm text-white"
+        >
             Stop
         </button>
-        <button onclick={() => chat?.scrollToBottom({ smooth: true })} data-testid="scroll-bottom" class="rounded bg-gray-500 px-3 py-1 text-sm text-white">
+        <button
+            onclick={() => chat?.scrollToBottom({ smooth: true })}
+            data-testid="scroll-bottom"
+            class="rounded bg-gray-500 px-3 py-1 text-sm text-white"
+        >
             Return to bottom
         </button>
     </div>
@@ -66,8 +82,9 @@
             range={debugInfo.startIndex}-{debugInfo.endIndex}
             new={newMessageCount}
             following={debugInfo.isFollowingBottom}
-            scroll={Math.round(debugInfo.scrollTop)}px
-            viewport={Math.round(debugInfo.viewportHeight)}px
+            scroll={Math.round(debugInfo.scrollTop)}px viewport={Math.round(
+                debugInfo.viewportHeight
+            )}px
         </div>
     {/if}
 
@@ -85,7 +102,10 @@
             {#snippet renderMessage(message: Message, index: number)}
                 <div class="border-b border-gray-200 px-4 py-2" data-testid="msg-{message.id}">
                     <div class="flex items-center gap-2">
-                        <span class="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-xs text-gray-500">[{index}]</span>
+                        <span
+                            class="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-xs text-gray-500"
+                            >[{index}]</span
+                        >
                         <span class="font-mono text-xs text-gray-400">id={message.id}</span>
                     </div>
                     <div class="mt-0.5 text-sm">{message.content}</div>

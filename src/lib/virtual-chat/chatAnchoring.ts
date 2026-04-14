@@ -1,5 +1,5 @@
-import type { ScrollAnchor } from './chatTypes.js'
 import { type ChatHeightCache, calculateOffsetForIndex } from './chatMeasurement.svelte.js'
+import type { ScrollAnchor } from './chatTypes.js'
 
 /**
  * Capture a scroll anchor before a history prepend operation.
@@ -10,11 +10,10 @@ import { type ChatHeightCache, calculateOffsetForIndex } from './chatMeasurement
  */
 export function captureScrollAnchor<T>(
     messages: T[],
-    getMessageId: (message: T) => string,
+    getMessageId: (_message: T) => string,
     heightCache: ChatHeightCache,
     estimatedHeight: number,
-    scrollTop: number,
-    viewportHeight: number
+    scrollTop: number
 ): ScrollAnchor | null {
     if (messages.length === 0) return null
 
@@ -51,7 +50,7 @@ export function captureScrollAnchor<T>(
 export function restoreScrollAnchor<T>(
     anchor: ScrollAnchor,
     messages: T[],
-    getMessageId: (message: T) => string,
+    getMessageId: (_message: T) => string,
     heightCache: ChatHeightCache,
     estimatedHeight: number
 ): number {

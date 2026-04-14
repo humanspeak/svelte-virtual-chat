@@ -91,21 +91,21 @@ yarn add @humanspeak/svelte-virtual-chat
 
 ## Props
 
-| Prop | Type | Default | Description |
-| --- | --- | --- | --- |
-| `messages` | `TMessage[]` | Required | Array of messages in chronological order (oldest first) |
-| `getMessageId` | `(msg: TMessage) => string` | Required | Extract a unique, stable ID from a message |
-| `renderMessage` | `Snippet<[TMessage, number]>` | Required | Snippet that renders a single message |
-| `estimatedMessageHeight` | `number` | `72` | Height estimate in pixels for unmeasured messages |
-| `followBottomThresholdPx` | `number` | `48` | Distance from bottom to consider "at bottom" |
-| `overscan` | `number` | `6` | Extra messages rendered above/below the viewport |
-| `onNeedHistory` | `() => void \| Promise<void>` | - | Called when user scrolls near top (load older messages) |
-| `onFollowBottomChange` | `(isFollowing: boolean) => void` | - | Called when follow-bottom state changes |
-| `onDebugInfo` | `(info: SvelteVirtualChatDebugInfo) => void` | - | Called with live stats on every scroll/render update |
-| `containerClass` | `string` | `''` | CSS class for the outermost container |
-| `viewportClass` | `string` | `''` | CSS class for the scrollable viewport |
-| `debug` | `boolean` | `false` | Enable console debug logging |
-| `testId` | `string` | - | Base test ID for `data-testid` attributes |
+| Prop                      | Type                                         | Default  | Description                                             |
+| ------------------------- | -------------------------------------------- | -------- | ------------------------------------------------------- |
+| `messages`                | `TMessage[]`                                 | Required | Array of messages in chronological order (oldest first) |
+| `getMessageId`            | `(msg: TMessage) => string`                  | Required | Extract a unique, stable ID from a message              |
+| `renderMessage`           | `Snippet<[TMessage, number]>`                | Required | Snippet that renders a single message                   |
+| `estimatedMessageHeight`  | `number`                                     | `72`     | Height estimate in pixels for unmeasured messages       |
+| `followBottomThresholdPx` | `number`                                     | `48`     | Distance from bottom to consider "at bottom"            |
+| `overscan`                | `number`                                     | `6`      | Extra messages rendered above/below the viewport        |
+| `onNeedHistory`           | `() => void \| Promise<void>`                | -        | Called when user scrolls near top (load older messages) |
+| `onFollowBottomChange`    | `(isFollowing: boolean) => void`             | -        | Called when follow-bottom state changes                 |
+| `onDebugInfo`             | `(info: SvelteVirtualChatDebugInfo) => void` | -        | Called with live stats on every scroll/render update    |
+| `containerClass`          | `string`                                     | `''`     | CSS class for the outermost container                   |
+| `viewportClass`           | `string`                                     | `''`     | CSS class for the scrollable viewport                   |
+| `debug`                   | `boolean`                                    | `false`  | Enable console debug logging                            |
+| `testId`                  | `string`                                     | -        | Base test ID for `data-testid` attributes               |
 
 ## Imperative API
 
@@ -118,17 +118,15 @@ Bind the component to access these methods:
 
 <SvelteVirtualChat bind:this={chat} ... />
 
-<button onclick={() => chat.scrollToBottom({ smooth: true })}>
-    Scroll to bottom
-</button>
+<button onclick={() => chat.scrollToBottom({ smooth: true })}> Scroll to bottom </button>
 ```
 
-| Method | Signature | Description |
-| --- | --- | --- |
-| `scrollToBottom` | `(options?: { smooth?: boolean }) => void` | Scroll the viewport to the bottom |
-| `scrollToMessage` | `(id: string, options?: { smooth?: boolean }) => void` | Scroll to a specific message by its ID |
-| `isAtBottom` | `() => boolean` | Check if the viewport is currently following bottom |
-| `getDebugInfo` | `() => SvelteVirtualChatDebugInfo` | Get a snapshot of current debug stats |
+| Method            | Signature                                              | Description                                         |
+| ----------------- | ------------------------------------------------------ | --------------------------------------------------- |
+| `scrollToBottom`  | `(options?: { smooth?: boolean }) => void`             | Scroll the viewport to the bottom                   |
+| `scrollToMessage` | `(id: string, options?: { smooth?: boolean }) => void` | Scroll to a specific message by its ID              |
+| `isAtBottom`      | `() => boolean`                                        | Check if the viewport is currently following bottom |
+| `getDebugInfo`    | `() => SvelteVirtualChatDebugInfo`                     | Get a snapshot of current debug stats               |
 
 ## LLM Streaming
 
@@ -160,10 +158,7 @@ Pair with [@humanspeak/svelte-markdown](https://www.npmjs.com/package/@humanspea
     {#snippet renderMessage(message, index)}
         <div class="p-4 border-b">
             {#if message.role === 'assistant'}
-                <SvelteMarkdown
-                    source={message.content}
-                    streaming={message.isStreaming ?? false}
-                />
+                <SvelteMarkdown source={message.content} streaming={message.isStreaming ?? false} />
             {:else}
                 <p>{message.content}</p>
             {/if}
@@ -226,25 +221,23 @@ The `onDebugInfo` callback provides real-time visibility into the component's in
 
 {#if stats}
     <div>
-        Total: {stats.totalMessages} |
-        In DOM: {stats.renderedCount} |
-        Following: {stats.isFollowingBottom}
+        Total: {stats.totalMessages} | In DOM: {stats.renderedCount} | Following: {stats.isFollowingBottom}
     </div>
 {/if}
 ```
 
-| Field | Type | Description |
-| --- | --- | --- |
-| `totalMessages` | `number` | Total messages in the array |
-| `renderedCount` | `number` | Messages currently in the DOM |
-| `measuredCount` | `number` | Messages with measured heights |
-| `startIndex` | `number` | First rendered index |
-| `endIndex` | `number` | Last rendered index |
-| `totalHeight` | `number` | Calculated total content height (px) |
-| `scrollTop` | `number` | Current scroll position (px) |
-| `viewportHeight` | `number` | Viewport height (px) |
+| Field               | Type      | Description                              |
+| ------------------- | --------- | ---------------------------------------- |
+| `totalMessages`     | `number`  | Total messages in the array              |
+| `renderedCount`     | `number`  | Messages currently in the DOM            |
+| `measuredCount`     | `number`  | Messages with measured heights           |
+| `startIndex`        | `number`  | First rendered index                     |
+| `endIndex`          | `number`  | Last rendered index                      |
+| `totalHeight`       | `number`  | Calculated total content height (px)     |
+| `scrollTop`         | `number`  | Current scroll position (px)             |
+| `viewportHeight`    | `number`  | Viewport height (px)                     |
 | `isFollowingBottom` | `boolean` | Whether the viewport is pinned to bottom |
-| `averageHeight` | `number` | Average measured message height (px) |
+| `averageHeight`     | `number`  | Average measured message height (px)     |
 
 ## TypeScript
 
@@ -261,7 +254,11 @@ import type {
 } from '@humanspeak/svelte-virtual-chat'
 
 // Utility exports
-import { ChatHeightCache, captureScrollAnchor, restoreScrollAnchor } from '@humanspeak/svelte-virtual-chat'
+import {
+    ChatHeightCache,
+    captureScrollAnchor,
+    restoreScrollAnchor
+} from '@humanspeak/svelte-virtual-chat'
 ```
 
 ## How Virtualization Works
@@ -278,20 +275,20 @@ With 10,000 messages, the DOM contains ~15-25 elements instead of 10,000.
 
 ## Performance
 
-| Metric | Value |
-| --- | --- |
-| DOM nodes with 1,000 messages | ~15-25 (viewport + overscan) |
-| DOM nodes with 10,000 messages | ~15-25 (same) |
-| Follow-bottom snap | Single `requestAnimationFrame` per batch |
-| Height measurement | ResizeObserver (no polling) |
-| Streaming height updates | Batched per animation frame |
+| Metric                         | Value                                    |
+| ------------------------------ | ---------------------------------------- |
+| DOM nodes with 1,000 messages  | ~15-25 (viewport + overscan)             |
+| DOM nodes with 10,000 messages | ~15-25 (same)                            |
+| Follow-bottom snap             | Single `requestAnimationFrame` per batch |
+| Height measurement             | ResizeObserver (no polling)              |
+| Streaming height updates       | Batched per animation frame              |
 
 ## Companion Libraries
 
-| Package | Description |
-| --- | --- |
-| [@humanspeak/svelte-markdown](https://www.npmjs.com/package/@humanspeak/svelte-markdown) | Markdown renderer with LLM streaming mode (~1.6ms per update) |
-| [@humanspeak/svelte-virtual-list](https://www.npmjs.com/package/@humanspeak/svelte-virtual-list) | General-purpose virtual list for non-chat use cases |
+| Package                                                                                          | Description                                                   |
+| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------- |
+| [@humanspeak/svelte-markdown](https://www.npmjs.com/package/@humanspeak/svelte-markdown)         | Markdown renderer with LLM streaming mode (~1.6ms per update) |
+| [@humanspeak/svelte-virtual-list](https://www.npmjs.com/package/@humanspeak/svelte-virtual-list) | General-purpose virtual list for non-chat use cases           |
 
 ## License
 

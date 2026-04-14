@@ -14,7 +14,7 @@ export type SvelteVirtualChatProps<TMessage = any> = {
      * Extract a unique, stable identifier from a message.
      * Used for height caching, keyed rendering, and scroll-to-message.
      */
-    getMessageId: (message: TMessage) => string
+    getMessageId: (_message: TMessage) => string
 
     /**
      * Estimated height in pixels for messages not yet measured.
@@ -50,13 +50,13 @@ export type SvelteVirtualChatProps<TMessage = any> = {
     /**
      * Called when the follow-bottom state changes.
      */
-    onFollowBottomChange?: (isFollowing: boolean) => void
+    onFollowBottomChange?: (_isFollowing: boolean) => void
 
     /**
      * Called whenever debug info updates (on scroll, height changes, message changes).
      * Use this to display live stats in your UI.
      */
-    onDebugInfo?: (info: SvelteVirtualChatDebugInfo) => void
+    onDebugInfo?: (_info: SvelteVirtualChatDebugInfo) => void
 
     /**
      * CSS class for the outermost container element.

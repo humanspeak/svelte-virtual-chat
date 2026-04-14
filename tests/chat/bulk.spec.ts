@@ -2,15 +2,13 @@ import { expect, test } from '@playwright/test'
 import {
     domMessageCount,
     getRenderedIds,
-    getStat,
     getScrollState,
+    getStat,
     isFollowing,
     messageInDom,
     rafWait,
     scrollTo,
-    scrollToBottom,
     SETTLE_MS,
-    VIEWPORT,
     waitForMount
 } from '../helpers.js'
 
