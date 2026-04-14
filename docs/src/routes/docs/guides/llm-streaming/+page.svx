@@ -1,0 +1,139 @@
+---
+title: LLM Streaming
+description: How to pair SvelteVirtualChat with LLM token streaming and markdown rendering
+---
+
+<script>
+    import { getSeoContext } from '@humanspeak/docs-kit'
+
+    const seo = getSeoContext()
+    if (seo) {
+        seo.title = 'LLM Streaming Guide | Svelte Virtual Chat'
+        seo.description = 'How to pair SvelteVirtualChat with LLM token streaming and markdown rendering'
+        seo.ogTitle = 'LLM Streaming'
+        seo.ogTagline = 'Stream AI responses with stable scroll behavior.'
+        seo.ogFeatures = ['Token Streaming', 'Markdown', 'No Jitter', 'ResizeObserver']
+        seo.ogSlug = 'docs-guides-llm-streaming'
+    }
+</script>
+
+# LLM Streaming
+
+SvelteVirtualChat handles streaming natively. As a message grows token by token, ResizeObserver detects the height change and the viewport stays pinned to bottom. No special handling is needed from your code — just mutate the message content.
+
+## How It Works
+
+1. Create an empty assistant message with `isStreaming: true`
+2. Append tokens to `message.content` as they arrive
+3. The component's ResizeObserver detects the height change
+4. If following bottom, the viewport snaps to the new bottom (batched per animation frame)
+5. When done, set `isStreaming = false`
+
+## With @humanspeak/svelte-markdown
+
+Pair with [@humanspeak/svelte-markdown](https://www.npmjs.com/package/@humanspeak/svelte-markdown) for rich markdown rendering during streaming:
+
+```svelte
+<script lang="ts">
+    import SvelteVirtualChat from '@humanspeak/svelte-virtual-chat'
+    import SvelteMarkdown from '@humanspeak/svelte-markdown'
+
+    type Message = {
+        id: string
+        role: 'user' | 'assistant'
+        content: string
+        isStreaming?: boolean
+    }
+
+    let messages: Message[] = $state([...])
+</script>
+
+<SvelteVirtualChat
+    {messages}
+    getMessageId={(msg) => msg.id}
+    containerClass="h-[600px]"
+    viewportClass="h-full"
+>
+    {#snippet renderMessage(message, index)}
+        <div class="p-4 border-b">
+            {#if message.role === 'assistant'}
+                <SvelteMarkdown
+                    source={message.content}
+                    streaming={message.isStreaming ?? false}
+                />
+            {:else}
+                <p>{message.content}</p>
+            {/if}
+        </div>
+    {/snippet}
+</SvelteVirtualChat>
+```
+
+## API Route Pattern
+
+Server-side streaming with the Anthropic SDK:
+
+```typescript
+// src/routes/api/chat/+server.ts
+import Anthropic from '@anthropic-ai/sdk'
+
+const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY })
+
+export async function POST({ request }) {
+    const { messages } = await request.json()
+    const stream = await client.messages.stream({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 4096,
+        messages
+    })
+
+    const encoder = new TextEncoder()
+    const readable = new ReadableStream({
+        async start(controller) {
+            for await (const event of stream) {
+                if (event.type === 'content_block_delta' &&
+                    event.delta.type === 'text_delta') {
+                    controller.enqueue(encoder.encode(event.delta.text))
+                }
+            }
+            controller.close()
+        }
+    })
+
+    return new Response(readable, {
+        headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+    })
+}
+```
+
+## Client-Side Consumption
+
+```typescript
+async function streamResponse(messageId: string) {
+    const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: [...] })
+    })
+
+    const reader = response.body!.getReader()
+    const decoder = new TextDecoder()
+
+    while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        const chunk = decoder.decode(value, { stream: true })
+        const msg = messages.find((m) => m.id === messageId)
+        if (msg) msg.content += chunk
+        // That's it — ResizeObserver handles the rest
+    }
+}
+```
+
+## Key Behavior
+
+- Height changes are batched per `requestAnimationFrame` — not per token
+- When following bottom, the viewport re-snaps after each batch
+- When scrolled away, height changes do not affect scroll position
+- No debouncing or throttling needed from your code

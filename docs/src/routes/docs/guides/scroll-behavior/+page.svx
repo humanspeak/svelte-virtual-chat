@@ -1,0 +1,95 @@
+---
+title: Scroll Behavior
+description: Understanding follow-bottom, scroll-away, and return-to-bottom behavior
+---
+
+<script>
+    import { getSeoContext } from '@humanspeak/docs-kit'
+
+    const seo = getSeoContext()
+    if (seo) {
+        seo.title = 'Scroll Behavior Guide | Svelte Virtual Chat'
+        seo.description = 'Understanding follow-bottom, scroll-away, and return-to-bottom behavior'
+        seo.ogTitle = 'Scroll Behavior'
+        seo.ogTagline = 'Follow-bottom, scroll-away detection, and return-to-bottom.'
+        seo.ogFeatures = ['Follow-Bottom', 'Scroll-Away', 'Threshold', 'New Messages']
+        seo.ogSlug = 'docs-guides-scroll-behavior'
+    }
+</script>
+
+# Scroll Behavior
+
+SvelteVirtualChat has two scroll states: **following bottom** and **scrolled away**. The component transitions between them automatically based on the user's scroll position.
+
+## Follow-Bottom
+
+When the viewport is within `followBottomThresholdPx` (default 48px) of the bottom:
+
+- New messages automatically scroll into view
+- Height changes from streaming snap the viewport to bottom
+- `isFollowingBottom` is `true`
+
+## Scrolled Away
+
+When the user scrolls up past the threshold:
+
+- New messages are added to the array but the viewport **does not move**
+- Streaming height changes **do not affect** the scroll position
+- `isFollowingBottom` is `false`
+
+## Detecting State Changes
+
+Use `onFollowBottomChange` to react to transitions:
+
+```svelte
+<script lang="ts">
+    let isFollowing = $state(true)
+    let unreadCount = $state(0)
+</script>
+
+<SvelteVirtualChat
+    onFollowBottomChange={(following) => {
+        isFollowing = following
+        if (following) unreadCount = 0
+    }}
+    ...
+/>
+
+{#if !isFollowing && unreadCount > 0}
+    <button onclick={() => chat?.scrollToBottom({ smooth: true })}>
+        {unreadCount} new messages — click to scroll down
+    </button>
+{/if}
+```
+
+## Tuning the Threshold
+
+The `followBottomThresholdPx` prop controls the sensitivity:
+
+```svelte
+<!-- More sensitive (follows even when slightly above bottom) -->
+<SvelteVirtualChat followBottomThresholdPx={100} ... />
+
+<!-- Less sensitive (must be very close to bottom) -->
+<SvelteVirtualChat followBottomThresholdPx={10} ... />
+```
+
+## Bottom Gravity
+
+When messages don't fill the viewport (e.g., a new conversation with 2 messages), they sit at the **bottom** of the viewport — not the top. This matches the behavior of every major chat application.
+
+As more messages are added and exceed the viewport height, normal scrolling takes over.
+
+## Return to Bottom
+
+Use the imperative API to bring the user back:
+
+```typescript
+// Instant jump
+chat.scrollToBottom()
+
+// Smooth animation
+chat.scrollToBottom({ smooth: true })
+```
+
+After returning, `isFollowingBottom` becomes `true` again and new messages will auto-scroll.

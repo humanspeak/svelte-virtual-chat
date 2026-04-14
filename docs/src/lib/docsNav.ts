@@ -1,7 +1,6 @@
 import type { Breadcrumb, NavSection } from '@humanspeak/docs-kit'
 import {
     BookOpen,
-    Box,
     Code,
     Gauge,
     History,
@@ -46,10 +45,7 @@ export const docsSections: NavSection[] = [
     {
         title: 'Get Started',
         icon: Rocket,
-        items: [
-            { title: 'Getting Started', href: '/docs/getting-started', icon: Rocket },
-            { title: 'Installation', href: '/docs/installation', icon: Box }
-        ]
+        items: [{ title: 'Getting Started', href: '/docs/getting-started', icon: Rocket }]
     },
     {
         title: 'API Reference',

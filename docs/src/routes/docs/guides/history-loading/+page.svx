@@ -1,0 +1,88 @@
+---
+title: History Loading
+description: Load older messages with scroll anchor preservation
+---
+
+<script>
+    import { getSeoContext } from '@humanspeak/docs-kit'
+
+    const seo = getSeoContext()
+    if (seo) {
+        seo.title = 'History Loading Guide | Svelte Virtual Chat'
+        seo.description = 'Load older messages with scroll anchor preservation'
+        seo.ogTitle = 'History Loading'
+        seo.ogTagline = 'Prepend messages without jumping the viewport.'
+        seo.ogFeatures = ['onNeedHistory', 'Anchor Preservation', 'Cursor Pagination', 'No Jump']
+        seo.ogSlug = 'docs-guides-history-loading'
+    }
+</script>
+
+# History Loading
+
+Use the `onNeedHistory` callback to load older messages when the user scrolls near the top. Prepend them to the beginning of the array — the component handles the rest.
+
+## Basic Pattern
+
+```svelte
+<script lang="ts">
+    import SvelteVirtualChat from '@humanspeak/svelte-virtual-chat'
+
+    let messages = $state([...recentMessages])
+    let isLoading = false
+    let hasMore = true
+    let cursor: string | null = null
+
+    async function loadHistory() {
+        if (isLoading || !hasMore) return
+        isLoading = true
+
+        const response = await fetch(`/api/chat/history?before=${cursor}`)
+        const data = await response.json()
+
+        if (data.messages.length > 0) {
+            messages = [...data.messages, ...messages]
+            cursor = data.messages[0].id
+        }
+        if (!data.hasMore) hasMore = false
+
+        isLoading = false
+    }
+</script>
+
+<SvelteVirtualChat
+    {messages}
+    getMessageId={(msg) => msg.id}
+    onNeedHistory={loadHistory}
+    containerClass="h-[600px]"
+    viewportClass="h-full"
+>
+    {#snippet renderMessage(message, index)}
+        <div class="p-4">{message.content}</div>
+    {/snippet}
+</SvelteVirtualChat>
+```
+
+## When Does `onNeedHistory` Fire?
+
+The callback fires when `scrollTop` is within half a viewport height of the top. It fires during scroll events, so guard against concurrent calls with an `isLoading` flag.
+
+## Scroll Anchor Preservation
+
+When you prepend messages (`messages = [...older, ...messages]`), the component recalculates offsets. Because the visible range shifts, the currently visible messages stay in approximately the same visual position.
+
+For more precise anchor preservation, you can use the exported utilities:
+
+```typescript
+import {
+    captureScrollAnchor,
+    restoreScrollAnchor,
+    ChatHeightCache
+} from '@humanspeak/svelte-virtual-chat'
+```
+
+## Tips
+
+- **Guard concurrency** — always check `isLoading` before fetching
+- **Track `hasMore`** — stop calling the API when history is exhausted
+- **Batch size** — load 20-50 messages per request for a good balance
+- **Loading indicator** — show a spinner above the messages while loading

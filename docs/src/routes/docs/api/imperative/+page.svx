@@ -1,0 +1,96 @@
+---
+title: Imperative API
+description: Methods exposed by SvelteVirtualChat via bind:this
+---
+
+<script>
+    import { getSeoContext } from '@humanspeak/docs-kit'
+
+    const seo = getSeoContext()
+    if (seo) {
+        seo.title = 'Imperative API | Svelte Virtual Chat'
+        seo.description = 'Methods exposed by SvelteVirtualChat via bind:this'
+        seo.ogTitle = 'Imperative API'
+        seo.ogTagline = 'scrollToBottom, scrollToMessage, isAtBottom, getDebugInfo.'
+        seo.ogFeatures = ['scrollToBottom', 'scrollToMessage', 'isAtBottom', 'getDebugInfo']
+        seo.ogSlug = 'docs-api-imperative'
+    }
+</script>
+
+# Imperative API
+
+Bind the component instance to access these methods:
+
+```svelte
+<script lang="ts">
+    import SvelteVirtualChat from '@humanspeak/svelte-virtual-chat'
+    let chat: ReturnType<typeof SvelteVirtualChat>
+</script>
+
+<SvelteVirtualChat bind:this={chat} ... />
+```
+
+## `scrollToBottom(options?)`
+
+Scrolls the viewport to the bottom.
+
+```typescript
+chat.scrollToBottom()                    // instant
+chat.scrollToBottom({ smooth: true })    // smooth animation
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `smooth` | `boolean` | `false` | Use smooth scrolling animation |
+
+## `scrollToMessage(id, options?)`
+
+Scrolls to a specific message by its ID.
+
+```typescript
+chat.scrollToMessage('msg-42')
+chat.scrollToMessage('msg-42', { smooth: true })
+```
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `id` | `string` | The message ID (as returned by `getMessageId`) |
+| `smooth` | `boolean` | Use smooth scrolling animation |
+
+If the message ID is not found, this is a no-op.
+
+## `isAtBottom()`
+
+Returns whether the viewport is currently in follow-bottom state.
+
+```typescript
+if (chat.isAtBottom()) {
+    // Safe to assume user sees the latest message
+}
+```
+
+## `getDebugInfo()`
+
+Returns a snapshot of the current internal state.
+
+```typescript
+const info = chat.getDebugInfo()
+console.log(info.totalMessages)    // 1000
+console.log(info.renderedCount)    // 18 (DOM nodes)
+console.log(info.isFollowingBottom) // true
+```
+
+### `SvelteVirtualChatDebugInfo`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `totalMessages` | `number` | Total messages in the array |
+| `renderedCount` | `number` | Messages currently in the DOM |
+| `measuredCount` | `number` | Messages with measured heights |
+| `startIndex` | `number` | First rendered index |
+| `endIndex` | `number` | Last rendered index |
+| `totalHeight` | `number` | Calculated total content height (px) |
+| `scrollTop` | `number` | Current scroll position (px) |
+| `viewportHeight` | `number` | Viewport height (px) |
+| `isFollowingBottom` | `boolean` | Whether viewport is pinned to bottom |
+| `averageHeight` | `number` | Average measured message height (px) |
