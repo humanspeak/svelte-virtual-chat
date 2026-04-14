@@ -19,7 +19,6 @@
         onDebugInfo,
         containerClass = '',
         viewportClass = '',
-        debug = false,
         testId
     }: SvelteVirtualChatProps<TMessage> = $props()
 
@@ -244,7 +243,6 @@
         void isFollowingBottom
 
         const info = buildDebugInfo()
-        if (debug) console.log('[SvelteVirtualChat]', info)
         onDebugInfo?.(info)
     })
 
