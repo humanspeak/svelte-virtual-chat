@@ -4,7 +4,12 @@
     import { buildBreadcrumbs, docsSections } from '$lib/docsNav'
     import favicon from '$lib/assets/logo.svg'
 
-    const { children, data }: { children: any; data: { otherProjects: any[] } } = $props()
+    import type { Snippet } from 'svelte'
+
+    const {
+        children,
+        data
+    }: { children: Snippet; data: { otherProjects: Record<string, unknown>[] } } = $props()
 </script>
 
 <DocsLayout
