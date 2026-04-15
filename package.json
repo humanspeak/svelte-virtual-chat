@@ -115,5 +115,10 @@
     },
     "publishConfig": {
         "access": "public"
+    },
+    "pnpm": {
+        "onlyBuiltDependencies": [
+            "@humanspeak/docs-kit"
+        ]
     }
 }
