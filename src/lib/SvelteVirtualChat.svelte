@@ -31,6 +31,8 @@
     let viewportHeight = $state(0)
     let isFollowingBottom = $state(true)
     let pendingSnapToBottom = $state(false)
+    let userScrolling = false
+    let userScrollTimer: ReturnType<typeof setTimeout> | null = null
 
     // ── Derived: total content height ───────────────────────────────
     const totalHeight = $derived.by(() => {
@@ -107,6 +109,14 @@
         if (!viewportEl) return
         scrollTop = viewportEl.scrollTop
 
+        // Mark that the user is actively scrolling.
+        // This suppresses programmatic snaps so they don't fight the user.
+        userScrolling = true
+        if (userScrollTimer) clearTimeout(userScrollTimer)
+        userScrollTimer = setTimeout(() => {
+            userScrolling = false
+        }, 150)
+
         const maxScroll = viewportEl.scrollHeight - viewportEl.clientHeight
         const wasFollowing = isFollowingBottom
         isFollowingBottom = maxScroll <= 0 || maxScroll - scrollTop <= followBottomThresholdPx
@@ -126,12 +136,15 @@
 
     function scheduleSnapToBottom() {
         if (!isFollowingBottom || !viewportEl) return
+        // Don't fight the user — if they're actively scrolling, skip the snap.
+        // The scroll handler will re-evaluate isFollowingBottom.
+        if (userScrolling) return
         snapNeeded = true
         if (pendingSnapToBottom) return // rAF already scheduled, it will re-check
         pendingSnapToBottom = true
         requestAnimationFrame(() => {
             pendingSnapToBottom = false
-            if (snapNeeded && isFollowingBottom) {
+            if (snapNeeded && isFollowingBottom && !userScrolling) {
                 snapNeeded = false
                 snapToBottom()
             }
@@ -183,8 +196,12 @@
     // ── Follow-bottom on new messages ───────────────────────────────
     $effect(() => {
         void messages.length
-        if (isFollowingBottom && viewportEl) {
-            requestAnimationFrame(() => snapToBottom())
+        if (isFollowingBottom && viewportEl && !userScrolling) {
+            requestAnimationFrame(() => {
+                if (isFollowingBottom && !userScrolling) {
+                    snapToBottom()
+                }
+            })
         }
     })
 

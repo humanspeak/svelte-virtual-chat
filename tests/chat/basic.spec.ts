@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 import {
     domMessageCount,
+    getScrollState,
     getStat,
     isFollowing,
     messageInDom,
@@ -144,6 +145,37 @@ test.describe('Basic Chat', () => {
         await page.waitForTimeout(SETTLE_MS)
 
         expect(await isFollowing(page)).toBe(true)
+    })
+
+    test('user can scroll up from bottom without being snapped back', async ({ page }) => {
+        // Add enough messages to make content scrollable
+        for (let i = 0; i < 30; i++) {
+            await page.locator('[data-testid="add-user"]').click()
+        }
+        await rafWait(page, 3)
+        await page.waitForTimeout(SETTLE_MS)
+
+        // Confirm we're at bottom
+        expect(await isFollowing(page)).toBe(true)
+
+        // Simulate a user wheel-scroll upward (small increments like a real scroll)
+        const viewport = page.locator('[data-testid="chat-viewport"]')
+        const box = await viewport.boundingBox()
+        if (box) {
+            await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+            // Scroll up in small steps — this is what triggers the bug
+            for (let i = 0; i < 10; i++) {
+                await page.mouse.wheel(0, -60)
+                await new Promise((r) => setTimeout(r, 30))
+            }
+        }
+
+        await page.waitForTimeout(300)
+
+        // The user should have successfully scrolled away
+        const scrollState = await getScrollState(page)
+        expect(scrollState.gapFromBottom).toBeGreaterThan(100)
+        expect(await isFollowing(page)).toBe(false)
     })
 
     test('visible range updates on scroll', async ({ page }) => {
