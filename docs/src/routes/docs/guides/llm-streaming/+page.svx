@@ -123,10 +123,17 @@ async function streamResponse(messageId: string) {
         const { done, value } = await reader.read()
         if (done) break
 
+        // stream: true keeps partial multi-byte chars buffered until complete
         const chunk = decoder.decode(value, { stream: true })
         const msg = messages.find((m) => m.id === messageId)
         if (msg) msg.content += chunk
-        // That's it — ResizeObserver handles the rest
+    }
+
+    // Flush any remaining buffered bytes
+    const final = decoder.decode()
+    if (final) {
+        const msg = messages.find((m) => m.id === messageId)
+        if (msg) msg.content += final
     }
 }
 ```

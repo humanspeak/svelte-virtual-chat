@@ -43,11 +43,15 @@ Use `onFollowBottomChange` to react to transitions:
 
 ```svelte
 <script lang="ts">
+    import SvelteVirtualChat from '@humanspeak/svelte-virtual-chat'
+
     let isFollowing = $state(true)
     let unreadCount = $state(0)
+    let chat: ReturnType<typeof SvelteVirtualChat>
 </script>
 
 <SvelteVirtualChat
+    bind:this={chat}
     onFollowBottomChange={(following) => {
         isFollowing = following
         if (following) unreadCount = 0
@@ -56,7 +60,7 @@ Use `onFollowBottomChange` to react to transitions:
 />
 
 {#if !isFollowing && unreadCount > 0}
-    <button onclick={() => chat?.scrollToBottom({ smooth: true })}>
+    <button onclick={() => chat.scrollToBottom({ smooth: true })}>
         {unreadCount} new messages — click to scroll down
     </button>
 {/if}

@@ -111,7 +111,7 @@ CSS class for the scrollable viewport element. Typically set to `"h-full"`.
 - **Type:** `boolean`
 - **Default:** `false`
 
-Reserved for future use.
+Accepted by the component type but currently unused. Included for forward compatibility — future versions may use this to enable built-in debug overlays or verbose logging.
 
 ### `testId`
 

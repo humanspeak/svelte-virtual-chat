@@ -49,9 +49,10 @@
                 </a>
             {/if}
             <button
+                type="button"
                 onclick={refresh}
                 class="border-border text-muted-foreground hover:border-brand-500/50 hover:text-foreground inline-flex h-8 w-8 items-center justify-center rounded-full border transition-colors"
-                title="Reset example"
+                aria-label="Reset example"
             >
                 <RotateCw class="size-3" />
             </button>
