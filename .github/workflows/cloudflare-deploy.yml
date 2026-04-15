@@ -83,6 +83,10 @@ jobs:
                   # Exit with original deploy status so the job fails if deploy failed
                   exit ${DEPLOY_EXIT}
 
+            - name: Ping IndexNow
+              working-directory: docs
+              run: pnpm run deploy:indexnow
+
             - name: Upload Wrangler logs
               if: always()
               uses: actions/upload-artifact@v4 # zizmor: ignore[unpinned-uses]
