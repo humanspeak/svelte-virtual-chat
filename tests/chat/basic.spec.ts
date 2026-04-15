@@ -147,7 +147,9 @@ test.describe('Basic Chat', () => {
         expect(await isFollowing(page)).toBe(true)
     })
 
-    test('user can scroll up from bottom without being snapped back', async ({ page }) => {
+    test('user can scroll up from bottom without being snapped back', async ({
+        page
+    }, testInfo) => {
         // Add enough messages to make content scrollable
         for (let i = 0; i < 30; i++) {
             await page.locator('[data-testid="add-user"]').click()
@@ -158,15 +160,21 @@ test.describe('Basic Chat', () => {
         // Confirm we're at bottom
         expect(await isFollowing(page)).toBe(true)
 
-        // Simulate a user wheel-scroll upward (small increments like a real scroll)
+        const isMobile = testInfo.project.name.startsWith('mobile')
         const viewport = page.locator('[data-testid="chat-viewport"]')
-        const box = await viewport.boundingBox()
-        if (box) {
-            await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
-            // Scroll up in small steps — this is what triggers the bug
-            for (let i = 0; i < 10; i++) {
-                await page.mouse.wheel(0, -60)
-                await new Promise((r) => setTimeout(r, 30))
+
+        if (isMobile) {
+            // Mobile: use direct scrollTop manipulation (no mouse wheel)
+            await scrollTo(page, 0)
+        } else {
+            // Desktop: simulate incremental wheel scroll (the realistic case)
+            const box = await viewport.boundingBox()
+            if (box) {
+                await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+                for (let i = 0; i < 10; i++) {
+                    await page.mouse.wheel(0, -60)
+                    await new Promise((r) => setTimeout(r, 30))
+                }
             }
         }
 
