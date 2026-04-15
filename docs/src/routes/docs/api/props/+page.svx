@@ -1,6 +1,6 @@
 ---
 title: Props Reference
-description: All props accepted by the SvelteVirtualChat component
+description: Complete props reference for SvelteVirtualChat — configure messages, scroll thresholds, custom snippets, CSS classes, and event handlers for Svelte 5.
 ---
 
 <script>
@@ -9,7 +9,7 @@ description: All props accepted by the SvelteVirtualChat component
     const seo = getSeoContext()
     if (seo) {
         seo.title = 'Props | API Reference | Svelte Virtual Chat'
-        seo.description = 'Complete props reference for the SvelteVirtualChat component'
+        seo.description = 'Complete props reference for SvelteVirtualChat — configure messages, scroll thresholds, custom snippets, CSS classes, and event handlers for Svelte 5.'
         seo.ogTitle = 'Props Reference'
         seo.ogTagline = 'Every prop, its type, default, and behavior.'
         seo.ogFeatures = ['All Props', 'Types', 'Defaults', 'Examples']

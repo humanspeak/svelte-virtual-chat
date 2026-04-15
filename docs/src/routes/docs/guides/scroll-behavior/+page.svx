@@ -1,6 +1,6 @@
 ---
 title: Scroll Behavior
-description: Understanding follow-bottom, scroll-away, and return-to-bottom behavior
+description: Understand follow-bottom, scroll-away detection, and return-to-bottom behavior in SvelteVirtualChat — configure thresholds and new-message indicators.
 ---
 
 <script>
@@ -9,7 +9,7 @@ description: Understanding follow-bottom, scroll-away, and return-to-bottom beha
     const seo = getSeoContext()
     if (seo) {
         seo.title = 'Scroll Behavior Guide | Svelte Virtual Chat'
-        seo.description = 'Understanding follow-bottom, scroll-away, and return-to-bottom behavior'
+        seo.description = 'Understand follow-bottom, scroll-away detection, and return-to-bottom behavior in SvelteVirtualChat — configure thresholds and new-message indicators.'
         seo.ogTitle = 'Scroll Behavior'
         seo.ogTagline = 'Follow-bottom, scroll-away detection, and return-to-bottom.'
         seo.ogFeatures = ['Follow-Bottom', 'Scroll-Away', 'Threshold', 'New Messages']

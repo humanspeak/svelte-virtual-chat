@@ -1,6 +1,6 @@
 ---
 title: History Loading
-description: Load older messages with scroll anchor preservation
+description: Learn how to load older chat messages with scroll anchor preservation in SvelteVirtualChat — cursor pagination, onNeedHistory callbacks, and no-jump prepend.
 ---
 
 <script>
@@ -9,7 +9,7 @@ description: Load older messages with scroll anchor preservation
     const seo = getSeoContext()
     if (seo) {
         seo.title = 'History Loading Guide | Svelte Virtual Chat'
-        seo.description = 'Load older messages with scroll anchor preservation'
+        seo.description = 'Learn how to load older chat messages with scroll anchor preservation in SvelteVirtualChat — cursor pagination, onNeedHistory callbacks, and no-jump prepend.'
         seo.ogTitle = 'History Loading'
         seo.ogTagline = 'Prepend messages without jumping the viewport.'
         seo.ogFeatures = ['onNeedHistory', 'Anchor Preservation', 'Cursor Pagination', 'No Jump']
