@@ -1,6 +1,6 @@
 ---
 title: Getting Started
-description: Get started with @humanspeak/svelte-virtual-chat, a virtual chat viewport for Svelte 5
+description: Install and configure @humanspeak/svelte-virtual-chat — a high-performance virtual chat viewport for Svelte 5 with follow-bottom and streaming support.
 ---
 
 <script>
@@ -9,7 +9,7 @@ description: Get started with @humanspeak/svelte-virtual-chat, a virtual chat vi
     const seo = getSeoContext()
     if (seo) {
         seo.title = 'Getting Started | Svelte Virtual Chat'
-        seo.description = 'Get started with @humanspeak/svelte-virtual-chat, a virtual chat viewport for Svelte 5'
+        seo.description = 'Install and configure @humanspeak/svelte-virtual-chat — a high-performance virtual chat viewport for Svelte 5 with follow-bottom and streaming support.'
         seo.ogTitle = 'Getting Started'
         seo.ogTagline = 'Install and render your first chat viewport in minutes.'
         seo.ogFeatures = ['Quick Install', 'Svelte 5', 'TypeScript', 'SvelteKit Ready']

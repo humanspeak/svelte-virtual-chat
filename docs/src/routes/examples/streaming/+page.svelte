@@ -7,7 +7,7 @@
     if (seo) {
         seo.title = 'LLM Streaming | Examples | Svelte Virtual Chat'
         seo.description =
-            'Simulated LLM token streaming with markdown rendering inside a virtual chat viewport. Demonstrates height stability during message growth with @humanspeak/svelte-virtual-chat.'
+            'Simulated LLM token streaming with markdown rendering inside a virtual chat viewport — height stability during message growth in Svelte 5.'
         seo.ogTitle = 'LLM Streaming Demo'
         seo.ogTagline = 'Token-by-token streaming with real-time markdown rendering.'
         seo.ogFeatures = ['Token Streaming', 'Markdown', 'Height Stability', 'Live Metrics']

@@ -1,6 +1,6 @@
 ---
 title: Imperative API
-description: Methods exposed by SvelteVirtualChat via bind:this
+description: Imperative methods exposed by SvelteVirtualChat via bind:this — scrollToBottom, scrollToMessage, isAtBottom, and getDebugInfo for Svelte 5 chat UIs.
 ---
 
 <script>
@@ -9,7 +9,7 @@ description: Methods exposed by SvelteVirtualChat via bind:this
     const seo = getSeoContext()
     if (seo) {
         seo.title = 'Imperative API | Svelte Virtual Chat'
-        seo.description = 'Methods exposed by SvelteVirtualChat via bind:this'
+        seo.description = 'Imperative methods exposed by SvelteVirtualChat via bind:this — scrollToBottom, scrollToMessage, isAtBottom, and getDebugInfo for Svelte 5 chat UIs.'
         seo.ogTitle = 'Imperative API'
         seo.ogTagline = 'scrollToBottom, scrollToMessage, isAtBottom, getDebugInfo.'
         seo.ogFeatures = ['scrollToBottom', 'scrollToMessage', 'isAtBottom', 'getDebugInfo']

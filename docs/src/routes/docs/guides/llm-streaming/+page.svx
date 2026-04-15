@@ -1,6 +1,6 @@
 ---
 title: LLM Streaming
-description: How to pair SvelteVirtualChat with LLM token streaming and markdown rendering
+description: Pair SvelteVirtualChat with LLM token streaming and markdown rendering — stable scroll, ResizeObserver-based height tracking, and jitter-free AI responses.
 ---
 
 <script>
@@ -9,7 +9,7 @@ description: How to pair SvelteVirtualChat with LLM token streaming and markdown
     const seo = getSeoContext()
     if (seo) {
         seo.title = 'LLM Streaming Guide | Svelte Virtual Chat'
-        seo.description = 'How to pair SvelteVirtualChat with LLM token streaming and markdown rendering'
+        seo.description = 'Pair SvelteVirtualChat with LLM token streaming and markdown rendering — stable scroll, ResizeObserver-based height tracking, and jitter-free AI responses.'
         seo.ogTitle = 'LLM Streaming'
         seo.ogTagline = 'Stream AI responses with stable scroll behavior.'
         seo.ogFeatures = ['Token Streaming', 'Markdown', 'No Jitter', 'ResizeObserver']

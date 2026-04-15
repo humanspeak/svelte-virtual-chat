@@ -30,7 +30,7 @@ export const GET: RequestHandler = async ({ url }) => {
     const base = (env.PUBLIC_SITE_URL || `${url.origin}`).replace(/\/$/, '')
 
     const routes = [...new Set(pageFiles.map(toPath))]
-        .filter((p) => !/\/_(?:.*)|\/(?:\+|__)/.test(p))
+        .filter((p) => !/\/_(?:.*)|\/(?:\+|__)/.test(p) && p.startsWith('/social-cards') === false)
         .sort()
 
     const today = new Date().toISOString().slice(0, 10)

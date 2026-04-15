@@ -8,6 +8,7 @@
         "cf-typegen": "wrangler types && mv worker-configuration.d.ts src/",
         "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
         "deploy": "npm run build && wrangler deploy",
+        "deploy:indexnow": "tsx ./scripts/indexnow-ping.ts",
         "dev": "vite dev",
         "format": "prettier --write .",
         "generate-social": "tsx ./scripts/generate-social-cards.ts",

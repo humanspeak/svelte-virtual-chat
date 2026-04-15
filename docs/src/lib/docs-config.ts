@@ -7,7 +7,7 @@ export const docsConfig: DocsKitConfig = {
     repo: 'humanspeak/svelte-virtual-chat',
     url: 'https://virtualchat.svelte.page',
     description:
-        'A high-performance virtual chat viewport for Svelte 5. Purpose-built for LLM conversations, support chat, and any message-based UI with follow-bottom, streaming stability, and history prepend.',
+        'A high-performance virtual chat viewport for Svelte 5 — built for LLM conversations and support chat with follow-bottom and streaming stability.',
     keywords: [
         'svelte',
         'virtual-chat',

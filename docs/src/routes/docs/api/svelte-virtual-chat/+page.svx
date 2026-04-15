@@ -1,6 +1,6 @@
 ---
 title: SvelteVirtualChat Component
-description: Complete API reference for the SvelteVirtualChat component
+description: Full API reference for the SvelteVirtualChat component — props, methods, callbacks, and debug info for building virtual chat UIs in Svelte 5.
 ---
 
 <script>
@@ -9,7 +9,7 @@ description: Complete API reference for the SvelteVirtualChat component
     const seo = getSeoContext()
     if (seo) {
         seo.title = 'SvelteVirtualChat API | Svelte Virtual Chat'
-        seo.description = 'Complete API reference for the SvelteVirtualChat component'
+        seo.description = 'Full API reference for the SvelteVirtualChat component — props, methods, callbacks, and debug info for building virtual chat UIs in Svelte 5.'
         seo.ogTitle = 'Component API'
         seo.ogTagline = 'Props, methods, and behavior for SvelteVirtualChat.'
         seo.ogFeatures = ['Props', 'Methods', 'Callbacks', 'Debug Info']
