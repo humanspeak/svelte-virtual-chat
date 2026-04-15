@@ -7,3 +7,7 @@ procs:
         shell: pnpm -w -r --filter @humanspeak/svelte-virtual-chat run dev
     docs:
         shell: pnpm --filter docs run dev
+    sitemap:
+        shell: pnpm --filter docs run sitemap:watch
+    social:
+        shell: pnpm --filter docs run social:watch

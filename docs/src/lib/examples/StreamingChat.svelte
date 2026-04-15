@@ -192,29 +192,31 @@ count.update(n => n + 1)
 
 <div class="mx-auto w-full max-w-5xl">
     <!-- Metrics bar -->
-    <div class="mb-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+    <div class="border-border bg-card mb-4 rounded-xl border p-4 shadow-sm">
         <div class="flex items-center justify-between gap-4">
             <div class="flex items-center gap-6">
                 <div>
-                    <div class="text-xs font-medium uppercase text-gray-400">Progress</div>
-                    <div class="font-mono text-lg font-semibold text-gray-900">{progress}%</div>
+                    <div class="text-muted-foreground text-xs font-medium uppercase">Progress</div>
+                    <div class="text-foreground font-mono text-lg font-semibold">{progress}%</div>
                 </div>
                 <div>
-                    <div class="text-xs font-medium uppercase text-gray-400">Tokens</div>
-                    <div class="font-mono text-lg font-semibold text-gray-900">
+                    <div class="text-muted-foreground text-xs font-medium uppercase">Tokens</div>
+                    <div class="text-foreground font-mono text-lg font-semibold">
                         {tokenCount} / {totalTokens}
                     </div>
                 </div>
                 <div>
-                    <div class="text-xs font-medium uppercase text-gray-400">Speed</div>
-                    <div class="font-mono text-lg font-semibold text-gray-900">
+                    <div class="text-muted-foreground text-xs font-medium uppercase">Speed</div>
+                    <div class="text-foreground font-mono text-lg font-semibold">
                         {tokensPerSecond} tok/s
                     </div>
                 </div>
             </div>
 
             {#if isStreaming}
-                <span class="flex items-center gap-1.5 text-sm font-medium text-green-600">
+                <span
+                    class="flex items-center gap-1.5 text-sm font-medium text-green-600 dark:text-green-400"
+                >
                     <span class="inline-block h-2 w-2 animate-pulse rounded-full bg-green-500"
                     ></span>
                     Streaming...
@@ -222,9 +224,9 @@ count.update(n => n + 1)
             {/if}
         </div>
 
-        <div class="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
+        <div class="bg-muted mt-3 h-1.5 w-full overflow-hidden rounded-full">
             <div
-                class="h-full rounded-full bg-indigo-500 transition-all duration-150"
+                class="bg-brand-500 h-full rounded-full transition-all duration-150"
                 style="width: {progress}%"
             ></div>
         </div>
@@ -235,7 +237,7 @@ count.update(n => n + 1)
         <button
             onclick={startStreaming}
             disabled={isStreaming}
-            class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:opacity-50"
+            class="bg-brand-600 hover:bg-brand-700 rounded-lg px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors disabled:opacity-50"
         >
             Start Streaming
         </button>
@@ -248,13 +250,13 @@ count.update(n => n + 1)
         </button>
         <button
             onclick={reset}
-            class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
+            class="border-border bg-card text-foreground hover:bg-muted rounded-lg border px-4 py-2 text-sm font-medium shadow-sm transition-colors"
         >
             Reset
         </button>
 
         <div class="ml-auto flex items-center gap-2">
-            <label class="text-sm text-gray-500">
+            <label class="text-muted-foreground text-sm">
                 Speed:
                 <input
                     type="range"
@@ -263,65 +265,126 @@ count.update(n => n + 1)
                     step="5"
                     bind:value={tokensPerSecond}
                     disabled={isStreaming}
-                    class="w-32 accent-indigo-600"
+                    class="accent-brand-500 w-32"
                 />
             </label>
         </div>
     </div>
 
+    <!-- How it works -->
+    <div
+        class="border-brand-500/20 from-brand-500/5 to-brand-600/5 mb-4 rounded-xl border bg-gradient-to-r p-5"
+    >
+        <h3 class="text-foreground mb-2 text-sm font-semibold">How LLM Streaming Works</h3>
+        <ul class="text-muted-foreground space-y-1.5 text-sm">
+            <li class="flex items-start gap-2">
+                <span class="text-brand-500 mt-0.5 shrink-0">&#9889;</span>
+                <span>
+                    LLMs stream tokens via SSE. As each token arrives, the message content grows and
+                    ResizeObserver detects the height change automatically.
+                </span>
+            </li>
+            <li class="flex items-start gap-2">
+                <span class="text-brand-500 mt-0.5 shrink-0">&#9889;</span>
+                <span>
+                    Height corrections are batched per animation frame — not per token. The viewport
+                    stays pinned to bottom with zero jitter.
+                </span>
+            </li>
+            <li class="flex items-start gap-2">
+                <span class="text-brand-500 mt-0.5 shrink-0">&#9889;</span>
+                <span>
+                    Markdown rendering powered by
+                    <a
+                        href="https://markdown.svelte.page"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="text-brand-500 hover:text-brand-400 underline"
+                    >
+                        @humanspeak/svelte-markdown
+                    </a>
+                    with streaming mode (~1.6ms avg per update). Code blocks, tables, lists — all rendered
+                    live without scroll disruption.
+                </span>
+            </li>
+            <li class="flex items-start gap-2">
+                <span class="mt-0.5 shrink-0 text-amber-500">&#128161;</span>
+                <span>
+                    Track token costs across providers with
+                    <a
+                        href="https://modelpricing.ai"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="text-brand-500 hover:text-brand-400 underline"
+                    >
+                        ModelPricing.ai
+                    </a>. Need a general-purpose virtual list? Try
+                    <a
+                        href="https://virtuallist.svelte.page"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="text-brand-500 hover:text-brand-400 underline"
+                    >
+                        @humanspeak/svelte-virtual-list
+                    </a>.
+                </span>
+            </li>
+        </ul>
+    </div>
+
     <!-- Virtualization Stats -->
     {#if debugInfo}
-        <div class="mb-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <h3 class="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+        <div class="border-border bg-card mb-4 rounded-xl border p-4 shadow-sm">
+            <h3 class="text-muted-foreground mb-3 text-xs font-semibold tracking-wide uppercase">
                 Virtualization Stats
             </h3>
             <div class="grid grid-cols-3 gap-3 sm:grid-cols-6">
-                <div class="rounded-lg bg-gray-50 p-2.5">
-                    <div class="text-xs text-gray-400">Total</div>
-                    <div class="font-mono text-lg font-semibold text-gray-900">
+                <div class="bg-muted/50 rounded-lg p-2.5">
+                    <div class="text-muted-foreground text-xs">Total</div>
+                    <div class="text-foreground font-mono text-lg font-semibold">
                         {debugInfo.totalMessages}
                     </div>
                 </div>
-                <div class="rounded-lg bg-indigo-50 p-2.5">
-                    <div class="text-xs text-indigo-400">In DOM</div>
-                    <div class="font-mono text-lg font-semibold text-indigo-700">
+                <div class="bg-brand-500/10 rounded-lg p-2.5">
+                    <div class="text-brand-500 text-xs">In DOM</div>
+                    <div class="text-brand-600 dark:text-brand-400 font-mono text-lg font-semibold">
                         {debugInfo.renderedCount}
                     </div>
                 </div>
-                <div class="rounded-lg bg-gray-50 p-2.5">
-                    <div class="text-xs text-gray-400">Measured</div>
-                    <div class="font-mono text-lg font-semibold text-gray-900">
+                <div class="bg-muted/50 rounded-lg p-2.5">
+                    <div class="text-muted-foreground text-xs">Measured</div>
+                    <div class="text-foreground font-mono text-lg font-semibold">
                         {debugInfo.measuredCount}
                     </div>
                 </div>
-                <div class="rounded-lg bg-gray-50 p-2.5">
-                    <div class="text-xs text-gray-400">Range</div>
-                    <div class="font-mono text-sm font-semibold text-gray-900">
+                <div class="bg-muted/50 rounded-lg p-2.5">
+                    <div class="text-muted-foreground text-xs">Range</div>
+                    <div class="text-foreground font-mono text-sm font-semibold">
                         {debugInfo.startIndex}–{debugInfo.endIndex}
                     </div>
                 </div>
-                <div class="rounded-lg bg-gray-50 p-2.5">
-                    <div class="text-xs text-gray-400">Height</div>
-                    <div class="font-mono text-sm font-semibold text-gray-900">
+                <div class="bg-muted/50 rounded-lg p-2.5">
+                    <div class="text-muted-foreground text-xs">Height</div>
+                    <div class="text-foreground font-mono text-sm font-semibold">
                         {Math.round(debugInfo.totalHeight)}px
                     </div>
                 </div>
                 <div
-                    class="rounded-lg {debugInfo.isFollowingBottom
-                        ? 'bg-green-50'
-                        : 'bg-amber-50'} p-2.5"
+                    class="rounded-lg p-2.5 {debugInfo.isFollowingBottom
+                        ? 'bg-green-500/10'
+                        : 'bg-amber-500/10'}"
                 >
                     <div
                         class="text-xs {debugInfo.isFollowingBottom
-                            ? 'text-green-500'
-                            : 'text-amber-500'}"
+                            ? 'text-green-600 dark:text-green-400'
+                            : 'text-amber-600 dark:text-amber-400'}"
                     >
                         Bottom
                     </div>
                     <div
                         class="font-mono text-sm font-semibold {debugInfo.isFollowingBottom
-                            ? 'text-green-700'
-                            : 'text-amber-700'}"
+                            ? 'text-green-700 dark:text-green-300'
+                            : 'text-amber-700 dark:text-amber-300'}"
                     >
                         {debugInfo.isFollowingBottom ? 'Following' : 'Scrolled'}
                     </div>
@@ -331,7 +394,7 @@ count.update(n => n + 1)
     {/if}
 
     <!-- Chat viewport -->
-    <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+    <div class="border-border bg-card overflow-hidden rounded-xl border shadow-sm">
         <SvelteVirtualChat
             bind:this={chat}
             {messages}
@@ -346,38 +409,38 @@ count.update(n => n + 1)
         >
             {#snippet renderMessage(message: Message)}
                 <div
-                    class="border-b border-gray-100 px-5 py-4 {message.role === 'user'
-                        ? 'bg-indigo-50/50'
-                        : 'bg-white'}"
+                    class="border-border border-b px-5 py-4 {message.role === 'user'
+                        ? 'bg-brand-500/5'
+                        : ''}"
                 >
                     <div class="mb-1.5 flex items-center gap-2">
                         <span
                             class="text-xs font-semibold {message.role === 'user'
-                                ? 'text-indigo-600'
-                                : 'text-gray-500'}"
+                                ? 'text-brand-600 dark:text-brand-400'
+                                : 'text-muted-foreground'}"
                         >
                             {message.role === 'user' ? 'You' : 'Assistant'}
                         </span>
-                        <span class="text-xs text-gray-400">
+                        <span class="text-muted-foreground text-xs">
                             {formatTime(message.timestamp)}
                         </span>
                         {#if message.isStreaming}
                             <span
-                                class="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700"
+                                class="rounded-full bg-green-500/15 px-2 py-0.5 text-xs text-green-700 dark:text-green-300"
                             >
                                 streaming
                             </span>
                         {/if}
                     </div>
                     {#if message.role === 'assistant' && message.content}
-                        <div class="prose prose-sm max-w-none text-gray-800">
+                        <div class="prose prose-sm dark:prose-invert max-w-none">
                             <SvelteMarkdown
                                 source={message.content}
                                 streaming={message.isStreaming ?? false}
                             />
                         </div>
                     {:else}
-                        <div class="text-sm leading-relaxed text-gray-800">
+                        <div class="text-foreground text-sm leading-relaxed">
                             {message.content}
                         </div>
                     {/if}

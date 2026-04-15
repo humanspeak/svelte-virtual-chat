@@ -1,0 +1,204 @@
+# Svelte Virtual Chat - Complete Reference
+
+> A high-performance virtual chat viewport for Svelte 5. Purpose-built for LLM conversations, support chat, and any message-based UI with follow-bottom, streaming stability, and history prepend with anchor preservation.
+
+## Package Information
+
+- Package: `@humanspeak/svelte-virtual-chat`
+- License: MIT
+- Requires: Svelte 5
+- Dependencies: esm-env (SSR detection only)
+- Maintained by: Humanspeak, Inc.
+- Homepage: https://virtualchat.svelte.page
+- Repository: https://github.com/humanspeak/svelte-virtual-chat
+
+## Installation
+
+```bash
+pnpm add @humanspeak/svelte-virtual-chat
+# or
+npm install @humanspeak/svelte-virtual-chat
+```
+
+## SvelteVirtualChat Component Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| messages | TMessage[] | Required | Array of messages in chronological order (oldest first) |
+| getMessageId | (msg: TMessage) => string | Required | Extract a unique, stable ID from a message |
+| renderMessage | Snippet<[TMessage, number]> | Required | Svelte 5 snippet that renders a single message |
+| estimatedMessageHeight | number | 72 | Height estimate in pixels for unmeasured messages |
+| followBottomThresholdPx | number | 48 | Distance from bottom to consider "at bottom" |
+| overscan | number | 6 | Extra messages rendered above/below the viewport |
+| onNeedHistory | () => void \| Promise<void> | - | Called when user scrolls near top |
+| onFollowBottomChange | (isFollowing: boolean) => void | - | Called when follow-bottom state changes |
+| onDebugInfo | (info: SvelteVirtualChatDebugInfo) => void | - | Called with live stats on every scroll/render |
+| containerClass | string | '' | CSS class for outermost container |
+| viewportClass | string | '' | CSS class for scrollable viewport |
+| debug | boolean | false | Reserved for future use |
+| testId | string | - | Base test ID for data-testid attributes |
+
+## Basic Usage
+
+```svelte
+<script lang="ts">
+    import SvelteVirtualChat from '@humanspeak/svelte-virtual-chat'
+
+    type Message = { id: string; role: string; content: string }
+
+    let messages: Message[] = $state([
+        { id: '1', role: 'assistant', content: 'Hello!' },
+        { id: '2', role: 'user', content: 'Hi there.' }
+    ])
+</script>
+
+<div class="h-[600px]">
+    <SvelteVirtualChat
+        {messages}
+        getMessageId={(msg) => msg.id}
+        estimatedMessageHeight={72}
+        containerClass="h-full"
+        viewportClass="h-full"
+    >
+        {#snippet renderMessage(message, index)}
+            <div class="p-4 border-b">
+                <strong>{message.role}</strong>
+                <p>{message.content}</p>
+            </div>
+        {/snippet}
+    </SvelteVirtualChat>
+</div>
+```
+
+## Imperative API (via bind:this)
+
+```typescript
+let chat: ReturnType<typeof SvelteVirtualChat>
+```
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| scrollToBottom | (options?: { smooth?: boolean }) => void | Scroll viewport to bottom |
+| scrollToMessage | (id: string, options?: { smooth?: boolean }) => void | Scroll to specific message |
+| isAtBottom | () => boolean | Check if following bottom |
+| getDebugInfo | () => SvelteVirtualChatDebugInfo | Get current state snapshot |
+
+## SvelteVirtualChatDebugInfo
+
+| Field | Type | Description |
+|-------|------|-------------|
+| totalMessages | number | Total messages in array |
+| renderedCount | number | Messages currently in DOM |
+| measuredCount | number | Messages with measured heights |
+| startIndex | number | First rendered index |
+| endIndex | number | Last rendered index |
+| totalHeight | number | Calculated content height (px) |
+| scrollTop | number | Current scroll position (px) |
+| viewportHeight | number | Viewport height (px) |
+| isFollowingBottom | boolean | Whether viewport is pinned to bottom |
+| averageHeight | number | Average measured message height (px) |
+
+## How Virtualization Works
+
+1. Height caching — each message height measured via ResizeObserver, cached by ID
+2. Visible range — on every scroll, calculates which messages fall within viewport + overscan
+3. Absolute positioning — only visible messages rendered via transform: translateY()
+4. Follow-bottom — when at bottom, new messages and height changes snap to scrollHeight
+5. Bottom gravity — when messages don't fill viewport, flex justify-content: flex-end pushes to bottom
+
+With 10,000 messages, the DOM contains ~15-25 elements.
+
+## LLM Streaming
+
+As a message grows token by token, ResizeObserver detects height changes. Height corrections are batched per requestAnimationFrame. The viewport stays pinned to bottom automatically.
+
+```typescript
+// Just mutate the message content — ResizeObserver handles the rest
+const msg = messages.find(m => m.id === streamingId)
+if (msg) msg.content += chunk
+```
+
+Pair with @humanspeak/svelte-markdown for rich markdown rendering:
+
+```svelte
+<SvelteMarkdown source={message.content} streaming={message.isStreaming ?? false} />
+```
+
+## History Loading
+
+Use onNeedHistory to load older messages when the user scrolls near the top:
+
+```svelte
+<SvelteVirtualChat
+    {messages}
+    getMessageId={(msg) => msg.id}
+    onNeedHistory={loadOlderMessages}
+    ...
+/>
+```
+
+Prepend older messages: `messages = [...older, ...messages]`
+The component preserves scroll position during prepend operations.
+
+## Scroll Behavior
+
+Two states: following bottom and scrolled away.
+
+- Following: viewport within followBottomThresholdPx of bottom. New messages auto-scroll.
+- Scrolled away: user scrolled up past threshold. New messages do not move viewport.
+
+Use onFollowBottomChange to show "new messages" indicators:
+
+```svelte
+<SvelteVirtualChat
+    onFollowBottomChange={(following) => {
+        isFollowing = following
+        if (following) unreadCount = 0
+    }}
+    ...
+/>
+```
+
+## Height Constraint
+
+The component MUST have a defined height. The parent needs a fixed or flex-derived height:
+
+```svelte
+<div class="h-screen flex flex-col">
+    <header>...</header>
+    <div class="flex-1 min-h-0">
+        <SvelteVirtualChat containerClass="h-full" viewportClass="h-full" ... />
+    </div>
+</div>
+```
+
+## Exported Types
+
+- SvelteVirtualChatProps — component props type (generic over TMessage)
+- SvelteVirtualChatDebugInfo — debug info snapshot type
+- ScrollToBottomOptions — options for scrollToBottom
+- ScrollToMessageOptions — options for scrollToMessage
+- VisibleRange — visible range result type
+- ScrollAnchor — scroll anchor for history prepend
+
+## Exported Utilities
+
+- ChatHeightCache — reactive height cache class
+- captureScrollAnchor — capture scroll position before prepend
+- restoreScrollAnchor — restore scroll position after prepend
+
+## Companion Libraries
+
+- @humanspeak/svelte-markdown — Markdown renderer with LLM streaming mode (~1.6ms per update)
+- @humanspeak/svelte-virtual-list — General-purpose virtual list for non-chat use cases
+
+## Documentation Links
+
+- [Getting Started](https://virtualchat.svelte.page/docs/getting-started)
+- [SvelteVirtualChat API](https://virtualchat.svelte.page/docs/api/svelte-virtual-chat)
+- [Props Reference](https://virtualchat.svelte.page/docs/api/props)
+- [Imperative API](https://virtualchat.svelte.page/docs/api/imperative)
+- [LLM Streaming Guide](https://virtualchat.svelte.page/docs/guides/llm-streaming)
+- [History Loading Guide](https://virtualchat.svelte.page/docs/guides/history-loading)
+- [Scroll Behavior Guide](https://virtualchat.svelte.page/docs/guides/scroll-behavior)
+- [Interactive Examples](https://virtualchat.svelte.page/examples)

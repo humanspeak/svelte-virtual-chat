@@ -1,0 +1,75 @@
+---
+title: SvelteVirtualChat Component
+description: Complete API reference for the SvelteVirtualChat component
+---
+
+<script>
+    import { getSeoContext } from '@humanspeak/docs-kit'
+
+    const seo = getSeoContext()
+    if (seo) {
+        seo.title = 'SvelteVirtualChat API | Svelte Virtual Chat'
+        seo.description = 'Complete API reference for the SvelteVirtualChat component'
+        seo.ogTitle = 'Component API'
+        seo.ogTagline = 'Props, methods, and behavior for SvelteVirtualChat.'
+        seo.ogFeatures = ['Props', 'Methods', 'Callbacks', 'Debug Info']
+        seo.ogSlug = 'docs-api-svelte-virtual-chat'
+    }
+</script>
+
+# SvelteVirtualChat Component
+
+The `SvelteVirtualChat` component is a message-aware virtual viewport for chat UIs. It uses normal top-to-bottom chronological order internally — no inverted geometry.
+
+```svelte
+<script>
+    import SvelteVirtualChat from '@humanspeak/svelte-virtual-chat'
+</script>
+
+<SvelteVirtualChat
+    {messages}
+    getMessageId={(msg) => msg.id}
+    containerClass="h-full"
+    viewportClass="h-full"
+>
+    {#snippet renderMessage(message, index)}
+        <div class="p-4">{message.content}</div>
+    {/snippet}
+</SvelteVirtualChat>
+```
+
+## How It Works
+
+1. **Height caching** — each message's height is measured via ResizeObserver and cached by ID
+2. **Visible range** — on every scroll, the component calculates which messages fall within the viewport plus overscan
+3. **Absolute positioning** — only visible messages are rendered, positioned via `transform: translateY()`
+4. **Follow-bottom** — when at bottom, new messages and height changes trigger an automatic snap
+5. **Bottom gravity** — when messages don't fill the viewport, they sit at the bottom (like a real chat)
+
+## Generic Type Parameter
+
+The component is generic over your message type. TypeScript infers `TMessage` from the `messages` prop automatically:
+
+```svelte
+<script lang="ts">
+    import SvelteVirtualChat from '@humanspeak/svelte-virtual-chat'
+
+    type MyMessage = { id: string; role: string; content: string }
+    let messages: MyMessage[] = $state([...])
+</script>
+
+<!-- TMessage is inferred as MyMessage from the messages prop -->
+<SvelteVirtualChat
+    {messages}
+    getMessageId={(msg) => msg.id}
+    ...
+/>
+```
+
+No explicit generic annotation is needed — the type flows from your `messages` array.
+
+## Related
+
+- [Props Reference](/docs/api/props) — complete props table
+- [Imperative API](/docs/api/imperative) — exported methods
+- [Getting Started](/docs/getting-started) — installation and setup

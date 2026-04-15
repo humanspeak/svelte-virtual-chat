@@ -1,31 +1,23 @@
 <script lang="ts">
+    import { getSeoContext } from '@humanspeak/docs-kit'
+    import Example from '$lib/components/general/Example.svelte'
     import HistoryLoading from '$lib/examples/HistoryLoading.svelte'
+
+    const seo = getSeoContext()
+    if (seo) {
+        seo.title = 'History Loading | Examples | Svelte Virtual Chat'
+        seo.description =
+            'Scroll up to load older messages with anchor preservation. Demonstrates prepend-history behavior without viewport jumping using @humanspeak/svelte-virtual-chat.'
+        seo.ogTitle = 'History Loading Demo'
+        seo.ogTagline = 'Load older messages without losing your scroll position.'
+        seo.ogFeatures = ['History Prepend', 'Anchor Preservation', 'Infinite Scroll', 'No Jump']
+        seo.ogSlug = 'examples-history-loading'
+    }
 </script>
 
-<svelte:head>
-    <title>History Loading | Examples | SvelteVirtualChat</title>
-    <meta
-        name="description"
-        content="Scroll up to load older messages with anchor preservation. Demonstrates prepend-history behavior without viewport jumping."
-    />
-</svelte:head>
-
-<div class="mx-auto max-w-7xl px-6 py-8">
-    <div class="mb-6">
-        <h1 class="text-2xl font-bold text-gray-900">History Loading</h1>
-        <p class="mt-1 text-sm text-gray-500">
-            Scroll to the top to trigger history loading. The viewport preserves your scroll
-            position as older messages are prepended. Source:
-            <a
-                href="https://github.com/humanspeak/svelte-virtual-chat/blob/main/docs/src/lib/examples/HistoryLoading.svelte"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="text-indigo-600 hover:underline"
-            >
-                HistoryLoading.svelte
-            </a>
-        </p>
-    </div>
-
+<Example
+    title="History Loading"
+    sourceUrl="https://github.com/humanspeak/svelte-virtual-chat/blob/main/docs/src/lib/examples/HistoryLoading.svelte"
+>
     <HistoryLoading />
-</div>
+</Example>

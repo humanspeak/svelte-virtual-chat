@@ -31,6 +31,8 @@
     let viewportHeight = $state(0)
     let isFollowingBottom = $state(true)
     let pendingSnapToBottom = $state(false)
+    let userScrolling = false
+    let userScrollTimer: ReturnType<typeof setTimeout> | null = null
 
     // ── Derived: total content height ───────────────────────────────
     const totalHeight = $derived.by(() => {
@@ -39,7 +41,6 @@
     })
 
     // ── Derived: top gap for bottom-gravity ─────────────────────────
-    // When content is shorter than viewport, push messages to the bottom
     const topGap = $derived(Math.max(0, viewportHeight - totalHeight))
 
     // ── Derived: visible range ──────────────────────────────────────
@@ -50,8 +51,6 @@
             return { start: 0, end: 0, visibleStart: 0, visibleEnd: 0 }
         }
 
-        // scrollTop is relative to the full content area (which includes topGap)
-        // Adjust to get the scroll position relative to the message content
         const messageScrollTop = Math.max(0, scrollTop - topGap)
         const viewTop = messageScrollTop
         const viewBottom = messageScrollTop + viewportHeight
@@ -103,9 +102,16 @@
     )
 
     // ── Scroll event handler ────────────────────────────────────────
-    function handleScroll() {
+    const handleScroll = () => {
         if (!viewportEl) return
         scrollTop = viewportEl.scrollTop
+
+        // Suppress programmatic snaps while the user is actively scrolling
+        userScrolling = true
+        if (userScrollTimer) clearTimeout(userScrollTimer)
+        userScrollTimer = setTimeout(() => {
+            userScrolling = false
+        }, 150)
 
         const maxScroll = viewportEl.scrollHeight - viewportEl.clientHeight
         const wasFollowing = isFollowingBottom
@@ -115,30 +121,28 @@
             onFollowBottomChange?.(isFollowingBottom)
         }
 
-        // Trigger history loading when near top
         if (onNeedHistory && scrollTop - topGap < viewportHeight * 0.5) {
             onNeedHistory()
         }
     }
 
-    // ── Measurement action ──────────────────────────────────────────
-    let snapNeeded = false
-
-    function scheduleSnapToBottom() {
-        if (!isFollowingBottom || !viewportEl) return
-        snapNeeded = true
-        if (pendingSnapToBottom) return // rAF already scheduled, it will re-check
+    // ── Snap scheduling ─────────────────────────────────────────────
+    /** Batches snap-to-bottom into a single rAF, respecting user-scroll suppression. */
+    const scheduleSnapToBottom = () => {
+        if (!isFollowingBottom || !viewportEl || userScrolling) return
+        if (pendingSnapToBottom) return
         pendingSnapToBottom = true
         requestAnimationFrame(() => {
             pendingSnapToBottom = false
-            if (snapNeeded && isFollowingBottom) {
-                snapNeeded = false
+            if (isFollowingBottom && !userScrolling) {
                 snapToBottom()
             }
         })
     }
 
-    function measureMessage(node: HTMLElement, messageId: string) {
+    // ── Measurement action ──────────────────────────────────────────
+    /** Svelte action: attaches a ResizeObserver to track message height changes. */
+    const measureMessage = (node: HTMLElement, messageId: string) => {
         const observer = new ResizeObserver((entries) => {
             for (const entry of entries) {
                 const height = entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height
@@ -169,13 +173,13 @@
     }
 
     // ── Snap to bottom helper ───────────────────────────────────────
-    function snapToBottom() {
+    /** Instantly scrolls viewport to bottom and syncs follow state. */
+    const snapToBottom = () => {
         if (!viewportEl) return
         const maxScroll = viewportEl.scrollHeight - viewportEl.clientHeight
         if (maxScroll > 0) {
             viewportEl.scrollTop = viewportEl.scrollHeight
         }
-        // Sync the following state directly (don't wait for scroll event)
         scrollTop = viewportEl.scrollTop
         isFollowingBottom = true
     }
@@ -184,16 +188,23 @@
     $effect(() => {
         void messages.length
         if (isFollowingBottom && viewportEl) {
-            requestAnimationFrame(() => snapToBottom())
+            requestAnimationFrame(() => {
+                if (isFollowingBottom) snapToBottom()
+            })
         }
     })
 
     // ── Follow-bottom on height changes ─────────────────────────────
-    // When measurements arrive, totalHeight changes. If following, re-snap.
+    // Height changes during scroll (e.g. newly measured items) respect user-scroll suppression
     $effect(() => {
         void totalHeight
-        if (isFollowingBottom && viewportEl) {
-            scheduleSnapToBottom()
+        scheduleSnapToBottom()
+    })
+
+    // ── Cleanup user-scroll timer on destroy ────────────────────────
+    $effect(() => {
+        return () => {
+            if (userScrollTimer) clearTimeout(userScrollTimer)
         }
     })
 
@@ -205,7 +216,6 @@
         const observer = new ResizeObserver(() => {
             if (viewportEl) {
                 viewportHeight = viewportEl.clientHeight
-                // On initial layout (or resize), snap to bottom if following
                 if (isFollowingBottom) {
                     requestAnimationFrame(() => snapToBottom())
                 }
@@ -215,8 +225,8 @@
         return () => observer.disconnect()
     })
 
-    // ── Debug info builder ─────────────────────────────────────────
-    function buildDebugInfo(): SvelteVirtualChatDebugInfo {
+    // ── Debug info ──────────────────────────────────────────────────
+    const buildDebugInfo = (): SvelteVirtualChatDebugInfo => {
         const measuredCount = heightCache.size
         return {
             totalMessages: messages.length,
@@ -235,7 +245,6 @@
         }
     }
 
-    // ── Debug effect: log + callback ────────────────────────────────
     $effect(() => {
         void renderedMessages.length
         void heightCache.version
@@ -248,7 +257,19 @@
 
     // ── Public API ──────────────────────────────────────────────────
 
-    export function scrollToBottom(options?: { smooth?: boolean }) {
+    /**
+     * Scroll the viewport to the bottom.
+     *
+     * @param options - Optional configuration
+     * @param options.smooth - Use smooth scrolling animation (default: false)
+     *
+     * @example
+     * ```ts
+     * chat.scrollToBottom()
+     * chat.scrollToBottom({ smooth: true })
+     * ```
+     */
+    export const scrollToBottom = (options?: { smooth?: boolean }) => {
         if (!viewportEl) return
         viewportEl.scrollTo({
             top: viewportEl.scrollHeight,
@@ -256,7 +277,22 @@
         })
     }
 
-    export function scrollToMessage(id: string, options?: { smooth?: boolean }) {
+    /**
+     * Scroll to a specific message by its ID.
+     *
+     * If the message ID is not found in the messages array, this is a no-op.
+     *
+     * @param id - The message ID as returned by `getMessageId`
+     * @param options - Optional configuration
+     * @param options.smooth - Use smooth scrolling animation (default: false)
+     *
+     * @example
+     * ```ts
+     * chat.scrollToMessage('msg-42')
+     * chat.scrollToMessage('msg-42', { smooth: true })
+     * ```
+     */
+    export const scrollToMessage = (id: string, options?: { smooth?: boolean }) => {
         const index = messages.findIndex((m) => getMessageId(m) === id)
         if (index === -1) return
 
@@ -276,11 +312,40 @@
         })
     }
 
-    export function isAtBottom(): boolean {
+    /**
+     * Check if the viewport is currently following bottom.
+     *
+     * Returns `true` when the viewport is within `followBottomThresholdPx`
+     * of the bottom, meaning new messages will auto-scroll into view.
+     *
+     * @returns Whether the viewport is pinned to the bottom
+     *
+     * @example
+     * ```ts
+     * if (chat.isAtBottom()) {
+     *     // User sees the latest message
+     * }
+     * ```
+     */
+    export const isAtBottom = (): boolean => {
         return isFollowingBottom
     }
 
-    export function getDebugInfo(): SvelteVirtualChatDebugInfo {
+    /**
+     * Get a snapshot of the current internal state.
+     *
+     * Returns debug information including total messages, rendered DOM count,
+     * measured heights, visible range, scroll position, and follow state.
+     *
+     * @returns Current debug info snapshot
+     *
+     * @example
+     * ```ts
+     * const info = chat.getDebugInfo()
+     * console.log(`${info.renderedCount}/${info.totalMessages} in DOM`)
+     * ```
+     */
+    export const getDebugInfo = (): SvelteVirtualChatDebugInfo => {
         return buildDebugInfo()
     }
 </script>

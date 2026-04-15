@@ -37,7 +37,6 @@ export class ChatHeightCache {
 
     /** Number of measured entries. */
     get size(): number {
-        // Access version to establish reactive dependency
         void this.#version
         return Object.keys(this.#heights).length
     }
@@ -56,13 +55,27 @@ export class ChatHeightCache {
 
 /**
  * Calculate the total content height given messages and a height cache.
+ *
+ * Sums measured heights for known messages and uses the estimated height
+ * for any messages not yet measured by ResizeObserver.
+ *
+ * @param messages - Array of message objects
+ * @param getMessageId - Function to extract a unique ID from a message
+ * @param heightCache - The reactive height cache instance
+ * @param estimatedHeight - Fallback height in pixels for unmeasured messages
+ * @returns Total content height in pixels
+ *
+ * @example
+ * ```ts
+ * const total = calculateTotalHeight(messages, (m) => m.id, cache, 72)
+ * ```
  */
-export function calculateTotalHeight<T>(
+export const calculateTotalHeight = <T>(
     messages: T[],
     getMessageId: (_message: T) => string,
     heightCache: ChatHeightCache,
     estimatedHeight: number
-): number {
+): number => {
     let total = 0
     for (const msg of messages) {
         const id = getMessageId(msg)
@@ -73,14 +86,29 @@ export function calculateTotalHeight<T>(
 
 /**
  * Calculate the Y offset for a message at a given index.
+ *
+ * Sums the heights of all messages before the target index to determine
+ * the pixel offset from the top of the content area.
+ *
+ * @param messages - Array of message objects
+ * @param index - Target index to calculate offset for
+ * @param getMessageId - Function to extract a unique ID from a message
+ * @param heightCache - The reactive height cache instance
+ * @param estimatedHeight - Fallback height in pixels for unmeasured messages
+ * @returns Pixel offset from the top of the content area
+ *
+ * @example
+ * ```ts
+ * const offset = calculateOffsetForIndex(messages, 5, (m) => m.id, cache, 72)
+ * ```
  */
-export function calculateOffsetForIndex<T>(
+export const calculateOffsetForIndex = <T>(
     messages: T[],
     index: number,
     getMessageId: (_message: T) => string,
     heightCache: ChatHeightCache,
     estimatedHeight: number
-): number {
+): number => {
     let offset = 0
     for (let i = 0; i < index && i < messages.length; i++) {
         const id = getMessageId(messages[i])

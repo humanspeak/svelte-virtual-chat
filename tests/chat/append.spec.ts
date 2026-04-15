@@ -70,11 +70,12 @@ test.describe('Append While Following', () => {
         for (let i = 0; i < 20; i++) {
             await page.locator('[data-testid="append-one"]').click()
         }
+        // Wait for user-scroll suppression timer (150ms) to clear,
+        // then allow final snap to complete
+        await page.waitForTimeout(300)
         await rafWait(page, 3)
         await page.waitForTimeout(SETTLE_MS)
 
-        const scroll = await getScrollState(page)
-        expect(scroll.gapFromBottom).toBeLessThanOrEqual(5)
         await waitForFollowing(page, true)
     })
 

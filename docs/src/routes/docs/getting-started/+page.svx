@@ -1,0 +1,89 @@
+---
+title: Getting Started
+description: Get started with @humanspeak/svelte-virtual-chat, a virtual chat viewport for Svelte 5
+---
+
+<script>
+    import { getSeoContext } from '@humanspeak/docs-kit'
+
+    const seo = getSeoContext()
+    if (seo) {
+        seo.title = 'Getting Started | Svelte Virtual Chat'
+        seo.description = 'Get started with @humanspeak/svelte-virtual-chat, a virtual chat viewport for Svelte 5'
+        seo.ogTitle = 'Getting Started'
+        seo.ogTagline = 'Install and render your first chat viewport in minutes.'
+        seo.ogFeatures = ['Quick Install', 'Svelte 5', 'TypeScript', 'SvelteKit Ready']
+        seo.ogSlug = 'docs-getting-started'
+    }
+</script>
+
+# Getting Started
+
+**@humanspeak/svelte-virtual-chat** is a high-performance virtual chat viewport for Svelte 5. It renders only visible messages to the DOM while handling follow-bottom behavior, LLM streaming stability, and history prepend with scroll anchor preservation.
+
+## Installation
+
+```bash
+pnpm add @humanspeak/svelte-virtual-chat
+```
+
+```bash
+npm install @humanspeak/svelte-virtual-chat
+```
+
+## Quick Start
+
+Import the component and pass your messages array with a `getMessageId` function and a `renderMessage` snippet:
+
+```svelte
+<script lang="ts">
+    import SvelteVirtualChat from '@humanspeak/svelte-virtual-chat'
+
+    type Message = { id: string; role: string; content: string }
+
+    let messages: Message[] = $state([
+        { id: '1', role: 'assistant', content: 'Hello! How can I help?' },
+        { id: '2', role: 'user', content: 'Tell me about Svelte.' }
+    ])
+</script>
+
+<div class="h-[600px]">
+    <SvelteVirtualChat
+        {messages}
+        getMessageId={(msg) => msg.id}
+        estimatedMessageHeight={72}
+        containerClass="h-full"
+        viewportClass="h-full"
+    >
+        {#snippet renderMessage(message, index)}
+            <div class="p-4 border-b">
+                <strong>{message.role}</strong>
+                <p>{message.content}</p>
+            </div>
+        {/snippet}
+    </SvelteVirtualChat>
+</div>
+```
+
+## Height Constraint
+
+The component **must** have a defined height. The `containerClass` and `viewportClass` props control the outer and inner elements. The parent element needs a fixed or flex-derived height:
+
+```svelte
+<!-- GOOD: parent has a defined height -->
+<div class="h-screen flex flex-col">
+    <header>...</header>
+    <div class="flex-1 min-h-0">
+        <SvelteVirtualChat containerClass="h-full" viewportClass="h-full" ... />
+    </div>
+</div>
+```
+
+Without a height constraint, the viewport expands to fit all content and virtualization won't activate.
+
+## What's Next
+
+- [Props Reference](/docs/api/props) — all available props and their defaults
+- [Imperative API](/docs/api/imperative) — scrollToBottom, scrollToMessage, getDebugInfo
+- [LLM Streaming Guide](/docs/guides/llm-streaming) — pair with @humanspeak/svelte-markdown
+- [Interactive Examples](/examples) — try it live

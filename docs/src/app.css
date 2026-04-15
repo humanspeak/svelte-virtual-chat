@@ -1,17 +1,36 @@
 @import 'tailwindcss';
+@source '../node_modules/@humanspeak/docs-kit/dist';
+@import '@humanspeak/docs-kit/styles/base.css';
+@plugin '@tailwindcss/typography';
 
-:root {
-    --brand-500: #6366f1;
-    --brand-600: #4f46e5;
-    --brand-700: #4338ca;
+/* Project-specific: landing page decorative styles */
+.orb-a-bg {
+    background: radial-gradient(
+        circle at 30% 30%,
+        color-mix(in oklab, var(--color-brand-100) 40%, transparent),
+        color-mix(in oklab, var(--color-brand-100) 10%, transparent)
+    );
 }
 
-body {
-    font-family:
-        system-ui,
-        -apple-system,
-        BlinkMacSystemFont,
-        'Segoe UI',
-        Roboto,
-        sans-serif;
+.orb-b-bg {
+    background: radial-gradient(
+        circle at 70% 50%,
+        color-mix(in oklab, var(--color-brand-500) 30%, transparent),
+        color-mix(in oklab, var(--color-brand-500) 8%, transparent)
+    );
+}
+
+@keyframes sheen {
+    0%,
+    100% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+}
+
+.sheen-gradient {
+    background-size: 200% 100%;
+    animation: sheen 6s ease-in-out infinite;
 }
