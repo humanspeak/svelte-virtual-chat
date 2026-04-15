@@ -196,17 +196,17 @@ count.update(n => n + 1)
         <div class="flex items-center justify-between gap-4">
             <div class="flex items-center gap-6">
                 <div>
-                    <div class="text-xs font-medium uppercase text-gray-400">Progress</div>
+                    <div class="text-xs font-medium text-gray-400 uppercase">Progress</div>
                     <div class="font-mono text-lg font-semibold text-gray-900">{progress}%</div>
                 </div>
                 <div>
-                    <div class="text-xs font-medium uppercase text-gray-400">Tokens</div>
+                    <div class="text-xs font-medium text-gray-400 uppercase">Tokens</div>
                     <div class="font-mono text-lg font-semibold text-gray-900">
                         {tokenCount} / {totalTokens}
                     </div>
                 </div>
                 <div>
-                    <div class="text-xs font-medium uppercase text-gray-400">Speed</div>
+                    <div class="text-xs font-medium text-gray-400 uppercase">Speed</div>
                     <div class="font-mono text-lg font-semibold text-gray-900">
                         {tokensPerSecond} tok/s
                     </div>
@@ -269,10 +269,71 @@ count.update(n => n + 1)
         </div>
     </div>
 
+    <!-- How it works -->
+    <div
+        class="mb-4 rounded-xl border border-indigo-200/50 bg-gradient-to-r from-indigo-50/50 to-indigo-100/30 p-5"
+    >
+        <h3 class="mb-2 text-sm font-semibold text-gray-900">How LLM Streaming Works</h3>
+        <ul class="space-y-1.5 text-sm text-gray-600">
+            <li class="flex items-start gap-2">
+                <span class="mt-0.5 shrink-0 text-indigo-500">&#9889;</span>
+                <span>
+                    LLMs stream tokens via SSE. As each token arrives, the message content grows and
+                    ResizeObserver detects the height change automatically.
+                </span>
+            </li>
+            <li class="flex items-start gap-2">
+                <span class="mt-0.5 shrink-0 text-indigo-500">&#9889;</span>
+                <span>
+                    Height corrections are batched per animation frame — not per token. The viewport
+                    stays pinned to bottom with zero jitter.
+                </span>
+            </li>
+            <li class="flex items-start gap-2">
+                <span class="mt-0.5 shrink-0 text-indigo-500">&#9889;</span>
+                <span>
+                    Markdown rendering powered by
+                    <a
+                        href="https://markdown.svelte.page"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="text-indigo-600 underline hover:text-indigo-500"
+                    >
+                        @humanspeak/svelte-markdown
+                    </a>
+                    with streaming mode (~1.6ms avg per update). Code blocks, tables, lists — all rendered
+                    live without scroll disruption.
+                </span>
+            </li>
+            <li class="flex items-start gap-2">
+                <span class="mt-0.5 shrink-0 text-amber-500">&#128161;</span>
+                <span>
+                    Track token costs across providers with
+                    <a
+                        href="https://modelpricing.ai"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="text-indigo-600 underline hover:text-indigo-500"
+                    >
+                        ModelPricing.ai
+                    </a>. Need a general-purpose virtual list? Try
+                    <a
+                        href="https://virtuallist.svelte.page"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="text-indigo-600 underline hover:text-indigo-500"
+                    >
+                        @humanspeak/svelte-virtual-list
+                    </a>.
+                </span>
+            </li>
+        </ul>
+    </div>
+
     <!-- Virtualization Stats -->
     {#if debugInfo}
         <div class="mb-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <h3 class="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+            <h3 class="mb-3 text-xs font-semibold tracking-wide text-gray-400 uppercase">
                 Virtualization Stats
             </h3>
             <div class="grid grid-cols-3 gap-3 sm:grid-cols-6">
