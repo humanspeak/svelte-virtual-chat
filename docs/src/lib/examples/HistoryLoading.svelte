@@ -81,76 +81,76 @@
 
 <div class="mx-auto w-full max-w-4xl">
     <!-- Info bar -->
-    <div
-        class="mb-4 flex items-center gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
-    >
+    <div class="border-border bg-card mb-4 flex items-center gap-4 rounded-xl border p-4 shadow-sm">
         <div>
-            <div class="text-xs font-medium uppercase text-gray-400">Messages</div>
-            <div class="font-mono text-lg font-semibold text-gray-900">{messages.length}</div>
+            <div class="text-muted-foreground text-xs font-medium uppercase">Messages</div>
+            <div class="text-foreground font-mono text-lg font-semibold">{messages.length}</div>
         </div>
         <div>
-            <div class="text-xs font-medium uppercase text-gray-400">Oldest Loaded</div>
-            <div class="font-mono text-lg font-semibold text-gray-900">#{oldestLoadedId}</div>
+            <div class="text-muted-foreground text-xs font-medium uppercase">Oldest Loaded</div>
+            <div class="text-foreground font-mono text-lg font-semibold">#{oldestLoadedId}</div>
         </div>
         <div>
-            <div class="text-xs font-medium uppercase text-gray-400">History Loads</div>
-            <div class="font-mono text-lg font-semibold text-gray-900">{loadCount}</div>
+            <div class="text-muted-foreground text-xs font-medium uppercase">History Loads</div>
+            <div class="text-foreground font-mono text-lg font-semibold">{loadCount}</div>
         </div>
         <div class="ml-auto">
             {#if isLoadingHistory}
-                <span class="flex items-center gap-1.5 text-sm font-medium text-indigo-600">
-                    <span class="inline-block h-2 w-2 animate-pulse rounded-full bg-indigo-500"
+                <span
+                    class="text-brand-600 dark:text-brand-400 flex items-center gap-1.5 text-sm font-medium"
+                >
+                    <span class="bg-brand-500 inline-block h-2 w-2 animate-pulse rounded-full"
                     ></span>
                     Loading history...
                 </span>
             {:else if !hasMoreHistory}
-                <span class="text-sm text-gray-400">All history loaded</span>
+                <span class="text-muted-foreground text-sm">All history loaded</span>
             {:else}
-                <span class="text-sm text-gray-500">Scroll up to load more</span>
+                <span class="text-muted-foreground text-sm">Scroll up to load more</span>
             {/if}
         </div>
     </div>
 
     <!-- Virtualization Stats -->
     {#if debugInfo}
-        <div class="mb-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <h3 class="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+        <div class="border-border bg-card mb-4 rounded-xl border p-4 shadow-sm">
+            <h3 class="text-muted-foreground mb-3 text-xs font-semibold tracking-wide uppercase">
                 Virtualization Stats
             </h3>
             <div class="grid grid-cols-3 gap-3 sm:grid-cols-6">
-                <div class="rounded-lg bg-gray-50 p-2.5">
-                    <div class="text-xs text-gray-400">Total</div>
-                    <div class="font-mono text-lg font-semibold text-gray-900">
+                <div class="bg-muted/50 rounded-lg p-2.5">
+                    <div class="text-muted-foreground text-xs">Total</div>
+                    <div class="text-foreground font-mono text-lg font-semibold">
                         {debugInfo.totalMessages}
                     </div>
                 </div>
-                <div class="rounded-lg bg-indigo-50 p-2.5">
-                    <div class="text-xs text-indigo-400">In DOM</div>
-                    <div class="font-mono text-lg font-semibold text-indigo-700">
+                <div class="bg-brand-500/10 rounded-lg p-2.5">
+                    <div class="text-brand-500 text-xs">In DOM</div>
+                    <div class="text-brand-600 dark:text-brand-400 font-mono text-lg font-semibold">
                         {debugInfo.renderedCount}
                     </div>
                 </div>
-                <div class="rounded-lg bg-gray-50 p-2.5">
-                    <div class="text-xs text-gray-400">Measured</div>
-                    <div class="font-mono text-lg font-semibold text-gray-900">
+                <div class="bg-muted/50 rounded-lg p-2.5">
+                    <div class="text-muted-foreground text-xs">Measured</div>
+                    <div class="text-foreground font-mono text-lg font-semibold">
                         {debugInfo.measuredCount}
                     </div>
                 </div>
-                <div class="rounded-lg bg-gray-50 p-2.5">
-                    <div class="text-xs text-gray-400">Range</div>
-                    <div class="font-mono text-sm font-semibold text-gray-900">
+                <div class="bg-muted/50 rounded-lg p-2.5">
+                    <div class="text-muted-foreground text-xs">Range</div>
+                    <div class="text-foreground font-mono text-sm font-semibold">
                         {debugInfo.startIndex}–{debugInfo.endIndex}
                     </div>
                 </div>
-                <div class="rounded-lg bg-gray-50 p-2.5">
-                    <div class="text-xs text-gray-400">Height</div>
-                    <div class="font-mono text-sm font-semibold text-gray-900">
+                <div class="bg-muted/50 rounded-lg p-2.5">
+                    <div class="text-muted-foreground text-xs">Height</div>
+                    <div class="text-foreground font-mono text-sm font-semibold">
                         {Math.round(debugInfo.totalHeight)}px
                     </div>
                 </div>
-                <div class="rounded-lg bg-gray-50 p-2.5">
-                    <div class="text-xs text-gray-400">Scroll</div>
-                    <div class="font-mono text-sm font-semibold text-gray-900">
+                <div class="bg-muted/50 rounded-lg p-2.5">
+                    <div class="text-muted-foreground text-xs">Scroll</div>
+                    <div class="text-foreground font-mono text-sm font-semibold">
                         {Math.round(debugInfo.scrollTop)}px
                     </div>
                 </div>
@@ -162,21 +162,21 @@
     <div class="mb-4 flex items-center gap-3">
         <button
             onclick={() => chat?.scrollToBottom({ smooth: true })}
-            class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700"
+            class="bg-brand-600 hover:bg-brand-700 rounded-lg px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors"
         >
             Scroll to bottom
         </button>
         <button
             onclick={loadOlderMessages}
             disabled={isLoadingHistory || !hasMoreHistory}
-            class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 disabled:opacity-50"
+            class="border-border bg-card text-foreground hover:bg-muted rounded-lg border px-4 py-2 text-sm font-medium shadow-sm transition-colors disabled:opacity-50"
         >
             Load history manually
         </button>
     </div>
 
     <!-- Chat viewport -->
-    <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+    <div class="border-border bg-card overflow-hidden rounded-xl border shadow-sm">
         <SvelteVirtualChat
             bind:this={chat}
             {messages}
@@ -192,26 +192,26 @@
         >
             {#snippet renderMessage(message: Message)}
                 <div
-                    class="border-b border-gray-100 px-5 py-3 {message.role === 'user'
-                        ? 'bg-indigo-50/50'
-                        : 'bg-white'}"
+                    class="border-border border-b px-5 py-3 {message.role === 'user'
+                        ? 'bg-brand-500/5'
+                        : ''}"
                 >
                     <div class="mb-1 flex items-center gap-2">
                         <span
                             class="text-xs font-semibold {message.role === 'user'
-                                ? 'text-indigo-600'
-                                : 'text-gray-500'}"
+                                ? 'text-brand-600 dark:text-brand-400'
+                                : 'text-muted-foreground'}"
                         >
                             {message.role === 'user' ? 'You' : 'Assistant'}
                         </span>
-                        <span class="text-xs text-gray-400">
+                        <span class="text-muted-foreground text-xs">
                             {formatTime(message.timestamp)}
                         </span>
-                        <span class="font-mono text-xs text-gray-300">
+                        <span class="text-muted-foreground/50 font-mono text-xs">
                             #{message.id}
                         </span>
                     </div>
-                    <div class="text-sm leading-relaxed text-gray-800">
+                    <div class="text-foreground text-sm leading-relaxed">
                         {message.content}
                     </div>
                 </div>

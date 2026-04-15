@@ -49,7 +49,6 @@
 
         inputText = ''
 
-        // Simulate assistant response
         setTimeout(
             () => {
                 const response =
@@ -90,26 +89,26 @@
     <div class="mb-4 flex items-center gap-3">
         <button
             onclick={addBulkMessages}
-            class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
+            class="border-border bg-card text-foreground hover:bg-muted rounded-lg border px-4 py-2 text-sm font-medium shadow-sm transition-colors"
         >
             Add 100 messages
         </button>
         <button
             onclick={() => chat?.scrollToBottom({ smooth: true })}
-            class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700"
+            class="bg-brand-600 hover:bg-brand-700 rounded-lg px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors"
         >
             Scroll to bottom
         </button>
-        <div class="ml-auto flex items-center gap-2 text-sm text-gray-500">
+        <div class="text-muted-foreground ml-auto flex items-center gap-2 text-sm">
             <span class="font-mono">{messages.length}</span> messages
-            <span class="mx-1 text-gray-300">|</span>
+            <span class="text-border mx-1">|</span>
             {#if isFollowing}
-                <span class="flex items-center gap-1 text-green-600">
+                <span class="flex items-center gap-1 text-green-600 dark:text-green-400">
                     <span class="inline-block h-2 w-2 rounded-full bg-green-500"></span>
                     Following
                 </span>
             {:else}
-                <span class="flex items-center gap-1 text-amber-600">
+                <span class="flex items-center gap-1 text-amber-600 dark:text-amber-400">
                     <span class="inline-block h-2 w-2 rounded-full bg-amber-500"></span>
                     Scrolled away
                 </span>
@@ -119,57 +118,57 @@
 
     <!-- Virtualization Stats -->
     {#if debugInfo}
-        <div class="mb-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <h3 class="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+        <div class="border-border bg-card mb-4 rounded-xl border p-4 shadow-sm">
+            <h3 class="text-muted-foreground mb-3 text-xs font-semibold tracking-wide uppercase">
                 Virtualization Stats
             </h3>
             <div class="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-                <div class="rounded-lg bg-gray-50 p-2.5">
-                    <div class="text-xs text-gray-400">Total</div>
-                    <div class="font-mono text-lg font-semibold text-gray-900">
+                <div class="bg-muted/50 rounded-lg p-2.5">
+                    <div class="text-muted-foreground text-xs">Total</div>
+                    <div class="text-foreground font-mono text-lg font-semibold">
                         {debugInfo.totalMessages}
                     </div>
                 </div>
-                <div class="rounded-lg bg-indigo-50 p-2.5">
-                    <div class="text-xs text-indigo-400">In DOM</div>
-                    <div class="font-mono text-lg font-semibold text-indigo-700">
+                <div class="bg-brand-500/10 rounded-lg p-2.5">
+                    <div class="text-brand-500 text-xs">In DOM</div>
+                    <div class="text-brand-600 dark:text-brand-400 font-mono text-lg font-semibold">
                         {debugInfo.renderedCount}
                     </div>
                 </div>
-                <div class="rounded-lg bg-gray-50 p-2.5">
-                    <div class="text-xs text-gray-400">Measured</div>
-                    <div class="font-mono text-lg font-semibold text-gray-900">
+                <div class="bg-muted/50 rounded-lg p-2.5">
+                    <div class="text-muted-foreground text-xs">Measured</div>
+                    <div class="text-foreground font-mono text-lg font-semibold">
                         {debugInfo.measuredCount}
                     </div>
                 </div>
-                <div class="rounded-lg bg-gray-50 p-2.5">
-                    <div class="text-xs text-gray-400">Visible Range</div>
-                    <div class="font-mono text-sm font-semibold text-gray-900">
+                <div class="bg-muted/50 rounded-lg p-2.5">
+                    <div class="text-muted-foreground text-xs">Visible Range</div>
+                    <div class="text-foreground font-mono text-sm font-semibold">
                         {debugInfo.startIndex}–{debugInfo.endIndex}
                     </div>
                 </div>
-                <div class="rounded-lg bg-gray-50 p-2.5">
-                    <div class="text-xs text-gray-400">Content Height</div>
-                    <div class="font-mono text-sm font-semibold text-gray-900">
+                <div class="bg-muted/50 rounded-lg p-2.5">
+                    <div class="text-muted-foreground text-xs">Content Height</div>
+                    <div class="text-foreground font-mono text-sm font-semibold">
                         {Math.round(debugInfo.totalHeight)}px
                     </div>
                 </div>
                 <div
-                    class="rounded-lg {debugInfo.isFollowingBottom
-                        ? 'bg-green-50'
-                        : 'bg-amber-50'} p-2.5"
+                    class="rounded-lg p-2.5 {debugInfo.isFollowingBottom
+                        ? 'bg-green-500/10'
+                        : 'bg-amber-500/10'}"
                 >
                     <div
                         class="text-xs {debugInfo.isFollowingBottom
-                            ? 'text-green-500'
-                            : 'text-amber-500'}"
+                            ? 'text-green-600 dark:text-green-400'
+                            : 'text-amber-600 dark:text-amber-400'}"
                     >
                         Scroll
                     </div>
                     <div
                         class="font-mono text-sm font-semibold {debugInfo.isFollowingBottom
-                            ? 'text-green-700'
-                            : 'text-amber-700'}"
+                            ? 'text-green-700 dark:text-green-300'
+                            : 'text-amber-700 dark:text-amber-300'}"
                     >
                         {debugInfo.isFollowingBottom
                             ? 'Following'
@@ -181,7 +180,7 @@
     {/if}
 
     <!-- Chat viewport -->
-    <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+    <div class="border-border bg-card overflow-hidden rounded-xl border shadow-sm">
         <SvelteVirtualChat
             bind:this={chat}
             {messages}
@@ -197,23 +196,23 @@
         >
             {#snippet renderMessage(message: Message)}
                 <div
-                    class="border-b border-gray-100 px-5 py-4 {message.role === 'user'
-                        ? 'bg-indigo-50/50'
-                        : 'bg-white'}"
+                    class="border-border border-b px-5 py-4 {message.role === 'user'
+                        ? 'bg-brand-500/5'
+                        : ''}"
                 >
                     <div class="mb-1 flex items-center gap-2">
                         <span
                             class="text-xs font-semibold {message.role === 'user'
-                                ? 'text-indigo-600'
-                                : 'text-gray-500'}"
+                                ? 'text-brand-600 dark:text-brand-400'
+                                : 'text-muted-foreground'}"
                         >
                             {message.role === 'user' ? 'You' : 'Assistant'}
                         </span>
-                        <span class="text-xs text-gray-400">
+                        <span class="text-muted-foreground text-xs">
                             {formatTime(message.timestamp)}
                         </span>
                     </div>
-                    <div class="text-sm leading-relaxed text-gray-800">
+                    <div class="text-foreground text-sm leading-relaxed">
                         {message.content}
                     </div>
                 </div>
@@ -232,11 +231,11 @@
         <input
             bind:value={inputText}
             placeholder="Type a message..."
-            class="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+            class="border-border bg-card text-foreground focus:border-brand-500 focus:ring-brand-500 flex-1 rounded-lg border px-4 py-2.5 text-sm shadow-sm focus:ring-1 focus:outline-none"
         />
         <button
             type="submit"
-            class="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700"
+            class="bg-brand-600 hover:bg-brand-700 rounded-lg px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-colors"
         >
             Send
         </button>
