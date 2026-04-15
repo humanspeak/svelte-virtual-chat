@@ -109,8 +109,7 @@
         if (!viewportEl) return
         scrollTop = viewportEl.scrollTop
 
-        // Mark that the user is actively scrolling.
-        // This suppresses programmatic snaps so they don't fight the user.
+        // Suppress programmatic snaps while the user is actively scrolling
         userScrolling = true
         if (userScrollTimer) clearTimeout(userScrollTimer)
         userScrollTimer = setTimeout(() => {
@@ -132,20 +131,13 @@
     }
 
     // ── Measurement action ──────────────────────────────────────────
-    let snapNeeded = false
-
     function scheduleSnapToBottom() {
-        if (!isFollowingBottom || !viewportEl) return
-        // Don't fight the user — if they're actively scrolling, skip the snap.
-        // The scroll handler will re-evaluate isFollowingBottom.
-        if (userScrolling) return
-        snapNeeded = true
-        if (pendingSnapToBottom) return // rAF already scheduled, it will re-check
+        if (!isFollowingBottom || !viewportEl || userScrolling) return
+        if (pendingSnapToBottom) return
         pendingSnapToBottom = true
         requestAnimationFrame(() => {
             pendingSnapToBottom = false
-            if (snapNeeded && isFollowingBottom && !userScrolling) {
-                snapNeeded = false
+            if (isFollowingBottom && !userScrolling) {
                 snapToBottom()
             }
         })
@@ -194,23 +186,28 @@
     }
 
     // ── Follow-bottom on new messages ───────────────────────────────
+    // New messages are always programmatic (not user scroll), so snap directly
     $effect(() => {
         void messages.length
-        if (isFollowingBottom && viewportEl && !userScrolling) {
+        if (isFollowingBottom && viewportEl) {
             requestAnimationFrame(() => {
-                if (isFollowingBottom && !userScrolling) {
-                    snapToBottom()
-                }
+                if (isFollowingBottom) snapToBottom()
             })
         }
     })
 
     // ── Follow-bottom on height changes ─────────────────────────────
-    // When measurements arrive, totalHeight changes. If following, re-snap.
+    // Height changes during scroll (e.g. newly measured items) should
+    // respect the user-scroll suppression flag
     $effect(() => {
         void totalHeight
-        if (isFollowingBottom && viewportEl) {
-            scheduleSnapToBottom()
+        scheduleSnapToBottom()
+    })
+
+    // ── Cleanup user-scroll timer on destroy ────────────────────────
+    $effect(() => {
+        return () => {
+            if (userScrollTimer) clearTimeout(userScrollTimer)
         }
     })
 
