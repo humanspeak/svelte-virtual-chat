@@ -14,6 +14,8 @@
         followBottomThresholdPx = 48,
         overscan = 6,
         renderMessage,
+        header,
+        footer,
         onNeedHistory,
         onFollowBottomChange,
         onDebugInfo,
@@ -29,6 +31,8 @@
     const heightCache = new ChatHeightCache()
     let scrollTop = $state(0)
     let viewportHeight = $state(0)
+    let headerHeight = $state(0)
+    let footerHeight = $state(0)
     let isFollowingBottom = $state(true)
     let pendingSnapToBottom = $state(false)
     let userScrolling = false
@@ -41,7 +45,7 @@
     })
 
     // ── Derived: top gap for bottom-gravity ─────────────────────────
-    const topGap = $derived(Math.max(0, viewportHeight - totalHeight))
+    const topGap = $derived(Math.max(0, viewportHeight - totalHeight - headerHeight - footerHeight))
 
     // ── Derived: visible range ──────────────────────────────────────
     const visibleRange: VisibleRange = $derived.by(() => {
@@ -172,6 +176,29 @@
         }
     }
 
+    // ── Element measurement action (header/footer) ───────────────────
+    /** Svelte action: attaches a ResizeObserver to track an element's height. */
+    const measureElement = (node: HTMLElement, setter: (_h: number) => void) => {
+        let prev = 0
+        const observer = new ResizeObserver((entries) => {
+            for (const entry of entries) {
+                const height = entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height
+                if (height !== prev) {
+                    prev = height
+                    setter(height)
+                    scheduleSnapToBottom()
+                }
+            }
+        })
+        observer.observe(node)
+        return {
+            destroy() {
+                observer.disconnect()
+                setter(0)
+            }
+        }
+    }
+
     // ── Snap to bottom helper ───────────────────────────────────────
     /** Instantly scrolls viewport to bottom and syncs follow state. */
     const snapToBottom = () => {
@@ -298,6 +325,7 @@
 
         const offset =
             topGap +
+            headerHeight +
             calculateOffsetForIndex(
                 messages,
                 index,
@@ -366,6 +394,15 @@
             style="min-height: 100%; position: relative; width: 100%; display: flex; flex-direction: column; justify-content: flex-end;"
             data-testid={testId ? `${testId}-content` : undefined}
         >
+            {#if header}
+                <div
+                    use:measureElement={(h) => (headerHeight = h)}
+                    style="flex-shrink: 0;"
+                    data-testid={testId ? `${testId}-header` : undefined}
+                >
+                    {@render header()}
+                </div>
+            {/if}
             <div style="height: {totalHeight}px; position: relative; flex-shrink: 0;">
                 <div
                     style="position: absolute; top: 0; left: 0; right: 0; transform: translateY({startOffset}px);"
@@ -382,6 +419,15 @@
                     {/each}
                 </div>
             </div>
+            {#if footer}
+                <div
+                    use:measureElement={(h) => (footerHeight = h)}
+                    style="flex-shrink: 0;"
+                    data-testid={testId ? `${testId}-footer` : undefined}
+                >
+                    {@render footer()}
+                </div>
+            {/if}
         </div>
     </div>
 </div>

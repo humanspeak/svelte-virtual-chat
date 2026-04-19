@@ -10,7 +10,8 @@
             links: [
                 { href: resolve('/tests/chat/basic'), label: 'Basic chat' },
                 { href: resolve('/tests/chat/append'), label: 'Append while following' },
-                { href: resolve('/tests/chat/scroll-away'), label: 'Append while scrolled away' }
+                { href: resolve('/tests/chat/scroll-away'), label: 'Append while scrolled away' },
+                { href: resolve('/tests/chat/header-footer'), label: 'Header & footer' }
             ]
         },
         {
