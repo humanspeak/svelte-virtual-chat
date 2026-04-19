@@ -261,11 +261,7 @@
                         <span class="text-muted-foreground text-sm">Assistant is typing...</span>
                     </div>
                 {/if}
-                <div
-                    class="border-border bg-muted/10 border-t px-5 py-2 text-center text-xs {showTyping
-                        ? ''
-                        : ''}"
-                >
+                <div class="border-border bg-muted/10 border-t px-5 py-2 text-center text-xs">
                     <span class="text-muted-foreground">
                         Powered by
                         <span class="text-brand-500 font-medium">SvelteVirtualChat</span>

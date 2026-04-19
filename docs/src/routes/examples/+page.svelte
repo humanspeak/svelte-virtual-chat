@@ -6,10 +6,10 @@
     if (seo) {
         seo.title = 'Examples | Svelte Virtual Chat'
         seo.description =
-            'Interactive examples demonstrating @humanspeak/svelte-virtual-chat features: basic chat, LLM streaming, and history loading with scroll anchor preservation.'
+            'Interactive examples demonstrating @humanspeak/svelte-virtual-chat features: basic chat, LLM streaming, history loading, and header/footer snippets.'
         seo.ogTitle = 'Interactive Examples'
         seo.ogTagline = 'See SvelteVirtualChat in action with live demos.'
-        seo.ogFeatures = ['Basic Chat', 'LLM Streaming', 'History Loading', 'Live Demos']
+        seo.ogFeatures = ['Basic Chat', 'LLM Streaming', 'History Loading', 'Header & Footer']
         seo.ogSlug = 'examples'
     }
 
