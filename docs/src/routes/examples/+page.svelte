@@ -1,6 +1,6 @@
 <script lang="ts">
     import { getSeoContext } from '@humanspeak/docs-kit'
-    import { MessageSquare, Zap, History } from '@lucide/svelte'
+    import { MessageSquare, Zap, History, LayoutTemplate } from '@lucide/svelte'
 
     const seo = getSeoContext()
     if (seo) {
@@ -34,6 +34,13 @@
             description:
                 'Scroll up to trigger older message loading. The viewport preserves your scroll position as messages are prepended above.',
             icon: History
+        },
+        {
+            title: 'Header & Footer',
+            href: '/examples/header-footer',
+            description:
+                'Persistent header and footer snippets that render above and below all messages. Includes a typing indicator that triggers follow-bottom.',
+            icon: LayoutTemplate
         }
     ]
 </script>

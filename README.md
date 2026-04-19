@@ -31,12 +31,13 @@ Chat UIs are not generic lists. They have specific behaviors that general-purpos
 - **Scroll-away stability** — new messages don't yank you back when you've scrolled up
 - **Virtualized rendering** — only visible messages exist in the DOM (handles 10,000+ messages)
 - **Streaming-native** — height changes from LLM token streaming are batched per frame
+- **Header & footer** — optional snippets for persistent content above/below messages (typing indicators, banners)
 - **History prepend** — load older messages at the top without viewport jumping
 - **Message-aware** — uses message IDs for identity, not array indices
 - **Full TypeScript** — strict types, generics, and exported type definitions
 - **Svelte 5 runes** — built with `$state`, `$derived`, `$effect`, and snippets
 - **Debug info** — real-time stats via `onDebugInfo` callback (total, DOM count, measured, range, following state)
-- **E2E tested** — 57 Playwright tests across 6 test suites
+- **E2E tested** — 66+ Playwright tests across 7 test suites
 - **Zero dependencies** — only `esm-env` for SSR detection
 
 ## Requirements
@@ -96,6 +97,8 @@ yarn add @humanspeak/svelte-virtual-chat
 | `messages`                | `TMessage[]`                                 | Required | Array of messages in chronological order (oldest first) |
 | `getMessageId`            | `(msg: TMessage) => string`                  | Required | Extract a unique, stable ID from a message              |
 | `renderMessage`           | `Snippet<[TMessage, number]>`                | Required | Snippet that renders a single message                   |
+| `header`                  | `Snippet`                                    | -        | Persistent content above all messages (always in DOM)   |
+| `footer`                  | `Snippet`                                    | -        | Persistent content below all messages (always in DOM)   |
 | `estimatedMessageHeight`  | `number`                                     | `72`     | Height estimate in pixels for unmeasured messages       |
 | `followBottomThresholdPx` | `number`                                     | `48`     | Distance from bottom to consider "at bottom"            |
 | `overscan`                | `number`                                     | `6`      | Extra messages rendered above/below the viewport        |
@@ -196,6 +199,35 @@ Load older messages when the user scrolls near the top. The component preserves 
 >
     {#snippet renderMessage(message, index)}
         <div class="p-4">{message.content}</div>
+    {/snippet}
+</SvelteVirtualChat>
+```
+
+## Header & Footer
+
+Add persistent content above and below messages without injecting fake entries into the messages array. Both snippets are always in the DOM (never virtualized) and scroll with the content.
+
+Footer height changes automatically trigger follow-bottom snapping — perfect for typing indicators:
+
+```svelte
+<SvelteVirtualChat
+    {messages}
+    getMessageId={(msg) => msg.id}
+    containerClass="h-[600px]"
+    viewportClass="h-full"
+>
+    {#snippet header()}
+        <div class="p-3 text-center text-sm text-gray-500">Beginning of conversation</div>
+    {/snippet}
+    {#snippet renderMessage(message, index)}
+        <div class="p-4 border-b">
+            <p>{message.content}</p>
+        </div>
+    {/snippet}
+    {#snippet footer()}
+        {#if isTyping}
+            <div class="p-3 text-sm text-gray-500">Assistant is typing...</div>
+        {/if}
     {/snippet}
 </SvelteVirtualChat>
 ```

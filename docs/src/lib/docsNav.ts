@@ -4,6 +4,7 @@ import {
     Code,
     Gauge,
     History,
+    LayoutTemplate,
     MessageSquare,
     Play,
     Rocket,
@@ -76,7 +77,8 @@ export const docsSections: NavSection[] = [
             { title: 'All Examples', href: '/examples', icon: Play },
             { title: 'Basic Chat', href: '/examples/basic-chat', icon: MessageSquare },
             { title: 'LLM Streaming', href: '/examples/streaming', icon: Zap },
-            { title: 'History Loading', href: '/examples/history-loading', icon: History }
+            { title: 'History Loading', href: '/examples/history-loading', icon: History },
+            { title: 'Header & Footer', href: '/examples/header-footer', icon: LayoutTemplate }
         ]
     }
 ]
