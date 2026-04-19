@@ -1,6 +1,6 @@
 {
     "name": "@humanspeak/svelte-virtual-chat",
-    "version": "0.0.2",
+    "version": "0.1.0",
     "description": "A high-performance virtual chat viewport for Svelte 5. Purpose-built for LLM conversations, support chat, and any message-based UI. Follow-bottom, streaming-stable, history-prepend with anchor preservation.",
     "keywords": [
         "svelte",
