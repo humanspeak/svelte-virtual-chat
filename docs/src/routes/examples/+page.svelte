@@ -1,15 +1,15 @@
 <script lang="ts">
     import { getSeoContext } from '@humanspeak/docs-kit'
-    import { MessageSquare, Zap, History } from '@lucide/svelte'
+    import { MessageSquare, Zap, History, LayoutTemplate } from '@lucide/svelte'
 
     const seo = getSeoContext()
     if (seo) {
         seo.title = 'Examples | Svelte Virtual Chat'
         seo.description =
-            'Interactive examples demonstrating @humanspeak/svelte-virtual-chat features: basic chat, LLM streaming, and history loading with scroll anchor preservation.'
+            'Interactive examples demonstrating @humanspeak/svelte-virtual-chat features: basic chat, LLM streaming, history loading, and header/footer snippets.'
         seo.ogTitle = 'Interactive Examples'
         seo.ogTagline = 'See SvelteVirtualChat in action with live demos.'
-        seo.ogFeatures = ['Basic Chat', 'LLM Streaming', 'History Loading', 'Live Demos']
+        seo.ogFeatures = ['Basic Chat', 'LLM Streaming', 'History Loading', 'Header & Footer']
         seo.ogSlug = 'examples'
     }
 
@@ -34,6 +34,13 @@
             description:
                 'Scroll up to trigger older message loading. The viewport preserves your scroll position as messages are prepended above.',
             icon: History
+        },
+        {
+            title: 'Header & Footer',
+            href: '/examples/header-footer',
+            description:
+                'Persistent header and footer snippets that render above and below all messages. Includes a typing indicator that triggers follow-bottom.',
+            icon: LayoutTemplate
         }
     ]
 </script>

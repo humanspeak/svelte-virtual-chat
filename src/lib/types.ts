@@ -59,6 +59,18 @@ export type SvelteVirtualChatProps<TMessage = any> = {
     onDebugInfo?: (_info: SvelteVirtualChatDebugInfo) => void
 
     /**
+     * Snippet rendered at the top of the scrollable content, above all messages.
+     * Always in the DOM (not virtualized). Scrolls with content.
+     */
+    header?: Snippet
+
+    /**
+     * Snippet rendered at the bottom of the scrollable content, below all messages.
+     * Always in the DOM (not virtualized). Scrolls with content.
+     */
+    footer?: Snippet
+
+    /**
      * CSS class for the outermost container element.
      */
     containerClass?: string

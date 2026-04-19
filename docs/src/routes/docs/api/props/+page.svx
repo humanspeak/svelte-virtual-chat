@@ -51,6 +51,38 @@ Svelte 5 snippet that renders a single message. Receives the message object and 
 {/snippet}
 ```
 
+## Snippet Props
+
+### `header`
+
+- **Type:** `Snippet`
+
+Optional snippet rendered at the top of the scrollable content, above all messages. Always in the DOM (never virtualized). Scrolls with content — not sticky or fixed. Use for "load more" buttons, date separators, or channel banners.
+
+```svelte
+{#snippet header()}
+    <div class="p-3 text-center text-sm text-gray-500">
+        Beginning of conversation
+    </div>
+{/snippet}
+```
+
+### `footer`
+
+- **Type:** `Snippet`
+
+Optional snippet rendered at the bottom of the scrollable content, below all messages. Always in the DOM (never virtualized). Height changes automatically trigger follow-bottom snapping — perfect for typing indicators.
+
+```svelte
+{#snippet footer()}
+    {#if isTyping}
+        <div class="p-3 text-sm text-gray-500">
+            Assistant is typing...
+        </div>
+    {/if}
+{/snippet}
+```
+
 ## Optional Props
 
 ### `estimatedMessageHeight`
