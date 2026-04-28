@@ -24,7 +24,13 @@
         },
         {
             title: 'Tests — Performance',
-            links: [{ href: resolve('/tests/chat/bulk'), label: 'Bulk messages (1000+)' }]
+            links: [
+                { href: resolve('/tests/chat/bulk'), label: 'Bulk messages (1000+)' },
+                {
+                    href: resolve('/tests/chat/genai-like'),
+                    label: 'Genai-like layout (header + tall footer)'
+                }
+            ]
         }
     ]
 </script>

@@ -1,9 +1,11 @@
 import { expect, test } from '@playwright/test'
 import {
     domMessageCount,
+    getStat,
     isFollowing,
     rafWait,
     scrollTo,
+    scrollToBottom,
     SETTLE_MS,
     waitForMount
 } from '../helpers.js'
@@ -129,6 +131,28 @@ test.describe('Header & Footer', () => {
 
         // Header should be visible
         await expect(page.locator('[data-testid="header-content"]')).toBeVisible()
+    })
+
+    test('add-many with header keeps DOM bounded when scrolled to bottom', async ({ page }) => {
+        // Regression for the visible-range bug where headerHeight wasn't subtracted
+        // from scrollTop before walking the message offsets — every message would
+        // mount at once when scrolled to the bottom.
+        await page.locator('[data-testid="add-many"]').click()
+        await rafWait(page, 3)
+        await page.waitForTimeout(SETTLE_MS)
+
+        // Pin the viewport at the very bottom so we hit the regression case
+        // deterministically, regardless of how the auto-snap raced with batch
+        // height measurement.
+        await scrollToBottom(page)
+        await page.waitForTimeout(SETTLE_MS)
+
+        const total = await getStat(page, 'total')
+        const dom = await getStat(page, 'dom')
+
+        // 3 starting + 50 added.
+        expect(total).toBe(53)
+        expect(dom).toBeLessThan(25)
     })
 
     test('scrollToMessage works correctly with header', async ({ page }) => {

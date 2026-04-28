@@ -1,3 +1,5 @@
+import type { VisibleRange } from './chatTypes.js'
+
 /**
  * Reactive height cache for chat messages.
  *
@@ -115,4 +117,134 @@ export const calculateOffsetForIndex = <T>(
         offset += heightCache.get(id) ?? estimatedHeight
     }
     return offset
+}
+
+/**
+ * Arguments for `calculateVisibleRange`.
+ *
+ * `totalHeight` is taken as an input so the caller can reuse the value it
+ * already derives elsewhere; recomputing it here would walk the message
+ * list a second time on every reactive update.
+ */
+export interface CalculateVisibleRangeArgs<T> {
+    messages: T[]
+    getMessageId: (_message: T) => string
+    heightCache: ChatHeightCache
+    estimatedHeight: number
+    totalHeight: number
+    scrollTop: number
+    viewportHeight: number
+    headerHeight: number
+    footerHeight: number
+    overscan: number
+}
+
+/**
+ * Calculate the visible message range for a virtual chat viewport.
+ *
+ * Translates `scrollTop` from content-local coordinates (which include the
+ * header, messages container, and footer) into messages-local coordinates,
+ * then walks the message list to find which items overlap the viewport.
+ * Adds `overscan` items on each side to keep DOM stable while scrolling.
+ *
+ * Layout assumed by this function (matches `SvelteVirtualChat.svelte`):
+ *
+ *     ┌─ scroll container (scrollTop) ───────────┐
+ *     │  optional empty space (topGap, when      │
+ *     │  content fits and bottom-gravity pushes  │
+ *     │  everything down)                        │
+ *     │  ── header (headerHeight) ──             │
+ *     │  ── messages container (totalHeight) ──  │
+ *     │  ── footer (footerHeight) ──             │
+ *     └──────────────────────────────────────────┘
+ *
+ * The fix vs a naïve implementation: subtract `headerHeight` (and `topGap`)
+ * from `scrollTop` so the loop walks message offsets in the same coordinate
+ * space, and anchor the fallback to `messages.length - 1` when the viewport
+ * has scrolled past every message (e.g. into a tall footer).
+ *
+ * @param args - See `CalculateVisibleRangeArgs`.
+ * @returns The render range, plus the inner visible range without overscan.
+ *
+ * @example
+ * ```ts
+ * const range = calculateVisibleRange({
+ *     messages, getMessageId: (m) => m.id, heightCache: cache,
+ *     estimatedHeight: 72, scrollTop, viewportHeight,
+ *     headerHeight, footerHeight, overscan: 6
+ * })
+ * const slice = messages.slice(range.start, range.end + 1)
+ * ```
+ */
+export const calculateVisibleRange = <T>(args: CalculateVisibleRangeArgs<T>): VisibleRange => {
+    const {
+        messages,
+        getMessageId,
+        heightCache,
+        estimatedHeight,
+        totalHeight,
+        scrollTop,
+        viewportHeight,
+        headerHeight,
+        footerHeight,
+        overscan
+    } = args
+
+    if (messages.length === 0 || viewportHeight === 0) {
+        return { start: 0, end: 0, visibleStart: 0, visibleEnd: 0 }
+    }
+
+    const topGap = Math.max(0, viewportHeight - totalHeight - headerHeight - footerHeight)
+
+    // Translate scrollTop into messages-local coordinates by stripping out
+    // the bottom-gravity gap and the header above the messages container.
+    // We let `viewTop` go negative on purpose: when the viewport sits partly
+    // (or entirely) inside the header, `viewBottom` then correctly falls
+    // *below* messages-local 0 and the loop won't mark items as visible
+    // that are actually occluded by the header.
+    const viewTop = scrollTop - topGap - headerHeight
+    const viewBottom = viewTop + viewportHeight
+
+    let offsetY = 0
+    let visibleStart = -1
+    let visibleEnd = -1
+
+    for (let i = 0; i < messages.length; i++) {
+        const id = getMessageId(messages[i])
+        const h = heightCache.get(id) ?? estimatedHeight
+        const itemTop = offsetY
+        const itemBottom = offsetY + h
+
+        if (itemBottom > viewTop && visibleStart === -1) {
+            visibleStart = i
+        }
+        if (itemTop < viewBottom) {
+            visibleEnd = i
+        }
+
+        offsetY += h
+
+        // Once we've found the first visible item and walked past viewBottom,
+        // every subsequent item is below the viewport — no need to keep going.
+        if (visibleStart !== -1 && offsetY >= viewBottom) break
+    }
+
+    // Fallbacks for the edge case where the viewport sits entirely outside
+    // the messages container — anchor to the closer end so we render at most
+    // a couple of items, never the whole list.
+    if (visibleStart === -1) {
+        // Viewport is below the last message (e.g. user scrolled into a tall
+        // footer). Anchor at the end so overscan walks backwards from there.
+        visibleStart = messages.length - 1
+    }
+    if (visibleEnd === -1) {
+        // Viewport is above the first message (only reachable with negative
+        // scrollTop / odd layouts). Anchor at the beginning.
+        visibleEnd = 0
+    }
+
+    const start = Math.max(0, visibleStart - overscan)
+    const end = Math.min(messages.length - 1, visibleEnd + overscan)
+
+    return { start, end, visibleStart, visibleEnd }
 }

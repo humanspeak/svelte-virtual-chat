@@ -1,10 +1,10 @@
 <script lang="ts" generics="TMessage">
     import type { SvelteVirtualChatProps, SvelteVirtualChatDebugInfo } from './types.js'
-    import type { VisibleRange } from './virtual-chat/chatTypes.js'
     import {
         ChatHeightCache,
+        calculateOffsetForIndex,
         calculateTotalHeight,
-        calculateOffsetForIndex
+        calculateVisibleRange
     } from './virtual-chat/chatMeasurement.svelte.js'
 
     let {
@@ -48,44 +48,23 @@
     const topGap = $derived(Math.max(0, viewportHeight - totalHeight - headerHeight - footerHeight))
 
     // ── Derived: visible range ──────────────────────────────────────
-    const visibleRange: VisibleRange = $derived.by(() => {
+    // Touching `heightCache.version` keeps this reactive to per-message
+    // height changes. `totalHeight` is reused from the derivation above so
+    // we don't walk the message list twice per update.
+    const visibleRange = $derived.by(() => {
         void heightCache.version
-
-        if (messages.length === 0 || viewportHeight === 0) {
-            return { start: 0, end: 0, visibleStart: 0, visibleEnd: 0 }
-        }
-
-        const messageScrollTop = Math.max(0, scrollTop - topGap)
-        const viewTop = messageScrollTop
-        const viewBottom = messageScrollTop + viewportHeight
-
-        let offsetY = 0
-        let visibleStart = -1
-        let visibleEnd = -1
-
-        for (let i = 0; i < messages.length; i++) {
-            const id = getMessageId(messages[i])
-            const h = heightCache.get(id) ?? estimatedMessageHeight
-            const itemTop = offsetY
-            const itemBottom = offsetY + h
-
-            if (itemBottom > viewTop && visibleStart === -1) {
-                visibleStart = i
-            }
-            if (itemTop < viewBottom) {
-                visibleEnd = i
-            }
-
-            offsetY += h
-        }
-
-        if (visibleStart === -1) visibleStart = 0
-        if (visibleEnd === -1) visibleEnd = 0
-
-        const start = Math.max(0, visibleStart - overscan)
-        const end = Math.min(messages.length - 1, visibleEnd + overscan)
-
-        return { start, end, visibleStart, visibleEnd }
+        return calculateVisibleRange({
+            messages,
+            getMessageId,
+            heightCache,
+            estimatedHeight: estimatedMessageHeight,
+            totalHeight,
+            scrollTop,
+            viewportHeight,
+            headerHeight,
+            footerHeight,
+            overscan
+        })
     })
 
     // ── Derived: offset for the first rendered item ─────────────────
@@ -115,6 +94,10 @@
         if (userScrollTimer) clearTimeout(userScrollTimer)
         userScrollTimer = setTimeout(() => {
             userScrolling = false
+            // If we're still following bottom after the suppression window,
+            // catch up any height changes that arrived while suppressed
+            // (e.g. ResizeObserver measurements after a programmatic snap).
+            if (isFollowingBottom) scheduleSnapToBottom()
         }, 150)
 
         const maxScroll = viewportEl.scrollHeight - viewportEl.clientHeight

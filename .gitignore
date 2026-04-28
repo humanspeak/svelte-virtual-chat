@@ -48,3 +48,5 @@ docs/static/social-cards/**
 docs/src/lib/github-stats.json
 tmp/
 /docs/.wrangler
+docs/static/og-default.png
+docs/static/twitter-default.png
