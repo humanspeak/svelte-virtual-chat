@@ -1,10 +1,10 @@
 <script lang="ts" generics="TMessage">
     import type { SvelteVirtualChatProps, SvelteVirtualChatDebugInfo } from './types.js'
-    import type { VisibleRange } from './virtual-chat/chatTypes.js'
     import {
         ChatHeightCache,
+        calculateOffsetForIndex,
         calculateTotalHeight,
-        calculateOffsetForIndex
+        calculateVisibleRange
     } from './virtual-chat/chatMeasurement.svelte.js'
 
     let {
@@ -48,44 +48,22 @@
     const topGap = $derived(Math.max(0, viewportHeight - totalHeight - headerHeight - footerHeight))
 
     // ── Derived: visible range ──────────────────────────────────────
-    const visibleRange: VisibleRange = $derived.by(() => {
+    // Pure function lives in chatMeasurement so it can be unit-tested
+    // independently of the DOM. Touching `heightCache.version` here keeps
+    // this derivation reactive to any per-message height change.
+    const visibleRange = $derived.by(() => {
         void heightCache.version
-
-        if (messages.length === 0 || viewportHeight === 0) {
-            return { start: 0, end: 0, visibleStart: 0, visibleEnd: 0 }
-        }
-
-        const messageScrollTop = Math.max(0, scrollTop - topGap)
-        const viewTop = messageScrollTop
-        const viewBottom = messageScrollTop + viewportHeight
-
-        let offsetY = 0
-        let visibleStart = -1
-        let visibleEnd = -1
-
-        for (let i = 0; i < messages.length; i++) {
-            const id = getMessageId(messages[i])
-            const h = heightCache.get(id) ?? estimatedMessageHeight
-            const itemTop = offsetY
-            const itemBottom = offsetY + h
-
-            if (itemBottom > viewTop && visibleStart === -1) {
-                visibleStart = i
-            }
-            if (itemTop < viewBottom) {
-                visibleEnd = i
-            }
-
-            offsetY += h
-        }
-
-        if (visibleStart === -1) visibleStart = 0
-        if (visibleEnd === -1) visibleEnd = 0
-
-        const start = Math.max(0, visibleStart - overscan)
-        const end = Math.min(messages.length - 1, visibleEnd + overscan)
-
-        return { start, end, visibleStart, visibleEnd }
+        return calculateVisibleRange({
+            messages,
+            getMessageId,
+            heightCache,
+            estimatedHeight: estimatedMessageHeight,
+            scrollTop,
+            viewportHeight,
+            headerHeight,
+            footerHeight,
+            overscan
+        })
     })
 
     // ── Derived: offset for the first rendered item ─────────────────
