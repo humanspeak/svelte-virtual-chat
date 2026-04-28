@@ -94,6 +94,10 @@
         if (userScrollTimer) clearTimeout(userScrollTimer)
         userScrollTimer = setTimeout(() => {
             userScrolling = false
+            // If we're still following bottom after the suppression window,
+            // catch up any height changes that arrived while suppressed
+            // (e.g. ResizeObserver measurements after a programmatic snap).
+            if (isFollowingBottom) scheduleSnapToBottom()
         }, 150)
 
         const maxScroll = viewportEl.scrollHeight - viewportEl.clientHeight
