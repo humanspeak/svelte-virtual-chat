@@ -17,6 +17,13 @@ const cacheWith = (heights: Record<string, number>): ChatHeightCache => {
     return cache
 }
 
+/** Sum the per-id heights, falling back to `estimated` for unmeasured ids. */
+const totalFromHeights = (
+    messages: Msg[],
+    heights: Record<string, number>,
+    estimated: number
+): number => messages.reduce((sum, m) => sum + (heights[m.id] ?? estimated), 0)
+
 describe('ChatHeightCache', () => {
     it('returns undefined for unmeasured messages', () => {
         const cache = new ChatHeightCache()
@@ -196,6 +203,7 @@ describe('calculateVisibleRange', () => {
                 getMessageId: getId,
                 heightCache: new ChatHeightCache(),
                 estimatedHeight: 40,
+                totalHeight: 0,
                 scrollTop: 0,
                 viewportHeight: 200,
                 headerHeight: 0,
@@ -212,6 +220,7 @@ describe('calculateVisibleRange', () => {
                 getMessageId: getId,
                 heightCache: cacheWith(heights10),
                 estimatedHeight: 40,
+                totalHeight: 1000,
                 scrollTop: 0,
                 viewportHeight: 0,
                 headerHeight: 0,
@@ -310,7 +319,7 @@ describe('calculateVisibleRange', () => {
             { start: 0, end: 2, visibleStart: 0, visibleEnd: 1 }
         ],
         [
-            'fix #1 — overflowing content with header, scrolled to bottom of messages',
+            'overflowing content with header, scrolled to bottom of messages',
             {
                 messages: m10,
                 heights: heights10,
@@ -325,11 +334,11 @@ describe('calculateVisibleRange', () => {
             // Without the headerHeight subtraction, messageScrollTop would
             // have been 850 (past totalHeight=1000? no, 850 < 1000, but
             // the visible region would shift one item up, missing item 9).
-            // With the fix: messageScrollTop = 800, last two items visible.
+            // With it: messageScrollTop = 800, last two items visible.
             { start: 7, end: 9, visibleStart: 8, visibleEnd: 9 }
         ],
         [
-            'fix #2 — header + tall footer, scrolled to absolute bottom (viewport sits inside footer)',
+            'header + tall footer, scrolled to absolute bottom (viewport sits inside footer)',
             {
                 messages: m10,
                 heights: heights10,
@@ -342,10 +351,10 @@ describe('calculateVisibleRange', () => {
                 footerHeight: 200,
                 overscan: 1
             },
-            // Without the fallback fix, visibleStart would fall back to 0
-            // and the whole list would render. With the fix, visibleStart
-            // anchors at messages.length - 1 = 9, so only the last item
-            // (plus overscan toward the start) renders.
+            // Without the end-anchored fallback, visibleStart would fall
+            // back to 0 and the whole list would render. With it,
+            // visibleStart anchors at messages.length - 1 = 9, so only the
+            // last item (plus overscan toward the start) renders.
             { start: 8, end: 9, visibleStart: 9, visibleEnd: 9 }
         ],
         [
@@ -368,11 +377,13 @@ describe('calculateVisibleRange', () => {
             { start: 0, end: 3, visibleStart: 1, visibleEnd: 2 }
         ]
     ])('%s', (_desc, args, expected) => {
+        const estimated = 40
         const result = calculateVisibleRange({
             messages: args.messages,
             getMessageId: getId,
             heightCache: cacheWith(args.heights),
-            estimatedHeight: 40,
+            estimatedHeight: estimated,
+            totalHeight: totalFromHeights(args.messages, args.heights, estimated),
             scrollTop: args.scrollTop,
             viewportHeight: args.viewportHeight,
             headerHeight: args.headerHeight,
@@ -388,6 +399,7 @@ describe('calculateVisibleRange', () => {
             getMessageId: getId,
             heightCache: cacheWith(heights10),
             estimatedHeight: 40,
+            totalHeight: 1000,
             scrollTop: 0,
             viewportHeight: 200,
             headerHeight: 0,

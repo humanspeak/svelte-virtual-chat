@@ -5,6 +5,7 @@ import {
     isFollowing,
     rafWait,
     scrollTo,
+    scrollToBottom,
     SETTLE_MS,
     waitForMount
 } from '../helpers.js'
@@ -143,11 +144,7 @@ test.describe('Header & Footer', () => {
         // Pin the viewport at the very bottom so we hit the regression case
         // deterministically, regardless of how the auto-snap raced with batch
         // height measurement.
-        await page.evaluate(() => {
-            const el = document.querySelector('[data-testid="chat-viewport"]') as HTMLElement | null
-            if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'instant' })
-        })
-        await rafWait(page, 2)
+        await scrollToBottom(page)
         await page.waitForTimeout(SETTLE_MS)
 
         const total = await getStat(page, 'total')

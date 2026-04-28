@@ -48,9 +48,9 @@
     const topGap = $derived(Math.max(0, viewportHeight - totalHeight - headerHeight - footerHeight))
 
     // ── Derived: visible range ──────────────────────────────────────
-    // Pure function lives in chatMeasurement so it can be unit-tested
-    // independently of the DOM. Touching `heightCache.version` here keeps
-    // this derivation reactive to any per-message height change.
+    // Touching `heightCache.version` keeps this reactive to per-message
+    // height changes. `totalHeight` is reused from the derivation above so
+    // we don't walk the message list twice per update.
     const visibleRange = $derived.by(() => {
         void heightCache.version
         return calculateVisibleRange({
@@ -58,6 +58,7 @@
             getMessageId,
             heightCache,
             estimatedHeight: estimatedMessageHeight,
+            totalHeight,
             scrollTop,
             viewportHeight,
             headerHeight,

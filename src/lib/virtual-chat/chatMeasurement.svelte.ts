@@ -121,12 +121,17 @@ export const calculateOffsetForIndex = <T>(
 
 /**
  * Arguments for `calculateVisibleRange`.
+ *
+ * `totalHeight` is taken as an input so the caller can reuse the value it
+ * already derives elsewhere; recomputing it here would walk the message
+ * list a second time on every reactive update.
  */
 export interface CalculateVisibleRangeArgs<T> {
     messages: T[]
     getMessageId: (_message: T) => string
     heightCache: ChatHeightCache
     estimatedHeight: number
+    totalHeight: number
     scrollTop: number
     viewportHeight: number
     headerHeight: number
@@ -177,6 +182,7 @@ export const calculateVisibleRange = <T>(args: CalculateVisibleRangeArgs<T>): Vi
         getMessageId,
         heightCache,
         estimatedHeight,
+        totalHeight,
         scrollTop,
         viewportHeight,
         headerHeight,
@@ -188,7 +194,6 @@ export const calculateVisibleRange = <T>(args: CalculateVisibleRangeArgs<T>): Vi
         return { start: 0, end: 0, visibleStart: 0, visibleEnd: 0 }
     }
 
-    const totalHeight = calculateTotalHeight(messages, getMessageId, heightCache, estimatedHeight)
     const topGap = Math.max(0, viewportHeight - totalHeight - headerHeight - footerHeight)
 
     // Translate scrollTop into messages-local coordinates. When the chat is
@@ -217,6 +222,10 @@ export const calculateVisibleRange = <T>(args: CalculateVisibleRangeArgs<T>): Vi
         }
 
         offsetY += h
+
+        // Once we've found the first visible item and walked past viewBottom,
+        // every subsequent item is below the viewport — no need to keep going.
+        if (visibleStart !== -1 && offsetY >= viewBottom) break
     }
 
     // Fallbacks for the edge case where the viewport sits entirely outside
