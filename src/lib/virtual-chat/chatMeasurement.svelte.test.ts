@@ -358,6 +358,26 @@ describe('calculateVisibleRange', () => {
             { start: 8, end: 9, visibleStart: 9, visibleEnd: 9 }
         ],
         [
+            'header taller than viewport (viewport entirely inside header)',
+            {
+                messages: m10,
+                heights: heights10,
+                // scrollTop=0 with a 300px header and a 200px viewport: the
+                // viewport sees only header pixels. No message rows are
+                // actually visible.
+                scrollTop: 0,
+                viewportHeight: 200,
+                headerHeight: 300,
+                footerHeight: 0,
+                overscan: 1
+            },
+            // viewTop=-300, viewBottom=-100. itemBottom > -300 always, so
+            // visibleStart=0; itemTop < -100 never, so visibleEnd falls back
+            // to 0. Pre-fix the clamp produced viewBottom=200 and we'd
+            // wrongly mark items 0..1 as visible behind the header.
+            { start: 0, end: 1, visibleStart: 0, visibleEnd: 0 }
+        ],
+        [
             'variable measured + unmeasured heights mid-scroll',
             {
                 // Heights: 80, 40(est), 120, 40(est), 40(est) → total 320.

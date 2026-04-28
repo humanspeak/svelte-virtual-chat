@@ -196,13 +196,14 @@ export const calculateVisibleRange = <T>(args: CalculateVisibleRangeArgs<T>): Vi
 
     const topGap = Math.max(0, viewportHeight - totalHeight - headerHeight - footerHeight)
 
-    // Translate scrollTop into messages-local coordinates. When the chat is
-    // bottom-gravity'd and content fits (topGap > 0), scrollTop is 0 and the
-    // subtraction is clamped at 0. When content overflows, topGap is 0 and we
-    // strip out the header height that sits above the messages container.
-    const messageScrollTop = Math.max(0, scrollTop - topGap - headerHeight)
-    const viewTop = messageScrollTop
-    const viewBottom = messageScrollTop + viewportHeight
+    // Translate scrollTop into messages-local coordinates by stripping out
+    // the bottom-gravity gap and the header above the messages container.
+    // We let `viewTop` go negative on purpose: when the viewport sits partly
+    // (or entirely) inside the header, `viewBottom` then correctly falls
+    // *below* messages-local 0 and the loop won't mark items as visible
+    // that are actually occluded by the header.
+    const viewTop = scrollTop - topGap - headerHeight
+    const viewBottom = viewTop + viewportHeight
 
     let offsetY = 0
     let visibleStart = -1
