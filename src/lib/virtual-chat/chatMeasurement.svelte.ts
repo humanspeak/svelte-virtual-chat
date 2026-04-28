@@ -24,7 +24,7 @@ export class ChatHeightCache {
     #prefixSum: number[] = [0]
     #dirtyFromIndex = Number.POSITIVE_INFINITY
     #lastSyncedMessages: unknown = null
-    #lastSyncedLength = 0
+    #estimatedHeight = 0
 
     /** Get the measured height for a message, or undefined if not yet measured. */
     get(id: string): number | undefined {
@@ -75,7 +75,6 @@ export class ChatHeightCache {
         this.#prefixSum = [0]
         this.#dirtyFromIndex = Number.POSITIVE_INFINITY
         this.#lastSyncedMessages = null
-        this.#lastSyncedLength = 0
         this.#version++
     }
 
@@ -93,15 +92,17 @@ export class ChatHeightCache {
         getMessageId: (_message: T) => string,
         estimatedHeight: number
     ): void {
-        const newN = messages.length
-
-        if (
-            messages === this.#lastSyncedMessages &&
-            newN === this.#lastSyncedLength &&
-            newN === this.#orderedIds.length
-        ) {
-            return
+        // A change in `estimatedHeight` invalidates every unmeasured slot in
+        // the prefix sum, even when the messages array is identical.
+        if (estimatedHeight !== this.#estimatedHeight) {
+            this.#estimatedHeight = estimatedHeight
+            this.#dirtyFromIndex = 0
         }
+
+        const newN = messages.length
+        const oldN = this.#orderedIds.length
+
+        if (messages === this.#lastSyncedMessages && newN === oldN) return
 
         if (newN === 0) {
             this.#orderedIds = []
@@ -109,11 +110,8 @@ export class ChatHeightCache {
             this.#prefixSum = [0]
             this.#dirtyFromIndex = Number.POSITIVE_INFINITY
             this.#lastSyncedMessages = messages
-            this.#lastSyncedLength = 0
             return
         }
-
-        const oldN = this.#orderedIds.length
 
         // Append fast path: every old id stays at its index; new ids tack on the end.
         if (
@@ -125,11 +123,10 @@ export class ChatHeightCache {
                 const id = getMessageId(messages[i])
                 this.#orderedIds.push(id)
                 this.#idToIndex[id] = i
-                const h = this.#heights[id] ?? estimatedHeight
+                const h = this.#heights[id] ?? this.#estimatedHeight
                 this.#prefixSum.push(this.#prefixSum[i] + h)
             }
             this.#lastSyncedMessages = messages
-            this.#lastSyncedLength = newN
             return
         }
 
@@ -142,22 +139,18 @@ export class ChatHeightCache {
             this.#rebuildOrdering(messages, getMessageId)
             this.#dirtyFromIndex = 0
             this.#lastSyncedMessages = messages
-            this.#lastSyncedLength = newN
-            this.#flushDirty(estimatedHeight)
+            this.#flushDirty()
             return
         }
 
-        // Same length, same array reference but mutated in place — cheap secondary
-        // check before falling through to full rebuild. If the last id matches
-        // we treat it as no-op-ish (identity-only check is sufficient since
-        // anything non-trivial would change either length or the tail).
+        // In-place mutation with identical head and tail — Svelte's $state proxy
+        // can produce a non-identical reference for the same logical array.
         if (
             newN === oldN &&
             getMessageId(messages[newN - 1]) === this.#orderedIds[newN - 1] &&
             getMessageId(messages[0]) === this.#orderedIds[0]
         ) {
             this.#lastSyncedMessages = messages
-            this.#lastSyncedLength = newN
             return
         }
 
@@ -165,22 +158,21 @@ export class ChatHeightCache {
         this.#rebuildOrdering(messages, getMessageId)
         this.#dirtyFromIndex = 0
         this.#lastSyncedMessages = messages
-        this.#lastSyncedLength = newN
-        this.#flushDirty(estimatedHeight)
+        this.#flushDirty()
     }
 
     /** Total content height — O(1) after dirty flush. */
-    getTotalHeight(estimatedHeight: number): number {
-        this.#flushDirty(estimatedHeight)
+    getTotalHeight(): number {
+        this.#flushDirty()
         return this.#prefixSum[this.#orderedIds.length]
     }
 
     /** Pixel offset of message at `index` from the start of the messages section — O(1). */
-    getOffsetForIndex(index: number, estimatedHeight: number): number {
+    getOffsetForIndex(index: number): number {
         if (index <= 0) return 0
         const n = this.#orderedIds.length
         const clamped = index >= n ? n : index
-        this.#flushDirty(estimatedHeight)
+        this.#flushDirty()
         return this.#prefixSum[clamped]
     }
 
@@ -189,10 +181,10 @@ export class ChatHeightCache {
      * (i.e. `prefixSum[i+1] > viewTop`). Returns -1 when every message is
      * above `viewTop` (viewport scrolled past the end).
      */
-    findVisibleStart(viewTop: number, estimatedHeight: number): number {
+    findVisibleStart(viewTop: number): number {
         const n = this.#orderedIds.length
         if (n === 0) return -1
-        this.#flushDirty(estimatedHeight)
+        this.#flushDirty()
         if (this.#prefixSum[n] <= viewTop) return -1
         let lo = 0
         let hi = n - 1
@@ -209,10 +201,10 @@ export class ChatHeightCache {
      * (i.e. `prefixSum[i] < viewBottom`). Returns -1 when every message is
      * at or below `viewBottom` (viewport scrolled past the start).
      */
-    findVisibleEnd(viewBottom: number, estimatedHeight: number): number {
+    findVisibleEnd(viewBottom: number): number {
         const n = this.#orderedIds.length
         if (n === 0) return -1
-        this.#flushDirty(estimatedHeight)
+        this.#flushDirty()
         if (this.#prefixSum[0] >= viewBottom) return -1
         let lo = 0
         let hi = n - 1
@@ -239,12 +231,12 @@ export class ChatHeightCache {
         this.#prefixSum[0] = 0
     }
 
-    #flushDirty(estimatedHeight: number): void {
+    #flushDirty(): void {
         if (this.#dirtyFromIndex === Number.POSITIVE_INFINITY) return
         const n = this.#orderedIds.length
-        const start = this.#dirtyFromIndex < 0 ? 0 : this.#dirtyFromIndex
+        const start = this.#dirtyFromIndex
         for (let i = start; i < n; i++) {
-            const h = this.#heights[this.#orderedIds[i]] ?? estimatedHeight
+            const h = this.#heights[this.#orderedIds[i]] ?? this.#estimatedHeight
             this.#prefixSum[i + 1] = this.#prefixSum[i] + h
         }
         this.#prefixSum.length = n + 1
@@ -268,7 +260,7 @@ export const calculateTotalHeight = <T>(
     estimatedHeight: number
 ): number => {
     heightCache.sync(messages, getMessageId, estimatedHeight)
-    return heightCache.getTotalHeight(estimatedHeight)
+    return heightCache.getTotalHeight()
 }
 
 /**
@@ -289,7 +281,7 @@ export const calculateOffsetForIndex = <T>(
     estimatedHeight: number
 ): number => {
     heightCache.sync(messages, getMessageId, estimatedHeight)
-    return heightCache.getOffsetForIndex(index, estimatedHeight)
+    return heightCache.getOffsetForIndex(index)
 }
 
 /**
@@ -368,8 +360,8 @@ export const calculateVisibleRange = <T>(args: CalculateVisibleRangeArgs<T>): Vi
     const viewTop = scrollTop - topGap - headerHeight
     const viewBottom = viewTop + viewportHeight
 
-    let visibleStart = heightCache.findVisibleStart(viewTop, estimatedHeight)
-    let visibleEnd = heightCache.findVisibleEnd(viewBottom, estimatedHeight)
+    let visibleStart = heightCache.findVisibleStart(viewTop)
+    let visibleEnd = heightCache.findVisibleEnd(viewBottom)
 
     // Fallbacks for the edge case where the viewport sits entirely outside
     // the messages container — anchor to the closer end so we render at most

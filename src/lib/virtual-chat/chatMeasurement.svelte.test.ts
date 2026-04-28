@@ -643,6 +643,15 @@ describe('ChatHeightCache.sync (prefix sums)', () => {
         expect(calculateOffsetForIndex(both, 4, getId, cache, 40)).toBe(300)
     })
 
+    it('changing estimatedHeight without touching messages invalidates the prefix sum', () => {
+        const cache = new ChatHeightCache()
+        const a = msgs(['1', '2', '3'])
+        // No measurements — every slot falls through to the estimate.
+        expect(calculateTotalHeight(a, getId, cache, 40)).toBe(120)
+        // Same array reference, new estimate — prefix sum must rebuild.
+        expect(calculateTotalHeight(a, getId, cache, 100)).toBe(300)
+    })
+
     it('shrink to empty resets ordering', () => {
         const cache = new ChatHeightCache()
         const a = msgs(['1', '2', '3'])
