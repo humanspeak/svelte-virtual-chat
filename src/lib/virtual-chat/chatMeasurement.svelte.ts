@@ -45,8 +45,7 @@ export class ChatHeightCache {
     set(id: string, height: number): boolean {
         if (this.#heights[id] === height) return false
         this.#heights[id] = height
-        const i = this.#idToIndex[id]
-        if (i !== undefined && i < this.#dirtyFromIndex) this.#dirtyFromIndex = i
+        this.#markDirtyAt(id)
         this.#scheduleBump()
         return true
     }
@@ -55,8 +54,7 @@ export class ChatHeightCache {
     delete(id: string): void {
         if (id in this.#heights) {
             delete this.#heights[id]
-            const i = this.#idToIndex[id]
-            if (i !== undefined && i < this.#dirtyFromIndex) this.#dirtyFromIndex = i
+            this.#markDirtyAt(id)
             this.#flushBumpSync()
         }
     }
@@ -86,6 +84,16 @@ export class ChatHeightCache {
         this.#dirtyFromIndex = Number.POSITIVE_INFINITY
         this.#lastSyncedMessages = null
         this.#flushBumpSync()
+    }
+
+    /**
+     * Pull the prefix-sum dirty marker back to the slot a height-affecting
+     * change just landed at. No-op when the id isn't in the current ordering
+     * (e.g. a measurement arrives for a message that's already been removed).
+     */
+    #markDirtyAt(id: string): void {
+        const i = this.#idToIndex[id]
+        if (i !== undefined && i < this.#dirtyFromIndex) this.#dirtyFromIndex = i
     }
 
     #scheduleBump(): void {
