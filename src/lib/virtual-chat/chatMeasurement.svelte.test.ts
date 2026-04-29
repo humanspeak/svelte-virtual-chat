@@ -548,11 +548,52 @@ describe('ChatHeightCache.sync (prefix sums)', () => {
         cache.set('4', 50)
         expect(calculateTotalHeight(a, getId, cache, 40)).toBe(200)
 
-        // Replace middle element — neither append nor prepend fast path applies.
+        // Replace middle element with a distinct height so the assertion fails
+        // if sync wrongly reuses the old ordering.
         const b = msgs(['1', '99', '3', '4'])
-        cache.set('99', 50)
-        expect(calculateTotalHeight(b, getId, cache, 40)).toBe(200)
-        expect(calculateOffsetForIndex(b, 2, getId, cache, 40)).toBe(100)
+        cache.set('99', 500)
+        expect(calculateTotalHeight(b, getId, cache, 40)).toBe(650)
+        expect(calculateOffsetForIndex(b, 2, getId, cache, 40)).toBe(550)
+    })
+
+    it('append-shape with replaced head falls through to full rebuild', () => {
+        // Endpoint-only guards would treat `[1,2,3] -> [9,2,3,4]` as a clean
+        // append because `messages[oldN-1] === orderedIds[oldN-1]`. The
+        // strengthened guard (head + tail) catches the replaced head.
+        const cache = new ChatHeightCache()
+        const a = msgs(['1', '2', '3'])
+        cache.set('1', 50)
+        cache.set('2', 50)
+        cache.set('3', 50)
+        expect(calculateTotalHeight(a, getId, cache, 40)).toBe(150)
+
+        const b = msgs(['9', '2', '3', '4'])
+        cache.set('9', 100)
+        cache.set('4', 70)
+        expect(calculateTotalHeight(b, getId, cache, 40)).toBe(270) // 100+50+50+70
+        // Index 1's offset must reflect the new head height (100), not the
+        // stale '1' height (50). A wrongly-taken append path leaves orderedIds
+        // = [1,2,3,4] and would compute offset=50 here.
+        expect(calculateOffsetForIndex(b, 1, getId, cache, 40)).toBe(100)
+    })
+
+    it('same-length mid-replace falls through to full rebuild', () => {
+        // Endpoint-only no-op check would treat `[1,2,3,4] -> [1,99,3,4]` as
+        // unchanged because head and tail match. The full id walk catches the
+        // mid-array replacement.
+        const cache = new ChatHeightCache()
+        const a = msgs(['1', '2', '3', '4'])
+        cache.set('1', 50)
+        cache.set('2', 50)
+        cache.set('3', 50)
+        cache.set('4', 50)
+        expect(calculateTotalHeight(a, getId, cache, 40)).toBe(200)
+
+        const b = msgs(['1', '99', '3', '4'])
+        cache.set('99', 200)
+        // Total reflects '99' replacing '2': 50+200+50+50 = 350.
+        expect(calculateTotalHeight(b, getId, cache, 40)).toBe(350)
+        expect(calculateOffsetForIndex(b, 2, getId, cache, 40)).toBe(250)
     })
 
     it('measurement of an id absent from the current ordering is silently ignored', () => {

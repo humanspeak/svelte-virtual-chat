@@ -113,10 +113,13 @@ export class ChatHeightCache {
             return
         }
 
-        // Append fast path: every old id stays at its index; new ids tack on the end.
+        // Append fast path: every old id stays at its index; new ids tack on the
+        // end. Sample head and tail of the old range — a single endpoint match
+        // would treat `[1,2,3] -> [9,2,3,4]` as a clean append.
         if (
             oldN > 0 &&
             newN > oldN &&
+            getMessageId(messages[0]) === this.#orderedIds[0] &&
             getMessageId(messages[oldN - 1]) === this.#orderedIds[oldN - 1]
         ) {
             for (let i = oldN; i < newN; i++) {
@@ -131,10 +134,12 @@ export class ChatHeightCache {
         }
 
         // Prepend fast path: every old id reappears, shifted by `newN - oldN`.
+        // Sample both endpoints of the old range in their new positions.
         if (
             oldN > 0 &&
             newN > oldN &&
-            getMessageId(messages[newN - oldN]) === this.#orderedIds[0]
+            getMessageId(messages[newN - oldN]) === this.#orderedIds[0] &&
+            getMessageId(messages[newN - 1]) === this.#orderedIds[oldN - 1]
         ) {
             this.#rebuildOrdering(messages, getMessageId)
             this.#dirtyFromIndex = 0
@@ -143,15 +148,22 @@ export class ChatHeightCache {
             return
         }
 
-        // In-place mutation with identical head and tail — Svelte's $state proxy
-        // can produce a non-identical reference for the same logical array.
-        if (
-            newN === oldN &&
-            getMessageId(messages[newN - 1]) === this.#orderedIds[newN - 1] &&
-            getMessageId(messages[0]) === this.#orderedIds[0]
-        ) {
-            this.#lastSyncedMessages = messages
-            return
+        // Same-length no-op path — handles Svelte's `$state` proxy producing a
+        // new reference for the same logical array. A full id walk is correct
+        // and bounded: the alternative (falling through to rebuild) is also
+        // O(n), so checking is never slower than rebuilding.
+        if (newN === oldN) {
+            let allMatch = true
+            for (let i = 0; i < newN; i++) {
+                if (getMessageId(messages[i]) !== this.#orderedIds[i]) {
+                    allMatch = false
+                    break
+                }
+            }
+            if (allMatch) {
+                this.#lastSyncedMessages = messages
+                return
+            }
         }
 
         // Full rebuild (splice/random reorder/length-shrink/etc).

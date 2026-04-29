@@ -45,6 +45,7 @@
     let longTaskEntries: { time: number; duration: number }[] = []
     let rafIntervals: { time: number; delta: number }[] = []
     let mutationEvents: { time: number; count: number }[] = []
+    let streamHandle: ReturnType<typeof setInterval> | null = null
 
     const buildMessage = (role: Role, idx: number): Message => {
         const useCode = idx % 7 === 0
@@ -74,8 +75,15 @@
     }
 
     const clear = () => {
+        if (streamHandle !== null) {
+            clearInterval(streamHandle)
+            streamHandle = null
+        }
+        isStreaming = false
         messages = []
-        counter = 0
+        // counter intentionally not reset — keeping it monotonic across clears
+        // prevents post-clear loads from reusing ids and inheriting cached
+        // height measurements from earlier scenarios in the same run.
         longTaskEntries = []
         rafIntervals = []
         mutationEvents = []
@@ -93,10 +101,11 @@
         messages = [...messages, { id, role: 'assistant', content: 'Streaming…' }]
         const start = performance.now()
         let line = 0
-        const handle = setInterval(() => {
+        streamHandle = setInterval(() => {
             const elapsed = performance.now() - start
             if (elapsed >= 5000) {
-                clearInterval(handle)
+                if (streamHandle !== null) clearInterval(streamHandle)
+                streamHandle = null
                 isStreaming = false
                 return
             }
