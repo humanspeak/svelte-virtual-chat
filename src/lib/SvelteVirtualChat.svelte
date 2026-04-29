@@ -80,9 +80,35 @@
     })
 
     // ── Derived: slice of messages to render ────────────────────────
-    const renderedMessages = $derived(
-        messages.length === 0 ? [] : messages.slice(visibleRange.start, visibleRange.end + 1)
-    )
+    // `messages.slice(...)` allocates a fresh array on every reactive update,
+    // including pure-scroll deltas where the visible range hasn't moved. At
+    // 60fps that's a throwaway array per frame. Memoize the slice and reuse
+    // it when both bounds are unchanged AND the head/tail still point at the
+    // same message instances — that catches the common append, prepend, and
+    // whole-array-replace patterns. Mid-array replacement with the same
+    // head/tail isn't covered, but isn't part of the chat semantics this
+    // component supports.
+    let cachedSlice: TMessage[] = []
+    let cachedStart = -1
+    let cachedEnd = -1
+    const renderedMessages = $derived.by(() => {
+        if (messages.length === 0) return [] as TMessage[]
+        const { start, end } = visibleRange
+        const length = end - start + 1
+        if (
+            start === cachedStart &&
+            end === cachedEnd &&
+            cachedSlice.length === length &&
+            cachedSlice[0] === messages[start] &&
+            cachedSlice[length - 1] === messages[end]
+        ) {
+            return cachedSlice
+        }
+        cachedStart = start
+        cachedEnd = end
+        cachedSlice = messages.slice(start, end + 1)
+        return cachedSlice
+    })
 
     // ── Scroll event handler ────────────────────────────────────────
     const handleScroll = () => {
