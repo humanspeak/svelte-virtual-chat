@@ -44,7 +44,9 @@ function parseStats(s) {
         longestTaskMs: grab('longestTaskMs'),
         longTasks10s: grab('longTasks10s'),
         rafP95Ms: parseFloat(grab('rafP95')),
-        mutations10s: Number(grab('mutations10s'))
+        mutations10s: Number(grab('mutations10s')),
+        loaf10s: grab('loaf10s'),
+        loafScriptMaxMs: grab('loafScriptMaxMs')
     }
 }
 
