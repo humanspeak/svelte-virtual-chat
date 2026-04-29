@@ -429,4 +429,279 @@ describe('calculateVisibleRange', () => {
         expect(result.start).toBe(0)
         expect(result.end).toBe(9)
     })
+
+    it('1000-message golden test: binary search picks the same range as a linear walk', () => {
+        // Mixed measured (random 80–160px) and unmeasured (40px estimate) heights.
+        const cache = new ChatHeightCache()
+        const ids = Array.from({ length: 1000 }, (_v, i) => String(i))
+        const messages = msgs(ids)
+        const heightById: Record<string, number> = {}
+        for (let i = 0; i < ids.length; i++) {
+            // Every third id is measured; the rest fall through to the estimate.
+            if (i % 3 !== 0) {
+                const h = 80 + ((i * 17) % 81) // 80..160
+                heightById[ids[i]] = h
+                cache.set(ids[i], h)
+            }
+        }
+        const estimated = 40
+        const total = messages.reduce((sum, m) => sum + (heightById[m.id] ?? estimated), 0)
+
+        // Reference walk that mirrors the pre-#13 logic exactly so we have an
+        // independent ground truth to compare the binary-search version against.
+        const referenceRange = (
+            scrollTop: number,
+            viewportHeight: number,
+            headerHeight: number,
+            footerHeight: number,
+            overscan: number
+        ) => {
+            const topGap = Math.max(0, viewportHeight - total - headerHeight - footerHeight)
+            const viewTop = scrollTop - topGap - headerHeight
+            const viewBottom = viewTop + viewportHeight
+            let offsetY = 0
+            let visibleStart = -1
+            let visibleEnd = -1
+            for (let i = 0; i < messages.length; i++) {
+                const h = heightById[messages[i].id] ?? estimated
+                const itemTop = offsetY
+                const itemBottom = offsetY + h
+                if (itemBottom > viewTop && visibleStart === -1) visibleStart = i
+                if (itemTop < viewBottom) visibleEnd = i
+                offsetY += h
+                if (visibleStart !== -1 && offsetY >= viewBottom) break
+            }
+            if (visibleStart === -1) visibleStart = messages.length - 1
+            if (visibleEnd === -1) visibleEnd = 0
+            return {
+                start: Math.max(0, visibleStart - overscan),
+                end: Math.min(messages.length - 1, visibleEnd + overscan),
+                visibleStart,
+                visibleEnd
+            }
+        }
+
+        // Probe a few mid-list scroll positions and assert agreement.
+        const probes = [0, 1234, 5678, 12_345, 30_000, total - 600, total - 200]
+        for (const scrollTop of probes) {
+            const expected = referenceRange(scrollTop, 600, 0, 0, 4)
+            const actual = calculateVisibleRange({
+                messages,
+                getMessageId: getId,
+                heightCache: cache,
+                estimatedHeight: estimated,
+                totalHeight: total,
+                scrollTop,
+                viewportHeight: 600,
+                headerHeight: 0,
+                footerHeight: 0,
+                overscan: 4
+            })
+            expect(actual).toEqual(expected)
+        }
+    })
+})
+
+describe('ChatHeightCache.sync (prefix sums)', () => {
+    it('append fast path extends prefix sum without rebuild', () => {
+        const cache = new ChatHeightCache()
+        const a = msgs(['1', '2', '3'])
+        cache.set('1', 100)
+        cache.set('2', 100)
+        cache.set('3', 100)
+        expect(calculateTotalHeight(a, getId, cache, 40)).toBe(300)
+
+        const b = [...a, ...msgs(['4', '5'])]
+        cache.set('4', 50)
+        cache.set('5', 50)
+        // After append the offsets of pre-existing items must remain identical.
+        expect(calculateOffsetForIndex(b, 3, getId, cache, 40)).toBe(300)
+        expect(calculateTotalHeight(b, getId, cache, 40)).toBe(400)
+    })
+
+    it('prepend fast path rebuilds from index 0 and reuses prior heights', () => {
+        const cache = new ChatHeightCache()
+        const original = msgs(['10', '11', '12'])
+        cache.set('10', 100)
+        cache.set('11', 100)
+        cache.set('12', 100)
+        expect(calculateTotalHeight(original, getId, cache, 40)).toBe(300)
+
+        // Prepend two older messages — their heights aren't measured yet.
+        const prepended = [...msgs(['8', '9']), ...original]
+        expect(calculateTotalHeight(prepended, getId, cache, 40)).toBe(380) // 40+40+300
+
+        // Measuring the new ones just bumps their slot via dirty marker.
+        cache.set('8', 60)
+        cache.set('9', 60)
+        expect(calculateTotalHeight(prepended, getId, cache, 40)).toBe(420)
+        // Original messages now sit at indices 2..4 — offset of '10' is 120.
+        expect(calculateOffsetForIndex(prepended, 2, getId, cache, 40)).toBe(120)
+    })
+
+    it('full rebuild on splice/random reorder', () => {
+        const cache = new ChatHeightCache()
+        const a = msgs(['1', '2', '3', '4'])
+        cache.set('1', 50)
+        cache.set('2', 50)
+        cache.set('3', 50)
+        cache.set('4', 50)
+        expect(calculateTotalHeight(a, getId, cache, 40)).toBe(200)
+
+        // Replace middle element with a distinct height so the assertion fails
+        // if sync wrongly reuses the old ordering.
+        const b = msgs(['1', '99', '3', '4'])
+        cache.set('99', 500)
+        expect(calculateTotalHeight(b, getId, cache, 40)).toBe(650)
+        expect(calculateOffsetForIndex(b, 2, getId, cache, 40)).toBe(550)
+    })
+
+    it('append-shape with replaced head falls through to full rebuild', () => {
+        // Endpoint-only guards would treat `[1,2,3] -> [9,2,3,4]` as a clean
+        // append because `messages[oldN-1] === orderedIds[oldN-1]`. The
+        // strengthened guard (head + tail) catches the replaced head.
+        const cache = new ChatHeightCache()
+        const a = msgs(['1', '2', '3'])
+        cache.set('1', 50)
+        cache.set('2', 50)
+        cache.set('3', 50)
+        expect(calculateTotalHeight(a, getId, cache, 40)).toBe(150)
+
+        const b = msgs(['9', '2', '3', '4'])
+        cache.set('9', 100)
+        cache.set('4', 70)
+        expect(calculateTotalHeight(b, getId, cache, 40)).toBe(270) // 100+50+50+70
+        // Index 1's offset must reflect the new head height (100), not the
+        // stale '1' height (50). A wrongly-taken append path leaves orderedIds
+        // = [1,2,3,4] and would compute offset=50 here.
+        expect(calculateOffsetForIndex(b, 1, getId, cache, 40)).toBe(100)
+    })
+
+    it('same-length mid-replace falls through to full rebuild', () => {
+        // Endpoint-only no-op check would treat `[1,2,3,4] -> [1,99,3,4]` as
+        // unchanged because head and tail match. The full id walk catches the
+        // mid-array replacement.
+        const cache = new ChatHeightCache()
+        const a = msgs(['1', '2', '3', '4'])
+        cache.set('1', 50)
+        cache.set('2', 50)
+        cache.set('3', 50)
+        cache.set('4', 50)
+        expect(calculateTotalHeight(a, getId, cache, 40)).toBe(200)
+
+        const b = msgs(['1', '99', '3', '4'])
+        cache.set('99', 200)
+        // Total reflects '99' replacing '2': 50+200+50+50 = 350.
+        expect(calculateTotalHeight(b, getId, cache, 40)).toBe(350)
+        expect(calculateOffsetForIndex(b, 2, getId, cache, 40)).toBe(250)
+    })
+
+    it('measurement of an id absent from the current ordering is silently ignored', () => {
+        const cache = new ChatHeightCache()
+        const a = msgs(['1', '2', '3'])
+        cache.set('1', 100)
+        cache.set('2', 100)
+        cache.set('3', 100)
+        expect(calculateTotalHeight(a, getId, cache, 40)).toBe(300)
+
+        // ResizeObserver fires for an id that has been removed from the array
+        // but is still in the height map — must not corrupt the prefix sum.
+        cache.set('999', 9999)
+        expect(calculateTotalHeight(a, getId, cache, 40)).toBe(300)
+        expect(calculateOffsetForIndex(a, 2, getId, cache, 40)).toBe(200)
+    })
+
+    it('cache.delete on a mid-array id invalidates the prefix sum from that index', () => {
+        const cache = new ChatHeightCache()
+        const a = msgs(['1', '2', '3', '4'])
+        cache.set('1', 100)
+        cache.set('2', 100)
+        cache.set('3', 100)
+        cache.set('4', 100)
+        expect(calculateTotalHeight(a, getId, cache, 40)).toBe(400)
+
+        // Drop the measurement of '2' → its slot falls back to estimate (40).
+        cache.delete('2')
+        expect(calculateTotalHeight(a, getId, cache, 40)).toBe(340)
+        // Offset of index 3 should reflect the dropped measurement: 100+40+100.
+        expect(calculateOffsetForIndex(a, 3, getId, cache, 40)).toBe(240)
+    })
+
+    it('clear resets ordering and prefix sum', () => {
+        const cache = new ChatHeightCache()
+        const a = msgs(['1', '2'])
+        cache.set('1', 100)
+        cache.set('2', 100)
+        expect(calculateTotalHeight(a, getId, cache, 40)).toBe(200)
+        cache.clear()
+        expect(cache.size).toBe(0)
+        // After clear the next call to a public function must rebuild via sync.
+        expect(calculateTotalHeight(a, getId, cache, 40)).toBe(80) // both unmeasured
+    })
+
+    it('two consecutive prepends without intervening reads', () => {
+        const cache = new ChatHeightCache()
+        const tail = msgs(['100', '101'])
+        cache.set('100', 100)
+        cache.set('101', 100)
+        // Prime the cache with the original tail.
+        expect(calculateTotalHeight(tail, getId, cache, 40)).toBe(200)
+
+        const first = [...msgs(['98', '99']), ...tail]
+        const second = [...msgs(['96', '97']), ...first]
+        // Skip directly to the second prepend — no read between the two
+        // sync calls. The internal #lastSyncedMessages tracks `first` was
+        // never observed, so the second sync still has to discover the
+        // shape from scratch.
+        cache.set('96', 60)
+        cache.set('97', 60)
+        cache.set('98', 60)
+        cache.set('99', 60)
+        expect(calculateTotalHeight(second, getId, cache, 40)).toBe(440) // 60*4 + 100*2
+        // Tail items still sit at the end.
+        expect(calculateOffsetForIndex(second, 4, getId, cache, 40)).toBe(240)
+    })
+
+    it('append after prepend in the same tick keeps both ends correct', () => {
+        const cache = new ChatHeightCache()
+        const orig = msgs(['10', '11'])
+        cache.set('10', 100)
+        cache.set('11', 100)
+        expect(calculateTotalHeight(orig, getId, cache, 40)).toBe(200)
+
+        const prepended = [...msgs(['8', '9']), ...orig]
+        cache.set('8', 50)
+        cache.set('9', 50)
+        expect(calculateTotalHeight(prepended, getId, cache, 40)).toBe(300)
+
+        const both = [...prepended, ...msgs(['12', '13'])]
+        cache.set('12', 75)
+        cache.set('13', 75)
+        expect(calculateTotalHeight(both, getId, cache, 40)).toBe(450)
+        // Original '10' now sits at index 2 with offset 50+50.
+        expect(calculateOffsetForIndex(both, 2, getId, cache, 40)).toBe(100)
+        // First appended '12' sits at index 4 with offset 50+50+100+100.
+        expect(calculateOffsetForIndex(both, 4, getId, cache, 40)).toBe(300)
+    })
+
+    it('changing estimatedHeight without touching messages invalidates the prefix sum', () => {
+        const cache = new ChatHeightCache()
+        const a = msgs(['1', '2', '3'])
+        // No measurements — every slot falls through to the estimate.
+        expect(calculateTotalHeight(a, getId, cache, 40)).toBe(120)
+        // Same array reference, new estimate — prefix sum must rebuild.
+        expect(calculateTotalHeight(a, getId, cache, 100)).toBe(300)
+    })
+
+    it('shrink to empty resets ordering', () => {
+        const cache = new ChatHeightCache()
+        const a = msgs(['1', '2', '3'])
+        cache.set('1', 100)
+        cache.set('2', 100)
+        cache.set('3', 100)
+        expect(calculateTotalHeight(a, getId, cache, 40)).toBe(300)
+        expect(calculateTotalHeight([], getId, cache, 40)).toBe(0)
+        // After empty-sync, repopulating through a fresh array must work.
+        expect(calculateTotalHeight(a, getId, cache, 40)).toBe(300)
+    })
 })

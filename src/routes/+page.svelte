@@ -29,6 +29,10 @@
                 {
                     href: resolve('/tests/chat/genai-like'),
                     label: 'Genai-like layout (header + tall footer)'
+                },
+                {
+                    href: resolve('/tests/chat/perf-bench'),
+                    label: 'Performance baseline (longtask + rAF p95)'
                 }
             ]
         }
