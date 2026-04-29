@@ -80,9 +80,42 @@
     })
 
     // ── Derived: slice of messages to render ────────────────────────
-    const renderedMessages = $derived(
-        messages.length === 0 ? [] : messages.slice(visibleRange.start, visibleRange.end + 1)
-    )
+    // `messages.slice(...)` allocates a fresh array on every reactive update,
+    // including pure-scroll deltas where the visible range hasn't moved. At
+    // 60fps that's a throwaway array per frame. Memoize the slice and reuse
+    // it when the messages reference, both bounds, AND the head/tail still
+    // point at the same message instances — that catches append, prepend,
+    // whole-array-replace, and consumer-side immutable mid-replace
+    // (`messages = [...slice(0,i), newMsg, ...slice(i+1)]` invalidates via
+    // the reference check). The remaining gap is in-place mid-replace via
+    // `$state` proxy (`messages[i] = newObj` without array reassignment) —
+    // catching that would require a per-index walk or a content version,
+    // both of which would defeat the optimization on the scroll hot path.
+    const EMPTY_SLICE: TMessage[] = []
+    let cachedSlice: TMessage[] = []
+    let cachedStart = -1
+    let cachedEnd = -1
+    let cachedMessagesRef: TMessage[] | null = null
+    const renderedMessages = $derived.by(() => {
+        if (messages.length === 0) return EMPTY_SLICE
+        const { start, end } = visibleRange
+        const length = end - start + 1
+        if (
+            messages === cachedMessagesRef &&
+            start === cachedStart &&
+            end === cachedEnd &&
+            cachedSlice.length === length &&
+            cachedSlice[0] === messages[start] &&
+            cachedSlice[length - 1] === messages[end]
+        ) {
+            return cachedSlice
+        }
+        cachedMessagesRef = messages
+        cachedStart = start
+        cachedEnd = end
+        cachedSlice = messages.slice(start, end + 1)
+        return cachedSlice
+    })
 
     // ── Scroll event handler ────────────────────────────────────────
     const handleScroll = () => {
