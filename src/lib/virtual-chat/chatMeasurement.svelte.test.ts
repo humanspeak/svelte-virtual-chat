@@ -91,26 +91,56 @@ describe('ChatHeightCache', () => {
         expect(cache.has('b')).toBe(false)
     })
 
-    it('version increments on set, delete, clear', () => {
+    it('version increments on set (deferred), delete (sync), clear (sync)', async () => {
         const cache = new ChatHeightCache()
         const v0 = cache.version
         cache.set('a', 50)
+        expect(cache.version).toBe(v0) // not yet bumped — deferred to microtask
+        await Promise.resolve()
         expect(cache.version).toBe(v0 + 1)
         cache.set('a', 60)
+        await Promise.resolve()
         expect(cache.version).toBe(v0 + 2)
         cache.delete('a')
-        expect(cache.version).toBe(v0 + 3)
+        expect(cache.version).toBe(v0 + 3) // delete bumps synchronously
         cache.set('b', 70)
         cache.clear()
-        expect(cache.version).toBe(v0 + 5)
+        expect(cache.version).toBe(v0 + 4) // clear supersedes the pending set bump
+        await Promise.resolve()
+        expect(cache.version).toBe(v0 + 4) // pending microtask was canceled
     })
 
-    it('version does not increment on no-op set', () => {
+    it('version does not increment on no-op set', async () => {
         const cache = new ChatHeightCache()
         cache.set('a', 50)
+        await Promise.resolve()
         const v = cache.version
-        cache.set('a', 50)
+        cache.set('a', 50) // no-op short-circuit
+        await Promise.resolve()
         expect(cache.version).toBe(v)
+    })
+
+    it('multiple set() calls in the same task coalesce into one version bump', async () => {
+        const cache = new ChatHeightCache()
+        const v0 = cache.version
+        cache.set('a', 50)
+        cache.set('b', 60)
+        cache.set('c', 70)
+        expect(cache.version).toBe(v0) // not yet bumped
+        await Promise.resolve()
+        expect(cache.version).toBe(v0 + 1) // single bump for all three
+    })
+
+    it('delete supersedes a pending deferred bump', async () => {
+        const cache = new ChatHeightCache()
+        cache.set('a', 50)
+        await Promise.resolve()
+        const v = cache.version
+        cache.set('a', 60) // schedules microtask
+        cache.delete('a') // sync bump, supersedes pending
+        expect(cache.version).toBe(v + 1) // delete fired sync
+        await Promise.resolve()
+        expect(cache.version).toBe(v + 1) // pending microtask was a no-op
     })
 })
 

@@ -25,19 +25,28 @@ export class ChatHeightCache {
     #dirtyFromIndex = Number.POSITIVE_INFINITY
     #lastSyncedMessages: unknown = null
     #estimatedHeight = 0
+    // Coalesce `set()`-driven version bumps so a batch of ResizeObserver
+    // callbacks within one task triggers one downstream cascade instead of N.
+    #pendingBump = false
 
     /** Get the measured height for a message, or undefined if not yet measured. */
     get(id: string): number | undefined {
         return this.#heights[id]
     }
 
-    /** Set the measured height for a message. Returns true if the value changed. */
+    /**
+     * Set the measured height for a message. Returns true if the value changed.
+     *
+     * The version bump is deferred to a microtask so a batch of `set()` calls
+     * within one task (the typical ResizeObserver burst) coalesces into a
+     * single bump and one downstream reactive cascade. The boolean return is
+     * still synchronous and accurate per-call — only the cascade is deferred.
+     */
     set(id: string, height: number): boolean {
         if (this.#heights[id] === height) return false
         this.#heights[id] = height
-        this.#version++
-        const i = this.#idToIndex[id]
-        if (i !== undefined && i < this.#dirtyFromIndex) this.#dirtyFromIndex = i
+        this.#markDirtyAt(id)
+        this.#scheduleBump()
         return true
     }
 
@@ -45,9 +54,8 @@ export class ChatHeightCache {
     delete(id: string): void {
         if (id in this.#heights) {
             delete this.#heights[id]
-            this.#version++
-            const i = this.#idToIndex[id]
-            if (i !== undefined && i < this.#dirtyFromIndex) this.#dirtyFromIndex = i
+            this.#markDirtyAt(id)
+            this.#flushBumpSync()
         }
     }
 
@@ -75,6 +83,35 @@ export class ChatHeightCache {
         this.#prefixSum = [0]
         this.#dirtyFromIndex = Number.POSITIVE_INFINITY
         this.#lastSyncedMessages = null
+        this.#flushBumpSync()
+    }
+
+    /**
+     * Pull the prefix-sum dirty marker back to the slot a height-affecting
+     * change just landed at. No-op when the id isn't in the current ordering
+     * (e.g. a measurement arrives for a message that's already been removed).
+     */
+    #markDirtyAt(id: string): void {
+        const i = this.#idToIndex[id]
+        if (i !== undefined && i < this.#dirtyFromIndex) this.#dirtyFromIndex = i
+    }
+
+    #scheduleBump(): void {
+        if (this.#pendingBump) return
+        this.#pendingBump = true
+        queueMicrotask(() => {
+            // A sync delete/clear may have already bumped and cleared the
+            // flag — in that case the queued microtask is redundant.
+            if (!this.#pendingBump) return
+            this.#pendingBump = false
+            this.#version++
+        })
+    }
+
+    #flushBumpSync(): void {
+        // Used by delete/clear: bump immediately and supersede any pending
+        // deferred bump so the caller sees the change in this same task.
+        this.#pendingBump = false
         this.#version++
     }
 
