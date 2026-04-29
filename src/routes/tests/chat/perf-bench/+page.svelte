@@ -41,10 +41,17 @@
     let displayLongTaskCount = $state(0)
     let displayRafP95Ms = $state(0)
     let displayMutationCount = $state(0)
+    let displayLoafCount = $state(0)
+    let displayLoafScriptMaxMs = $state(0)
+    let loafSupported = $state(true)
 
     let longTaskEntries: { time: number; duration: number }[] = []
     let rafIntervals: { time: number; delta: number }[] = []
     let mutationEvents: { time: number; count: number }[] = []
+    // LoAF entries fire for any frame ≥50ms. `scriptMs` is the sum of
+    // `scripts[].duration` for that frame — i.e. the slice of frame time
+    // attributable to JS execution, distinct from style/layout/paint.
+    let loafEntries: { time: number; durationMs: number; scriptMs: number }[] = []
     let streamHandle: ReturnType<typeof setInterval> | null = null
 
     const buildMessage = (role: Role, idx: number): Message => {
@@ -87,10 +94,13 @@
         longTaskEntries = []
         rafIntervals = []
         mutationEvents = []
+        loafEntries = []
         displayLongestTaskMs = 0
         displayLongTaskCount = 0
         displayRafP95Ms = 0
         displayMutationCount = 0
+        displayLoafCount = 0
+        displayLoafScriptMaxMs = 0
     }
 
     const startStreamSim = () => {
@@ -133,6 +143,29 @@
             longTaskSupported = false
         }
 
+        try {
+            // PerformanceLongAnimationFrameTiming — Chromium 123+. Reports any
+            // frame ≥50ms with a `scripts[]` breakdown. Useful for attributing
+            // a long frame to JS execution vs style/layout/paint.
+            type ScriptTiming = { duration: number }
+            type LongAnimationFrameTiming = PerformanceEntry & { scripts?: ScriptTiming[] }
+            const po = new PerformanceObserver((list) => {
+                const now = performance.now()
+                for (const raw of list.getEntries()) {
+                    const entry = raw as LongAnimationFrameTiming
+                    let scriptMs = 0
+                    if (entry.scripts) {
+                        for (const s of entry.scripts) scriptMs += s.duration
+                    }
+                    loafEntries.push({ time: now, durationMs: entry.duration, scriptMs })
+                }
+            })
+            po.observe({ type: 'long-animation-frame', buffered: true })
+            cleanups.push(() => po.disconnect())
+        } catch {
+            loafSupported = false
+        }
+
         const wrapper = document.querySelector('[data-testid="chat-wrapper"]')
         if (wrapper) {
             const mo = new MutationObserver((records) => {
@@ -165,6 +198,7 @@
             longTaskEntries = longTaskEntries.filter((e) => e.time >= cutoff)
             rafIntervals = rafIntervals.filter((e) => e.time >= cutoff)
             mutationEvents = mutationEvents.filter((e) => e.time >= cutoff)
+            loafEntries = loafEntries.filter((e) => e.time >= cutoff)
 
             let longest = 0
             let longCount = 0
@@ -186,6 +220,13 @@
             let mutCount = 0
             for (const e of mutationEvents) mutCount += e.count
             displayMutationCount = mutCount
+
+            let loafScriptMax = 0
+            for (const e of loafEntries) {
+                if (e.scriptMs > loafScriptMax) loafScriptMax = e.scriptMs
+            }
+            displayLoafCount = loafEntries.length
+            displayLoafScriptMaxMs = Math.round(loafScriptMax)
         }, 250)
         cleanups.push(() => clearInterval(refreshHandle))
 
@@ -202,9 +243,10 @@
 <div class="flex h-screen flex-col p-4">
     <h1 class="mb-2 text-lg font-semibold">Test: Performance baseline</h1>
     <p class="mb-3 text-sm text-gray-500">
-        Captures rolling-10s metrics — longtask, rAF interval p95, MutationObserver churn — for the
-        optimization tier work. The first ~1s after a Load click is warmup (the synchronous batch is
-        itself a longtask spike); steady-state numbers are what to compare across changes.
+        Captures rolling-10s metrics — longtask, rAF interval p95, MutationObserver churn, and
+        LongAnimationFrame scripting time — for the optimization tier work. The first ~1s after a
+        Load click is warmup (the synchronous batch is itself a longtask spike); steady-state
+        numbers are what to compare across changes.
     </p>
 
     <div class="mb-3 flex flex-wrap gap-2">
@@ -256,6 +298,8 @@
         · longestTaskMs={longTaskSupported ? displayLongestTaskMs : 'n/a'}
         longTasks10s={longTaskSupported ? displayLongTaskCount : 'n/a'}
         rafP95={displayRafP95Ms}ms mutations10s={displayMutationCount}
+        loaf10s={loafSupported ? displayLoafCount : 'n/a'}
+        loafScriptMaxMs={loafSupported ? displayLoafScriptMaxMs : 'n/a'}
     </div>
 
     <div class="min-h-0 flex-1 rounded-lg border-2 border-gray-300" data-testid="chat-wrapper">
