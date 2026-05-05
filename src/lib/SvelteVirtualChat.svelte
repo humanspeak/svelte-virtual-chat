@@ -178,13 +178,15 @@
 
         return {
             update(newMessageId: string) {
-                if (newMessageId !== messageId) {
-                    messageId = newMessageId
-                    const height = node.getBoundingClientRect().height
-                    if (height > 0) {
-                        heightCache.set(messageId, height)
-                    }
-                }
+                // Svelte's keyed `{#each}` block doesn't recycle DOM nodes
+                // across different keys, so this path almost never fires in
+                // practice. Defensively keep the closed-over `messageId` in
+                // sync (the ResizeObserver callback reads it) but skip the
+                // sync `getBoundingClientRect()` — the next ResizeObserver
+                // fire after layout will re-measure correctly. Sync DOM reads
+                // here would force a reflow in any edge case Svelte does
+                // recycle a node.
+                messageId = newMessageId
             },
             destroy() {
                 observer.disconnect()
