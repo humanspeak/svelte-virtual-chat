@@ -284,7 +284,8 @@
             averageHeight:
                 measuredCount > 0
                     ? Math.round(totalHeight / messages.length)
-                    : estimatedMessageHeight
+                    : estimatedMessageHeight,
+            heightCacheVersion: heightCache.version
         }
     }
 

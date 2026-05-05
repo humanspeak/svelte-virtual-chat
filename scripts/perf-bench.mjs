@@ -46,7 +46,9 @@ function parseStats(s) {
         rafP95Ms: parseFloat(grab('rafP95')),
         mutations10s: Number(grab('mutations10s')),
         loaf10s: grab('loaf10s'),
-        loafScriptMaxMs: grab('loafScriptMaxMs')
+        loafScriptMaxMs: grab('loafScriptMaxMs'),
+        cascadeBumps10s: Number(grab('cascadeBumps10s')),
+        heapAllocKbPerSec: grab('heapAllocKbPerSec')
     }
 }
 
@@ -139,7 +141,13 @@ async function runAll(label, page) {
 }
 
 ;(async () => {
-    const browser = await chromium.launch({ headless: true })
+    const browser = await chromium.launch({
+        headless: true,
+        // Needed for the perf-bench fixture's heap-delta metric.
+        // `performance.memory.usedJSHeapSize` is quantized to ~100KB without
+        // this flag, which rounds most per-rAF deltas to 0.
+        args: ['--enable-precise-memory-info']
+    })
     const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
     const page = await context.newPage()
 
