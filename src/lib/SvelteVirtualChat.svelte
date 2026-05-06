@@ -1,4 +1,5 @@
 <script lang="ts" generics="TMessage">
+    import { untrack } from 'svelte'
     import type { SvelteVirtualChatProps, SvelteVirtualChatDebugInfo } from './types.js'
     import {
         ChatHeightCache,
@@ -178,13 +179,15 @@
 
         return {
             update(newMessageId: string) {
-                if (newMessageId !== messageId) {
-                    messageId = newMessageId
-                    const height = node.getBoundingClientRect().height
-                    if (height > 0) {
-                        heightCache.set(messageId, height)
-                    }
-                }
+                // Svelte's keyed `{#each}` block doesn't recycle DOM nodes
+                // across different keys, so this path almost never fires in
+                // practice. Defensively keep the closed-over `messageId` in
+                // sync (the ResizeObserver callback reads it) but skip the
+                // sync `getBoundingClientRect()` — the next ResizeObserver
+                // fire after layout will re-measure correctly. Sync DOM reads
+                // here would force a reflow in any edge case Svelte does
+                // recycle a node.
+                messageId = newMessageId
             },
             destroy() {
                 observer.disconnect()
@@ -284,17 +287,33 @@
             averageHeight:
                 measuredCount > 0
                     ? Math.round(totalHeight / messages.length)
-                    : estimatedMessageHeight
+                    : estimatedMessageHeight,
+            heightCacheVersion: heightCache.version
         }
     }
 
+    // Debug-info effect — narrowed to fire only on user-meaningful changes:
+    // visible-range crossings, follow-bottom flips, and per-message height
+    // mutations (via `heightCache.version`). The 60 Hz scrollTop signal is
+    // intentionally excluded — consumers wanting per-pixel scroll updates
+    // can poll `getDebugInfo()` directly or wire a separate handler in a
+    // future API.
+    //
+    // `untrack()` keeps `buildDebugInfo()`'s internal reads (scrollTop,
+    // totalHeight, etc.) from creating implicit dependencies — without it,
+    // narrowing the explicit deps wouldn't matter because the snapshot call
+    // would still pick them up.
+    // `messages.length` is in the key so consumers using in-place mutation
+    // (e.g. `messages.push(...)`) still get an `onDebugInfo` fire — the
+    // slice cache from the rendered-messages memoization can otherwise
+    // return the same slice across an append, leaving `renderedMessages.length`
+    // and `visibleRange` unchanged.
+    const debugShape = $derived(
+        `${messages.length}|${renderedMessages.length}|${visibleRange.start}|${visibleRange.end}|${isFollowingBottom}|${heightCache.version}`
+    )
     $effect(() => {
-        void renderedMessages.length
-        void heightCache.version
-        void scrollTop
-        void isFollowingBottom
-
-        const info = buildDebugInfo()
+        void debugShape
+        const info = untrack(() => buildDebugInfo())
         onDebugInfo?.(info)
     })
 

@@ -34,6 +34,10 @@
     let messages: Message[] = $state([])
     let counter = $state(0)
     let debugInfo: SvelteVirtualChatDebugInfo | null = $state(null)
+    // Component ref so the refresh tick can poll `getDebugInfo()` directly,
+    // independently of when `onDebugInfo` fires. Decouples the cascade-bumps
+    // metric from the (now-narrower) debug-info effect.
+    let chat: { getDebugInfo: () => SvelteVirtualChatDebugInfo } | undefined = $state()
     let isStreaming = $state(false)
     let longTaskSupported = $state(true)
 
@@ -43,7 +47,11 @@
     let displayMutationCount = $state(0)
     let displayLoafCount = $state(0)
     let displayLoafScriptMaxMs = $state(0)
+    let displayCascadeBumps = $state(0)
+    let displayHeapAllocKbPerSec = $state(0)
+    let displayOnDebugInfoFires = $state(0)
     let loafSupported = $state(true)
+    let heapSupported = $state(true)
 
     let longTaskEntries: { time: number; duration: number }[] = []
     let rafIntervals: { time: number; delta: number }[] = []
@@ -52,6 +60,21 @@
     // `scripts[].duration` for that frame — i.e. the slice of frame time
     // attributable to JS execution, distinct from style/layout/paint.
     let loafEntries: { time: number; durationMs: number; scriptMs: number }[] = []
+    // Snapshots of `debugInfo.heightCacheVersion` over the rolling window;
+    // first/last delta = number of cache mutations in the window. Direct
+    // signal for #9-style coalescing wins where N sync bumps collapse to 1.
+    let versionSamples: { time: number; version: number }[] = []
+    // Positive heap-size deltas per rAF tick. Sum / window-seconds gives a
+    // coarse "JS allocation rate" — catches sub-LoAF wins like #10's slice
+    // cache where frames stay under 50ms but allocations drop. Note: only
+    // useful in a real Chrome DevTools session; headless Chromium quantizes
+    // `performance.memory.usedJSHeapSize` and reports 0 for most rAF deltas
+    // even with `--enable-precise-memory-info`.
+    let heapDeltas: { time: number; deltaBytes: number }[] = []
+    // Timestamps of every `onDebugInfo` callback invocation. Direct measure
+    // of how often a consumer's debug-info handler is being called — drops
+    // when the debug-info effect's dependencies are narrowed.
+    let onDebugInfoFires: number[] = []
     let streamHandle: ReturnType<typeof setInterval> | null = null
 
     const buildMessage = (role: Role, idx: number): Message => {
@@ -95,12 +118,18 @@
         rafIntervals = []
         mutationEvents = []
         loafEntries = []
+        versionSamples = []
+        heapDeltas = []
+        onDebugInfoFires = []
         displayLongestTaskMs = 0
         displayLongTaskCount = 0
         displayRafP95Ms = 0
         displayMutationCount = 0
         displayLoafCount = 0
         displayLoafScriptMaxMs = 0
+        displayCascadeBumps = 0
+        displayHeapAllocKbPerSec = 0
+        displayOnDebugInfoFires = 0
     }
 
     const startStreamSim = () => {
@@ -175,14 +204,31 @@
             cleanups.push(() => mo.disconnect())
         }
 
+        // `performance.memory` is non-standard and Chrome-only; capability-check
+        // once at mount. When unsupported the heap-delta column reads `n/a`.
+        type MemoryInfo = { usedJSHeapSize: number }
+        type PerformanceWithMemory = Performance & { memory?: MemoryInfo }
+        const perfMem = (performance as PerformanceWithMemory).memory
+        if (!perfMem) heapSupported = false
+
         let rafId = 0
         let lastRaf = performance.now()
         let firstSampleSeen = false
+        let lastHeapBytes = perfMem?.usedJSHeapSize ?? 0
         const tick = (now: number) => {
             const delta = now - lastRaf
             lastRaf = now
             if (firstSampleSeen) {
                 rafIntervals.push({ time: now, delta })
+                if (perfMem) {
+                    const current = perfMem.usedJSHeapSize
+                    const heapDelta = current - lastHeapBytes
+                    // Only positive deltas — negatives are GC reclaim, not
+                    // allocations. Drops the saw-tooth so the windowed sum
+                    // approximates allocation rate.
+                    if (heapDelta > 0) heapDeltas.push({ time: now, deltaBytes: heapDelta })
+                    lastHeapBytes = current
+                }
             } else {
                 firstSampleSeen = true
             }
@@ -199,6 +245,20 @@
             rafIntervals = rafIntervals.filter((e) => e.time >= cutoff)
             mutationEvents = mutationEvents.filter((e) => e.time >= cutoff)
             loafEntries = loafEntries.filter((e) => e.time >= cutoff)
+            versionSamples = versionSamples.filter((e) => e.time >= cutoff)
+            heapDeltas = heapDeltas.filter((e) => e.time >= cutoff)
+            onDebugInfoFires = onDebugInfoFires.filter((t) => t >= cutoff)
+
+            // Poll the chat directly for the current cache version on every
+            // refresh tick. Polling here (rather than reading `debugInfo`)
+            // keeps cascade-bump accounting accurate even when the
+            // `onDebugInfo` effect doesn't fire — e.g. during stream
+            // simulation post-#12 where most height changes don't change the
+            // visible-range shape.
+            if (chat) {
+                const fresh = chat.getDebugInfo()
+                versionSamples.push({ time: now, version: fresh.heightCacheVersion })
+            }
 
             let longest = 0
             let longCount = 0
@@ -227,6 +287,25 @@
             }
             displayLoafCount = loafEntries.length
             displayLoafScriptMaxMs = Math.round(loafScriptMax)
+
+            if (versionSamples.length >= 2) {
+                const first = versionSamples[0].version
+                const last = versionSamples[versionSamples.length - 1].version
+                displayCascadeBumps = Math.max(0, last - first)
+            } else {
+                displayCascadeBumps = 0
+            }
+
+            if (heapSupported) {
+                let totalBytes = 0
+                for (const e of heapDeltas) totalBytes += e.deltaBytes
+                const seconds = ROLLING_WINDOW_MS / 1000
+                displayHeapAllocKbPerSec = Math.round(totalBytes / 1024 / seconds)
+            } else {
+                displayHeapAllocKbPerSec = 0
+            }
+
+            displayOnDebugInfoFires = onDebugInfoFires.length
         }, 250)
         cleanups.push(() => clearInterval(refreshHandle))
 
@@ -243,10 +322,11 @@
 <div class="flex h-screen flex-col p-4">
     <h1 class="mb-2 text-lg font-semibold">Test: Performance baseline</h1>
     <p class="mb-3 text-sm text-gray-500">
-        Captures rolling-10s metrics — longtask, rAF interval p95, MutationObserver churn, and
-        LongAnimationFrame scripting time — for the optimization tier work. The first ~1s after a
-        Load click is warmup (the synchronous batch is itself a longtask spike); steady-state
-        numbers are what to compare across changes.
+        Captures rolling-10s metrics — longtask, rAF interval p95, MutationObserver churn,
+        LongAnimationFrame scripting time, height-cache reactive cascade bumps, and (Chrome-only) JS
+        heap allocation rate — for the optimization tier work. The first ~1s after a Load click is
+        warmup (the synchronous batch is itself a longtask spike); steady-state numbers are what to
+        compare across changes.
     </p>
 
     <div class="mb-3 flex flex-wrap gap-2">
@@ -300,14 +380,22 @@
         rafP95={displayRafP95Ms}ms mutations10s={displayMutationCount}
         loaf10s={loafSupported ? displayLoafCount : 'n/a'}
         loafScriptMaxMs={loafSupported ? displayLoafScriptMaxMs : 'n/a'}
+        cascadeBumps10s={displayCascadeBumps}
+        heapAllocKbPerSec={heapSupported ? displayHeapAllocKbPerSec : 'n/a'}
+        onDebugInfoFires10s={displayOnDebugInfoFires}
     </div>
 
     <div class="min-h-0 flex-1 rounded-lg border-2 border-gray-300" data-testid="chat-wrapper">
         <SvelteVirtualChat
+            bind:this={chat}
             {messages}
             getMessageId={(msg: Message) => msg.id}
             estimatedMessageHeight={120}
-            onDebugInfo={(info: SvelteVirtualChatDebugInfo) => (debugInfo = info)}
+            onDebugInfo={(info: SvelteVirtualChatDebugInfo) => {
+                const now = performance.now()
+                debugInfo = info
+                onDebugInfoFires.push(now)
+            }}
             containerClass="h-full"
             viewportClass="h-full"
             testId="chat"

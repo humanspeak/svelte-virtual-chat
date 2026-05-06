@@ -106,6 +106,15 @@ export type SvelteVirtualChatDebugInfo = {
     viewportHeight: number
     isFollowingBottom: boolean
     averageHeight: number
+    /**
+     * Monotonically-increasing counter of internal height-cache mutations
+     * (each measurement, removal, or clear bumps it by exactly 1). Sample
+     * the delta over a window to count reactive cascade triggers — the
+     * difference between two readings is the number of cache changes in
+     * between, useful for benchmarking optimizations that aim to coalesce
+     * those changes.
+     */
+    heightCacheVersion: number
 }
 
 /**
