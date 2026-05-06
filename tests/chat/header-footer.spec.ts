@@ -2,11 +2,11 @@ import { expect, test } from '@playwright/test'
 import {
     domMessageCount,
     getStat,
-    isFollowing,
     rafWait,
     scrollTo,
     scrollToBottom,
     SETTLE_MS,
+    waitForFollowing,
     waitForMount
 } from '../helpers.js'
 
@@ -67,7 +67,7 @@ test.describe('Header & Footer', () => {
         await rafWait(page, 3)
         await page.waitForTimeout(SETTLE_MS)
 
-        expect(await isFollowing(page)).toBe(true)
+        await waitForFollowing(page, true)
 
         // Toggle typing indicator — footer grows
         await page.locator('[data-testid="toggle-typing"]').click()
@@ -75,7 +75,7 @@ test.describe('Header & Footer', () => {
         await page.waitForTimeout(SETTLE_MS)
 
         // Should still be following bottom
-        expect(await isFollowing(page)).toBe(true)
+        await waitForFollowing(page, true)
 
         // Typing indicator should be visible
         await expect(page.locator('[data-testid="typing-indicator"]')).toBeVisible()
@@ -113,7 +113,7 @@ test.describe('Header & Footer', () => {
         }
         await page.waitForTimeout(SETTLE_MS)
 
-        expect(await isFollowing(page)).toBe(true)
+        await waitForFollowing(page, true)
 
         // Footer should still be visible at bottom
         await expect(page.locator('[data-testid="footer-content"]')).toBeVisible()
