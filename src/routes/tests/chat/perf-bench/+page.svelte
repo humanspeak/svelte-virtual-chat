@@ -34,6 +34,10 @@
     let messages: Message[] = $state([])
     let counter = $state(0)
     let debugInfo: SvelteVirtualChatDebugInfo | null = $state(null)
+    // Component ref so the refresh tick can poll `getDebugInfo()` directly,
+    // independently of when `onDebugInfo` fires. Decouples the cascade-bumps
+    // metric from the (now-narrower) debug-info effect.
+    let chat: { getDebugInfo: () => SvelteVirtualChatDebugInfo } | undefined = $state()
     let isStreaming = $state(false)
     let longTaskSupported = $state(true)
 
@@ -45,6 +49,7 @@
     let displayLoafScriptMaxMs = $state(0)
     let displayCascadeBumps = $state(0)
     let displayHeapAllocKbPerSec = $state(0)
+    let displayOnDebugInfoFires = $state(0)
     let loafSupported = $state(true)
     let heapSupported = $state(true)
 
@@ -66,6 +71,10 @@
     // `performance.memory.usedJSHeapSize` and reports 0 for most rAF deltas
     // even with `--enable-precise-memory-info`.
     let heapDeltas: { time: number; deltaBytes: number }[] = []
+    // Timestamps of every `onDebugInfo` callback invocation. Direct measure
+    // of how often a consumer's debug-info handler is being called — drops
+    // when the debug-info effect's dependencies are narrowed.
+    let onDebugInfoFires: number[] = []
     let streamHandle: ReturnType<typeof setInterval> | null = null
 
     const buildMessage = (role: Role, idx: number): Message => {
@@ -111,6 +120,7 @@
         loafEntries = []
         versionSamples = []
         heapDeltas = []
+        onDebugInfoFires = []
         displayLongestTaskMs = 0
         displayLongTaskCount = 0
         displayRafP95Ms = 0
@@ -119,6 +129,7 @@
         displayLoafScriptMaxMs = 0
         displayCascadeBumps = 0
         displayHeapAllocKbPerSec = 0
+        displayOnDebugInfoFires = 0
     }
 
     const startStreamSim = () => {
@@ -236,11 +247,18 @@
             loafEntries = loafEntries.filter((e) => e.time >= cutoff)
             versionSamples = versionSamples.filter((e) => e.time >= cutoff)
             heapDeltas = heapDeltas.filter((e) => e.time >= cutoff)
+            onDebugInfoFires = onDebugInfoFires.filter((t) => t >= cutoff)
 
-            // Sample the current cache version on every refresh tick so the
-            // window has a recent right-edge even when the SvelteVirtualChat
-            // hasn't fired `onDebugInfo` (e.g. during idle).
-            if (debugInfo) versionSamples.push({ time: now, version: debugInfo.heightCacheVersion })
+            // Poll the chat directly for the current cache version on every
+            // refresh tick. Polling here (rather than reading `debugInfo`)
+            // keeps cascade-bump accounting accurate even when the
+            // `onDebugInfo` effect doesn't fire — e.g. during stream
+            // simulation post-#12 where most height changes don't change the
+            // visible-range shape.
+            if (chat) {
+                const fresh = chat.getDebugInfo()
+                versionSamples.push({ time: now, version: fresh.heightCacheVersion })
+            }
 
             let longest = 0
             let longCount = 0
@@ -286,6 +304,8 @@
             } else {
                 displayHeapAllocKbPerSec = 0
             }
+
+            displayOnDebugInfoFires = onDebugInfoFires.length
         }, 250)
         cleanups.push(() => clearInterval(refreshHandle))
 
@@ -362,16 +382,19 @@
         loafScriptMaxMs={loafSupported ? displayLoafScriptMaxMs : 'n/a'}
         cascadeBumps10s={displayCascadeBumps}
         heapAllocKbPerSec={heapSupported ? displayHeapAllocKbPerSec : 'n/a'}
+        onDebugInfoFires10s={displayOnDebugInfoFires}
     </div>
 
     <div class="min-h-0 flex-1 rounded-lg border-2 border-gray-300" data-testid="chat-wrapper">
         <SvelteVirtualChat
+            bind:this={chat}
             {messages}
             getMessageId={(msg: Message) => msg.id}
             estimatedMessageHeight={120}
             onDebugInfo={(info: SvelteVirtualChatDebugInfo) => {
+                const now = performance.now()
                 debugInfo = info
-                versionSamples.push({ time: performance.now(), version: info.heightCacheVersion })
+                onDebugInfoFires.push(now)
             }}
             containerClass="h-full"
             viewportClass="h-full"

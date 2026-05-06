@@ -48,7 +48,8 @@ function parseStats(s) {
         loaf10s: grab('loaf10s'),
         loafScriptMaxMs: grab('loafScriptMaxMs'),
         cascadeBumps10s: Number(grab('cascadeBumps10s')),
-        heapAllocKbPerSec: grab('heapAllocKbPerSec')
+        heapAllocKbPerSec: grab('heapAllocKbPerSec'),
+        onDebugInfoFires10s: Number(grab('onDebugInfoFires10s'))
     }
 }
 
