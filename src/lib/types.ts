@@ -53,8 +53,10 @@ export type SvelteVirtualChatProps<TMessage = any> = {
     onFollowBottomChange?: (_isFollowing: boolean) => void
 
     /**
-     * Called whenever debug info updates (on scroll, height changes, message changes).
-     * Use this to display live stats in your UI.
+     * Called when debug info changes meaningfully — visible-range crossings,
+     * follow-bottom flips, message-count changes, and height-cache mutations.
+     * Per-pixel scrollTop updates do not fire this; consumers needing live
+     * scroll position should poll `getDebugInfo()` or attach a scroll handler.
      */
     onDebugInfo?: (_info: SvelteVirtualChatDebugInfo) => void
 
@@ -107,12 +109,13 @@ export type SvelteVirtualChatDebugInfo = {
     isFollowingBottom: boolean
     averageHeight: number
     /**
-     * Monotonically-increasing counter of internal height-cache mutations
-     * (each measurement, removal, or clear bumps it by exactly 1). Sample
-     * the delta over a window to count reactive cascade triggers — the
-     * difference between two readings is the number of cache changes in
-     * between, useful for benchmarking optimizations that aim to coalesce
-     * those changes.
+     * Monotonically-increasing counter of internal height-cache mutations.
+     * Height inserts and changes are coalesced — any number of `set()` calls
+     * within a single microtask bump this by 1 collectively. Removals and
+     * clears bump synchronously and supersede any pending coalesced bump.
+     * Sample the delta over a window to count reactive cascade triggers,
+     * useful for benchmarking optimizations that aim to coalesce those
+     * changes.
      */
     heightCacheVersion: number
 }

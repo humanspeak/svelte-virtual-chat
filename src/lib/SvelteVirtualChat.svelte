@@ -285,7 +285,7 @@
             viewportHeight,
             isFollowingBottom,
             averageHeight:
-                measuredCount > 0
+                measuredCount > 0 && messages.length > 0
                     ? Math.round(totalHeight / messages.length)
                     : estimatedMessageHeight,
             heightCacheVersion: heightCache.version
