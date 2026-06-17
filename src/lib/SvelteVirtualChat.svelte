@@ -54,7 +54,6 @@
     let footerHeight = $state(0)
     let isFollowingBottom = $state(true)
     let pendingSnapToBottom = $state(false)
-    let pendingAnchorRestore = false
     let pendingAnchor: VisualAnchor | null = null
 
     // ── Derived: total content height ───────────────────────────────
@@ -193,12 +192,11 @@
 
     const scheduleAnchorRestore = (anchor: VisualAnchor | null) => {
         if (!anchor || !viewportEl || isFollowingBottom || scrollIntent.isActive) return
-        pendingAnchor ??= anchor
-        if (pendingAnchorRestore) return
+        // A rAF is in flight iff an anchor is pending; the first anchor wins.
+        if (pendingAnchor) return
+        pendingAnchor = anchor
         layoutPreservation.begin()
-        pendingAnchorRestore = true
         requestAnimationFrame(() => {
-            pendingAnchorRestore = false
             const anchorToRestore = pendingAnchor
             pendingAnchor = null
             layoutPreservation.end()
@@ -207,6 +205,10 @@
             }
         })
     }
+
+    /** Anchor the first visible message before a layout change, unless pinned to bottom. */
+    const captureLayoutAnchor = (): VisualAnchor | null =>
+        !isFollowingBottom && !scrollIntent.isActive ? captureCurrentVisualAnchor() : null
 
     const handleLayoutHeightChange = (anchor: VisualAnchor | null) => {
         if (isFollowingBottom) {
@@ -267,15 +269,11 @@
         const observer = new ResizeObserver((entries) => {
             for (const entry of entries) {
                 const height = entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height
-                if (height > 0) {
-                    const anchor =
-                        !isFollowingBottom && !scrollIntent.isActive
-                            ? captureCurrentVisualAnchor()
-                            : null
-                    const changed = heightCache.set(messageId, height)
-                    if (changed) {
-                        handleLayoutHeightChange(anchor)
-                    }
+                if (height > 0 && heightCache.get(messageId) !== height) {
+                    // Capture against pre-growth offsets, before `set` dirties the cache.
+                    const anchor = captureLayoutAnchor()
+                    heightCache.set(messageId, height)
+                    handleLayoutHeightChange(anchor)
                 }
             }
         })
@@ -307,10 +305,7 @@
             for (const entry of entries) {
                 const height = entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height
                 if (height !== prev) {
-                    const anchor =
-                        !isFollowingBottom && !scrollIntent.isActive
-                            ? captureCurrentVisualAnchor()
-                            : null
+                    const anchor = captureLayoutAnchor()
                     prev = height
                     setter(height)
                     handleLayoutHeightChange(anchor)
