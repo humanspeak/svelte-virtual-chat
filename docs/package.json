@@ -7,7 +7,7 @@
         "build": "tsx ./scripts/fetch-github-stats.ts && node ./scripts/generate-sitemap-manifest.mjs && tsx ./scripts/generate-social-cards.ts && vite build",
         "cf-typegen": "wrangler types && mv worker-configuration.d.ts src/",
         "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-        "deploy": "npm run build && wrangler deploy",
+        "deploy": "pnpm run build && wrangler deploy",
         "deploy:indexnow": "tsx ./scripts/indexnow-ping.ts",
         "dev": "vite dev",
         "format": "prettier --write .",
@@ -48,6 +48,6 @@
         "wrangler": "^4.86.0"
     },
     "volta": {
-        "node": "24.15.0"
+        "node": "24.16.0"
     }
 }
