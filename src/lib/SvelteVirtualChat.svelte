@@ -7,6 +7,17 @@
         calculateTotalHeight,
         calculateVisibleRange
     } from './virtual-chat/chatMeasurement.svelte.js'
+    import { ChatLayoutPreservation } from './virtual-chat/chatLayoutPreservation.js'
+    import { ChatScrollIntent, trackScrollIntent } from './virtual-chat/chatScrollIntent.js'
+    import {
+        decideFollowBottomAfterScroll,
+        isViewportAtBottom
+    } from './virtual-chat/chatScrollPolicy.js'
+    import {
+        captureVisualAnchor,
+        restoreVisualAnchor,
+        type VisualAnchor
+    } from './virtual-chat/chatVisualAnchoring.js'
 
     let {
         messages,
@@ -30,14 +41,21 @@
 
     // ── Core state ──────────────────────────────────────────────────
     const heightCache = new ChatHeightCache()
+    const layoutPreservation = new ChatLayoutPreservation()
+    const scrollIntent = new ChatScrollIntent({
+        onIntentStart: () => layoutPreservation.end(),
+        onIntentEnd: () => {
+            if (isFollowingBottom) scheduleSnapToBottom()
+        }
+    })
     let scrollTop = $state(0)
     let viewportHeight = $state(0)
     let headerHeight = $state(0)
     let footerHeight = $state(0)
     let isFollowingBottom = $state(true)
     let pendingSnapToBottom = $state(false)
-    let userScrolling = false
-    let userScrollTimer: ReturnType<typeof setTimeout> | null = null
+    let pendingAnchorRestore = false
+    let pendingAnchor: VisualAnchor | null = null
 
     // ── Derived: total content height ───────────────────────────────
     const totalHeight = $derived.by(() => {
@@ -118,28 +136,109 @@
         return cachedSlice
     })
 
+    // ── Scroll state + anchor adapters ─────────────────────────────
+    const setFollowingBottom = (next: boolean) => {
+        const wasFollowing = isFollowingBottom
+        isFollowingBottom = next
+        if (wasFollowing !== next) {
+            onFollowBottomChange?.(next)
+        }
+    }
+
+    const isAtViewportBottom = () => {
+        if (!viewportEl) return true
+        return isViewportAtBottom(
+            {
+                scrollTop: viewportEl.scrollTop,
+                scrollHeight: viewportEl.scrollHeight,
+                clientHeight: viewportEl.clientHeight
+            },
+            followBottomThresholdPx
+        )
+    }
+
+    const trackViewportScrollIntent = (node: HTMLElement) =>
+        trackScrollIntent(node, () => scrollIntent.mark())
+
+    const captureCurrentVisualAnchor = (): VisualAnchor | null => {
+        if (!viewportEl || messages.length === 0) return null
+        return captureVisualAnchor({
+            messages,
+            getMessageId,
+            heightCache,
+            estimatedHeight: estimatedMessageHeight,
+            visibleStart: visibleRange.visibleStart,
+            topGap,
+            headerHeight,
+            scrollTop: viewportEl.scrollTop
+        })
+    }
+
+    const restoreCurrentVisualAnchor = (anchor: VisualAnchor) => {
+        if (!viewportEl) return
+        const targetScrollTop = restoreVisualAnchor({
+            anchor,
+            messages,
+            getMessageId,
+            heightCache,
+            estimatedHeight: estimatedMessageHeight,
+            topGap,
+            headerHeight
+        })
+        if (targetScrollTop === null) return
+        viewportEl.scrollTop = targetScrollTop
+        scrollTop = viewportEl.scrollTop
+        setFollowingBottom(isAtViewportBottom())
+    }
+
+    const scheduleAnchorRestore = (anchor: VisualAnchor | null) => {
+        if (!anchor || !viewportEl || isFollowingBottom || scrollIntent.isActive) return
+        pendingAnchor ??= anchor
+        if (pendingAnchorRestore) return
+        layoutPreservation.begin()
+        pendingAnchorRestore = true
+        requestAnimationFrame(() => {
+            pendingAnchorRestore = false
+            const anchorToRestore = pendingAnchor
+            pendingAnchor = null
+            layoutPreservation.end()
+            if (anchorToRestore && !isFollowingBottom && !scrollIntent.isActive) {
+                restoreCurrentVisualAnchor(anchorToRestore)
+            }
+        })
+    }
+
+    const handleLayoutHeightChange = (anchor: VisualAnchor | null) => {
+        if (isFollowingBottom) {
+            layoutPreservation.begin()
+            scheduleSnapToBottom()
+            return
+        }
+        scheduleAnchorRestore(anchor)
+    }
+
     // ── Scroll event handler ────────────────────────────────────────
     const handleScroll = () => {
         if (!viewportEl) return
+        const previousScrollTop = scrollTop
         scrollTop = viewportEl.scrollTop
 
-        // Suppress programmatic snaps while the user is actively scrolling
-        userScrolling = true
-        if (userScrollTimer) clearTimeout(userScrollTimer)
-        userScrollTimer = setTimeout(() => {
-            userScrolling = false
-            // If we're still following bottom after the suppression window,
-            // catch up any height changes that arrived while suppressed
-            // (e.g. ResizeObserver measurements after a programmatic snap).
-            if (isFollowingBottom) scheduleSnapToBottom()
-        }, 150)
+        const decision = decideFollowBottomAfterScroll({
+            atBottom: isAtViewportBottom(),
+            wasFollowingBottom: isFollowingBottom,
+            preservingLayout: layoutPreservation.isActive,
+            userScrolling: scrollIntent.isActive,
+            previousScrollTop,
+            scrollTop,
+            followBottomThresholdPx
+        })
 
-        const maxScroll = viewportEl.scrollHeight - viewportEl.clientHeight
-        const wasFollowing = isFollowingBottom
-        isFollowingBottom = maxScroll <= 0 || maxScroll - scrollTop <= followBottomThresholdPx
-
-        if (wasFollowing !== isFollowingBottom) {
-            onFollowBottomChange?.(isFollowingBottom)
+        if (decision.shouldEndLayoutPreservation) {
+            layoutPreservation.end()
+        }
+        setFollowingBottom(decision.nextFollowingBottom)
+        if (decision.shouldScheduleSnapToBottom) {
+            scheduleSnapToBottom()
         }
 
         if (onNeedHistory && scrollTop - topGap < viewportHeight * 0.5) {
@@ -148,14 +247,15 @@
     }
 
     // ── Snap scheduling ─────────────────────────────────────────────
-    /** Batches snap-to-bottom into a single rAF, respecting user-scroll suppression. */
+    /** Batches snap-to-bottom into a single rAF, respecting real user scroll intent. */
     const scheduleSnapToBottom = () => {
-        if (!isFollowingBottom || !viewportEl || userScrolling) return
+        if (!isFollowingBottom || !viewportEl || scrollIntent.isActive) return
         if (pendingSnapToBottom) return
         pendingSnapToBottom = true
         requestAnimationFrame(() => {
             pendingSnapToBottom = false
-            if (isFollowingBottom && !userScrolling) {
+            layoutPreservation.end()
+            if (isFollowingBottom && !scrollIntent.isActive) {
                 snapToBottom()
             }
         })
@@ -168,9 +268,13 @@
             for (const entry of entries) {
                 const height = entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height
                 if (height > 0) {
+                    const anchor =
+                        !isFollowingBottom && !scrollIntent.isActive
+                            ? captureCurrentVisualAnchor()
+                            : null
                     const changed = heightCache.set(messageId, height)
                     if (changed) {
-                        scheduleSnapToBottom()
+                        handleLayoutHeightChange(anchor)
                     }
                 }
             }
@@ -203,9 +307,13 @@
             for (const entry of entries) {
                 const height = entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height
                 if (height !== prev) {
+                    const anchor =
+                        !isFollowingBottom && !scrollIntent.isActive
+                            ? captureCurrentVisualAnchor()
+                            : null
                     prev = height
                     setter(height)
-                    scheduleSnapToBottom()
+                    handleLayoutHeightChange(anchor)
                 }
             }
         })
@@ -227,16 +335,15 @@
             viewportEl.scrollTop = viewportEl.scrollHeight
         }
         scrollTop = viewportEl.scrollTop
-        isFollowingBottom = true
+        setFollowingBottom(true)
     }
 
     // ── Follow-bottom on new messages ───────────────────────────────
     $effect(() => {
         void messages.length
-        if (isFollowingBottom && viewportEl) {
-            requestAnimationFrame(() => {
-                if (isFollowingBottom) snapToBottom()
-            })
+        if (isFollowingBottom && viewportEl && !scrollIntent.isActive) {
+            layoutPreservation.begin()
+            scheduleSnapToBottom()
         }
     })
 
@@ -247,10 +354,11 @@
         scheduleSnapToBottom()
     })
 
-    // ── Cleanup user-scroll timer on destroy ────────────────────────
+    // ── Cleanup scroll timers on destroy ────────────────────────────
     $effect(() => {
         return () => {
-            if (userScrollTimer) clearTimeout(userScrollTimer)
+            scrollIntent.destroy()
+            layoutPreservation.destroy()
         }
     })
 
@@ -333,6 +441,7 @@
      */
     export const scrollToBottom = (options?: { smooth?: boolean }) => {
         if (!viewportEl) return
+        setFollowingBottom(true)
         viewportEl.scrollTo({
             top: viewportEl.scrollHeight,
             behavior: options?.smooth ? 'smooth' : 'instant'
@@ -369,6 +478,7 @@
                 estimatedMessageHeight
             )
 
+        setFollowingBottom(false)
         viewportEl?.scrollTo({
             top: offset,
             behavior: options?.smooth ? 'smooth' : 'instant'
@@ -422,6 +532,7 @@
         bind:this={viewportEl}
         class={viewportClass}
         onscroll={handleScroll}
+        use:trackViewportScrollIntent
         style="overflow-y: auto; flex: 1 1 0%; min-height: 0;"
         data-testid={testId ? `${testId}-viewport` : undefined}
     >
