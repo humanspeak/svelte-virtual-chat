@@ -5,7 +5,7 @@ onlyBuiltDependencies:
     - '@humanspeak/docs-kit'
 allowBuilds:
     '@humanspeak/docs-kit': true
-    '@humanspeak/docs-kit@https://codeload.github.com/humanspeak/docs-kit/tar.gz/480c160c9839e47f0856b707dff70147167ea845': true
+    '@humanspeak/docs-kit@https://codeload.github.com/humanspeak/docs-kit/tar.gz/136b988030bf83e50ba182a01b053d242f75c72d': true
     esbuild: true
     sharp: true
     workerd: true

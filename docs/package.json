@@ -5,16 +5,17 @@
     "type": "module",
     "scripts": {
         "build": "tsx ./scripts/fetch-github-stats.ts && vite build",
+        "build:indexnow": "tsx ./scripts/fetch-github-stats.ts && vite build --mode indexnow",
         "cf-typegen": "wrangler types && mv worker-configuration.d.ts src/",
         "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-        "deploy": "pnpm run build && wrangler deploy",
+        "deploy": "pnpm run build:indexnow && wrangler deploy",
         "dev": "vite dev",
         "format": "prettier --write .",
         "lint": "prettier --check . && eslint .",
         "preview": "vite preview"
     },
     "dependencies": {
-        "@humanspeak/docs-kit": "github:humanspeak/docs-kit#2026.6.9",
+        "@humanspeak/docs-kit": "github:humanspeak/docs-kit#2026.6.14",
         "@humanspeak/svelte-markdown": "^1.6.0",
         "@humanspeak/svelte-motion": "^0.7.0",
         "@humanspeak/svelte-virtual-chat": "workspace:*"
