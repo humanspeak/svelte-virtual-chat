@@ -60,7 +60,7 @@ describe('ChatScrollIntent', () => {
         expect(onIntentEnd).toHaveBeenCalledTimes(1)
     })
 
-    it('clears active intent without firing the end callback on destroy', () => {
+    it('ends active intent when destroyed', () => {
         const onIntentEnd = vi.fn()
         const intent = new ChatScrollIntent({ timeoutMs: 150, onIntentEnd })
 
@@ -68,7 +68,19 @@ describe('ChatScrollIntent', () => {
         intent.destroy()
 
         expect(intent.isActive).toBe(false)
+        expect(onIntentEnd).toHaveBeenCalledTimes(1)
+
         vi.advanceTimersByTime(150)
+        expect(onIntentEnd).toHaveBeenCalledTimes(1)
+    })
+
+    it('does not end inactive intent when destroyed', () => {
+        const onIntentEnd = vi.fn()
+        const intent = new ChatScrollIntent({ timeoutMs: 150, onIntentEnd })
+
+        intent.destroy()
+
+        expect(intent.isActive).toBe(false)
         expect(onIntentEnd).not.toHaveBeenCalled()
     })
 })

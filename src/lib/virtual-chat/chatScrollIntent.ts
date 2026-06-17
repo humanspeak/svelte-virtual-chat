@@ -44,11 +44,13 @@ export class ChatScrollIntent {
     }
 
     destroy(): void {
+        const wasActive = this.#active
         this.#active = false
         if (this.#timer) {
             clearTimeout(this.#timer)
             this.#timer = null
         }
+        if (wasActive) this.#onIntentEnd?.()
     }
 }
 
