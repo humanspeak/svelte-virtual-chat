@@ -3,3 +3,13 @@ node_modules/
 dist/
 coverage/
 .vscode/
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+.claude/settings.local.json
+docs/src/lib/github-stats.json
+docs/src/lib/sitemap-manifest.json
+docs/src/worker-configuration.d.ts
+docs/static/docs/
+docs/static/llms.txt
+docs/static/llms-full.txt
