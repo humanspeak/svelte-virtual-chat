@@ -1,3 +1,5 @@
+# SvelteVirtualChat
+
 ## Overview
 
 SvelteVirtualChat is a Svelte 5 component that virtualizes chat message rendering.
