@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 import {
     STATS,
     VIEWPORT,
-    getScrollState,
+    captureScrollSample as captureViewportScrollSample,
     rafWait,
     sampleViewportFrames,
     waitForMount
@@ -36,17 +36,21 @@ function parseStatsText(stats: string | null | undefined) {
 }
 
 async function captureScrollSample(page: Page, tick: number, phase: number) {
-    const scroll = await getScrollState(page)
-    const parsedStats = parseStatsText(await page.locator(STATS).textContent())
+    const sample = await captureViewportScrollSample(page, {
+        viewportSelector: VIEWPORT,
+        phase,
+        textSelector: STATS
+    })
+    const parsedStats = parseStatsText(sample.text)
 
     return {
         tick,
-        phase,
-        scrollTop: scroll.scrollTop,
-        scrollHeight: scroll.scrollHeight,
-        maxScroll: scroll.maxScroll,
-        scrollProgress: scroll.maxScroll > 0 ? scroll.scrollTop / scroll.maxScroll : 1,
-        gapFromBottom: scroll.gapFromBottom,
+        phase: sample.phase,
+        scrollTop: sample.scrollTop,
+        scrollHeight: sample.scrollHeight,
+        maxScroll: sample.maxScroll,
+        scrollProgress: sample.scrollProgress,
+        gapFromBottom: sample.gapFromBottom,
         measured: parsedStats['measured'] ?? '0',
         growths: parsedStats['growths'] ?? '0'
     } satisfies ScrollSample

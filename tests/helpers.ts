@@ -17,6 +17,12 @@ export type ViewportFrameSample = {
     text?: string
 }
 
+export type ViewportSampleOptions = {
+    viewportSelector?: string
+    phase?: number
+    textSelector?: string
+}
+
 /**
  * Wait for N requestAnimationFrame double-cycles to settle.
  * Ensures ResizeObserver + layout measurements propagate.
@@ -107,6 +113,41 @@ export async function getScrollState(page: Page): Promise<{
             gapFromBottom: Math.round(maxScroll - el.scrollTop)
         }
     }, VIEWPORT)
+}
+
+/**
+ * Capture viewport scroll geometry at the current point in time.
+ */
+export async function captureScrollSample(
+    page: Page,
+    options: ViewportSampleOptions = {}
+): Promise<ViewportFrameSample> {
+    const { viewportSelector = VIEWPORT, phase = 0, textSelector } = options
+
+    return page.evaluate(
+        ([selector, samplePhase, sampleTextSelector]) => {
+            const viewport = document.querySelector(selector) as HTMLElement | null
+            if (!viewport) throw new Error(`Missing viewport ${selector}`)
+
+            const maxScroll = viewport.scrollHeight - viewport.clientHeight
+            const sample: ViewportFrameSample = {
+                phase: samplePhase,
+                scrollTop: Math.round(viewport.scrollTop),
+                scrollHeight: Math.round(viewport.scrollHeight),
+                clientHeight: Math.round(viewport.clientHeight),
+                maxScroll: Math.round(maxScroll),
+                scrollProgress: maxScroll > 0 ? viewport.scrollTop / maxScroll : 1,
+                gapFromBottom: Math.round(maxScroll - viewport.scrollTop)
+            }
+
+            if (sampleTextSelector) {
+                sample.text = document.querySelector(sampleTextSelector)?.textContent ?? ''
+            }
+
+            return sample
+        },
+        [viewportSelector, phase, textSelector] as const
+    )
 }
 
 /**
