@@ -28,6 +28,17 @@ pnpm add @humanspeak/svelte-virtual-chat
 ## Basic Usage
 
 ```svelte
+<script lang="ts">
+    import SvelteVirtualChat from '@humanspeak/svelte-virtual-chat'
+
+    type Message = { id: string; content: string }
+
+    const messages: Message[] = [
+        { id: '1', content: 'Hello' },
+        { id: '2', content: 'How can I help?' }
+    ]
+</script>
+
 <SvelteVirtualChat
     {messages}
     getMessageId={(msg) => msg.id}
@@ -69,6 +80,6 @@ pnpm add @humanspeak/svelte-virtual-chat
 
 ## Package Links
 
-- npm: https://www.npmjs.com/package/@humanspeak/svelte-virtual-chat
-- GitHub: https://github.com/humanspeak/svelte-virtual-chat
-- Docs: https://virtualchat.svelte.page
+- npm: [@humanspeak/svelte-virtual-chat](https://www.npmjs.com/package/@humanspeak/svelte-virtual-chat)
+- GitHub: [humanspeak/svelte-virtual-chat](https://github.com/humanspeak/svelte-virtual-chat)
+- Docs: [virtualchat.svelte.page](https://virtualchat.svelte.page)

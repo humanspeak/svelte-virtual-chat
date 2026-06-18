@@ -56,6 +56,16 @@ describe('didMoveAwayFromBottom', () => {
             })
         ).toBe(true)
     })
+
+    it('does not treat exactly-threshold movement as moving away', () => {
+        expect(
+            didMoveAwayFromBottom({
+                previousScrollTop: 400,
+                scrollTop: 352,
+                followBottomThresholdPx: 48
+            })
+        ).toBe(false)
+    })
 })
 
 describe('decideFollowBottomAfterScroll', () => {

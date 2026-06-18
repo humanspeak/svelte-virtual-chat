@@ -30,7 +30,6 @@ lint:
         - linters: [markdownlint]
           paths:
               - .changeset/**
-              - docs/llms-positioning.md
               - docs/static/docs/**
               - docs/static/llms.txt
               - docs/static/llms-full.txt
