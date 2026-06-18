@@ -6,6 +6,39 @@ export const VIEWPORT = '[data-testid="chat-viewport"]'
 /** CSS selector for the debug stats element. */
 export const STATS = '[data-testid="debug-stats"]'
 
+export type ViewportFrameSample = {
+    phase: number
+    scrollTop: number
+    scrollHeight: number
+    clientHeight: number
+    maxScroll: number
+    scrollProgress: number
+    gapFromBottom: number
+    text?: string
+}
+
+export type ViewportSampleOptions = {
+    viewportSelector?: string
+    phase?: number
+    textSelector?: string
+}
+
+/**
+ * Parse debug stats text into key/value pairs.
+ */
+export function parseStatsText(text: string | null | undefined): Record<string, string> {
+    if (!text) return {}
+
+    const pairs: Record<string, string> = {}
+    for (const token of text.trim().split(/\s+/)) {
+        const eqIdx = token.indexOf('=')
+        if (eqIdx > 0) {
+            pairs[token.slice(0, eqIdx)] = token.slice(eqIdx + 1)
+        }
+    }
+    return pairs
+}
+
 /**
  * Wait for N requestAnimationFrame double-cycles to settle.
  * Ensures ResizeObserver + layout measurements propagate.
@@ -34,15 +67,7 @@ export async function waitForMount(page: Page): Promise<void> {
  */
 export async function getStats(page: Page): Promise<Record<string, string>> {
     const text = await page.locator(STATS).textContent()
-    if (!text) return {}
-    const pairs: Record<string, string> = {}
-    for (const token of text.trim().split(/\s+/)) {
-        const eqIdx = token.indexOf('=')
-        if (eqIdx > 0) {
-            pairs[token.slice(0, eqIdx)] = token.slice(eqIdx + 1)
-        }
-    }
-    return pairs
+    return parseStatsText(text)
 }
 
 /**
@@ -96,6 +121,94 @@ export async function getScrollState(page: Page): Promise<{
             gapFromBottom: Math.round(maxScroll - el.scrollTop)
         }
     }, VIEWPORT)
+}
+
+/**
+ * Capture viewport scroll geometry at the current point in time.
+ */
+export async function captureScrollSample(
+    page: Page,
+    options: ViewportSampleOptions = {}
+): Promise<ViewportFrameSample> {
+    const { viewportSelector = VIEWPORT, phase = 0, textSelector } = options
+
+    return page.evaluate(
+        ([selector, samplePhase, sampleTextSelector]) => {
+            const viewport = document.querySelector(selector) as HTMLElement | null
+            if (!viewport) throw new Error(`Missing viewport ${selector}`)
+
+            const maxScroll = viewport.scrollHeight - viewport.clientHeight
+            const sample: ViewportFrameSample = {
+                phase: samplePhase,
+                scrollTop: Math.round(viewport.scrollTop),
+                scrollHeight: Math.round(viewport.scrollHeight),
+                clientHeight: Math.round(viewport.clientHeight),
+                maxScroll: Math.round(maxScroll),
+                scrollProgress: maxScroll > 0 ? viewport.scrollTop / maxScroll : 1,
+                gapFromBottom: Math.round(maxScroll - viewport.scrollTop)
+            }
+
+            if (sampleTextSelector) {
+                sample.text = document.querySelector(sampleTextSelector)?.textContent ?? ''
+            }
+
+            return sample
+        },
+        [viewportSelector, phase, textSelector] as const
+    )
+}
+
+/**
+ * Sample viewport scroll geometry once per animation frame.
+ */
+export async function sampleViewportFrames(
+    page: Page,
+    options: {
+        viewportSelector?: string
+        frames?: number
+        textSelector?: string
+    } = {}
+): Promise<ViewportFrameSample[]> {
+    const { viewportSelector = VIEWPORT, frames = 1, textSelector } = options
+
+    return page.evaluate(
+        ([selector, frameCount, sampleTextSelector]) => {
+            const readSample = (phase: number) => {
+                const viewport = document.querySelector(selector) as HTMLElement | null
+                if (!viewport) throw new Error(`Missing viewport ${selector}`)
+
+                const maxScroll = viewport.scrollHeight - viewport.clientHeight
+                const sample: ViewportFrameSample = {
+                    phase,
+                    scrollTop: Math.round(viewport.scrollTop),
+                    scrollHeight: Math.round(viewport.scrollHeight),
+                    clientHeight: Math.round(viewport.clientHeight),
+                    maxScroll: Math.round(maxScroll),
+                    scrollProgress: maxScroll > 0 ? viewport.scrollTop / maxScroll : 1,
+                    gapFromBottom: Math.round(maxScroll - viewport.scrollTop)
+                }
+
+                if (sampleTextSelector) {
+                    sample.text = document.querySelector(sampleTextSelector)?.textContent ?? ''
+                }
+
+                return sample
+            }
+
+            const nextFrame = () =>
+                new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+
+            return (async () => {
+                const samples: ViewportFrameSample[] = []
+                for (let phase = 0; phase < frameCount; phase++) {
+                    await nextFrame()
+                    samples.push(readSample(phase))
+                }
+                return samples
+            })()
+        },
+        [viewportSelector, frames, textSelector] as const
+    )
 }
 
 /**
@@ -160,6 +273,41 @@ export async function scrollByWheel(
         }
     }
     await rafWait(page, 2)
+}
+
+/**
+ * Dispatch a synthetic touch scroll against the viewport.
+ */
+export async function touchScroll(
+    page: Page,
+    deltaY: number,
+    viewportSelector = VIEWPORT
+): Promise<void> {
+    await page.evaluate(
+        ([selector, dy]) => {
+            const el = document.querySelector(selector) as HTMLElement | null
+            if (!el) throw new Error(`Missing viewport ${selector}`)
+
+            const rect = el.getBoundingClientRect()
+            const distance = Math.min(Math.abs(dy), rect.height * 0.4)
+            const startY = rect.top + rect.height / 2
+            const endY = startY - Math.sign(dy) * distance
+            const createTouchEvent = (type: string, clientY: number | null) => {
+                const event = new Event(type, { bubbles: true, cancelable: true })
+                Object.defineProperty(event, 'touches', {
+                    value: clientY === null ? [] : [{ clientY }]
+                })
+                return event
+            }
+
+            el.dispatchEvent(createTouchEvent('touchstart', startY))
+            el.dispatchEvent(createTouchEvent('touchmove', endY))
+            el.scrollTop += dy
+            el.dispatchEvent(new Event('scroll', { bubbles: true }))
+            el.dispatchEvent(createTouchEvent('touchend', null))
+        },
+        [viewportSelector, deltaY] as const
+    )
 }
 
 /**

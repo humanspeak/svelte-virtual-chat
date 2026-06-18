@@ -92,15 +92,14 @@
         shortly after mount. Positive wheel deltas should not produce backward scrollbar progress.
     </p>
 
-    {#if debugInfo}
-        <div class="mb-3 font-mono text-xs text-gray-600" data-testid="debug-stats">
-            total={debugInfo.totalMessages} dom={debugInfo.renderedCount}
-            measured={debugInfo.measuredCount} range={debugInfo.startIndex}-{debugInfo.endIndex}
-            following={debugInfo.isFollowingBottom} scroll={Math.round(debugInfo.scrollTop)}px
-            height={Math.round(debugInfo.totalHeight)}px mode={growthMode} growths={growthCount}
-            loaded={loadedTableIds.size} wheels={wheelCount}
-        </div>
-    {/if}
+    <div class="mb-3 font-mono text-xs text-gray-600" data-testid="debug-stats">
+        total={debugInfo?.totalMessages ?? messages.length} dom={debugInfo?.renderedCount ?? 0}
+        measured={debugInfo?.measuredCount ?? 0} range={debugInfo?.startIndex ??
+            0}-{debugInfo?.endIndex ?? 0} following={debugInfo?.isFollowingBottom ?? false} scroll={Math.round(
+            debugInfo?.scrollTop ?? 0
+        )}px height={Math.round(debugInfo?.totalHeight ?? 0)}px mode={growthMode}
+        growths={growthCount} loaded={loadedTableIds.size} wheels={wheelCount}
+    </div>
 
     <div class="min-h-0 flex-1 rounded-lg border-2 border-gray-300" data-testid="chat-wrapper">
         <SvelteVirtualChat
