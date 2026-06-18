@@ -3,8 +3,10 @@ import {
     STATS,
     VIEWPORT,
     captureScrollSample as captureViewportScrollSample,
+    parseStatsText,
     rafWait,
     sampleViewportFrames,
+    touchScroll,
     waitForMount
 } from '../helpers.js'
 
@@ -24,16 +26,6 @@ const INPUT_SAMPLE_FRAMES = 18
 const GROWTH_SETTLE_TIMEOUT_MS = 1500
 const STABLE_GROWTH_FRAMES = 6
 const STABLE_SCROLL_RANGE_PX = 1
-
-function parseStatsText(stats: string | null | undefined) {
-    return Object.fromEntries(
-        (stats ?? '')
-            .trim()
-            .split(/\s+/)
-            .map((token) => token.split('='))
-            .filter(([key, value]) => key && value)
-    )
-}
 
 async function captureScrollSample(page: Page, tick: number, phase: number) {
     const sample = await captureViewportScrollSample(page, {
@@ -187,36 +179,6 @@ async function setupWheelAtBottom(page: Page) {
 
 async function setupTouchAtBottom(page: Page) {
     await setupAtBottom(page)
-}
-
-async function touchScroll(page: Page, deltaY: number) {
-    const didScroll = await page.evaluate(
-        ([selector, dy]) => {
-            const el = document.querySelector(selector) as HTMLElement | null
-            if (!el) return false
-
-            const rect = el.getBoundingClientRect()
-            const distance = Math.min(Math.abs(dy), rect.height * 0.4)
-            const startY = rect.top + rect.height / 2
-            const endY = startY - Math.sign(dy) * distance
-            const createTouchEvent = (type: string, clientY: number | null) => {
-                const event = new Event(type, { bubbles: true, cancelable: true })
-                Object.defineProperty(event, 'touches', {
-                    value: clientY === null ? [] : [{ clientY }]
-                })
-                return event
-            }
-
-            el.dispatchEvent(createTouchEvent('touchstart', startY))
-            el.dispatchEvent(createTouchEvent('touchmove', endY))
-            el.scrollTop += dy
-            el.dispatchEvent(new Event('scroll', { bubbles: true }))
-            el.dispatchEvent(createTouchEvent('touchend', null))
-            return true
-        },
-        [VIEWPORT, deltaY] as const
-    )
-    expect(didScroll).toBe(true)
 }
 
 test.describe('Wheel scroll jump', () => {

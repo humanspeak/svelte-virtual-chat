@@ -24,6 +24,22 @@ export type ViewportSampleOptions = {
 }
 
 /**
+ * Parse debug stats text into key/value pairs.
+ */
+export function parseStatsText(text: string | null | undefined): Record<string, string> {
+    if (!text) return {}
+
+    const pairs: Record<string, string> = {}
+    for (const token of text.trim().split(/\s+/)) {
+        const eqIdx = token.indexOf('=')
+        if (eqIdx > 0) {
+            pairs[token.slice(0, eqIdx)] = token.slice(eqIdx + 1)
+        }
+    }
+    return pairs
+}
+
+/**
  * Wait for N requestAnimationFrame double-cycles to settle.
  * Ensures ResizeObserver + layout measurements propagate.
  */
@@ -51,15 +67,7 @@ export async function waitForMount(page: Page): Promise<void> {
  */
 export async function getStats(page: Page): Promise<Record<string, string>> {
     const text = await page.locator(STATS).textContent()
-    if (!text) return {}
-    const pairs: Record<string, string> = {}
-    for (const token of text.trim().split(/\s+/)) {
-        const eqIdx = token.indexOf('=')
-        if (eqIdx > 0) {
-            pairs[token.slice(0, eqIdx)] = token.slice(eqIdx + 1)
-        }
-    }
-    return pairs
+    return parseStatsText(text)
 }
 
 /**
@@ -265,6 +273,41 @@ export async function scrollByWheel(
         }
     }
     await rafWait(page, 2)
+}
+
+/**
+ * Dispatch a synthetic touch scroll against the viewport.
+ */
+export async function touchScroll(
+    page: Page,
+    deltaY: number,
+    viewportSelector = VIEWPORT
+): Promise<void> {
+    await page.evaluate(
+        ([selector, dy]) => {
+            const el = document.querySelector(selector) as HTMLElement | null
+            if (!el) throw new Error(`Missing viewport ${selector}`)
+
+            const rect = el.getBoundingClientRect()
+            const distance = Math.min(Math.abs(dy), rect.height * 0.4)
+            const startY = rect.top + rect.height / 2
+            const endY = startY - Math.sign(dy) * distance
+            const createTouchEvent = (type: string, clientY: number | null) => {
+                const event = new Event(type, { bubbles: true, cancelable: true })
+                Object.defineProperty(event, 'touches', {
+                    value: clientY === null ? [] : [{ clientY }]
+                })
+                return event
+            }
+
+            el.dispatchEvent(createTouchEvent('touchstart', startY))
+            el.dispatchEvent(createTouchEvent('touchmove', endY))
+            el.scrollTop += dy
+            el.dispatchEvent(new Event('scroll', { bubbles: true }))
+            el.dispatchEvent(createTouchEvent('touchend', null))
+        },
+        [viewportSelector, deltaY] as const
+    )
 }
 
 /**
