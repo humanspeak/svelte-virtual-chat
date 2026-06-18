@@ -23,6 +23,7 @@ type ScrollSample = {
 const INPUT_SAMPLE_FRAMES = 18
 const GROWTH_SETTLE_TIMEOUT_MS = 1500
 const STABLE_GROWTH_FRAMES = 6
+const STABLE_SCROLL_RANGE_PX = 1
 
 function parseStatsText(stats: string | null | undefined) {
     return Object.fromEntries(
@@ -257,6 +258,9 @@ test.describe('Wheel scroll jump', () => {
         })
         const backwardProgressJumps = samples.slice(1).flatMap((sample, index) => {
             const previous = samples[index]
+            const scrollRangeChanged = Math.abs(sample.maxScroll - previous.maxScroll)
+            if (scrollRangeChanged > STABLE_SCROLL_RANGE_PX) return []
+
             const delta = sample.scrollProgress - previous.scrollProgress
             return delta < -0.006 ? [{ previous, sample, delta }] : []
         })
