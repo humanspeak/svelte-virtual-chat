@@ -6,6 +6,17 @@ export const VIEWPORT = '[data-testid="chat-viewport"]'
 /** CSS selector for the debug stats element. */
 export const STATS = '[data-testid="debug-stats"]'
 
+export type ViewportFrameSample = {
+    phase: number
+    scrollTop: number
+    scrollHeight: number
+    clientHeight: number
+    maxScroll: number
+    scrollProgress: number
+    gapFromBottom: number
+    text?: string
+}
+
 /**
  * Wait for N requestAnimationFrame double-cycles to settle.
  * Ensures ResizeObserver + layout measurements propagate.
@@ -96,6 +107,59 @@ export async function getScrollState(page: Page): Promise<{
             gapFromBottom: Math.round(maxScroll - el.scrollTop)
         }
     }, VIEWPORT)
+}
+
+/**
+ * Sample viewport scroll geometry once per animation frame.
+ */
+export async function sampleViewportFrames(
+    page: Page,
+    options: {
+        viewportSelector?: string
+        frames?: number
+        textSelector?: string
+    } = {}
+): Promise<ViewportFrameSample[]> {
+    const { viewportSelector = VIEWPORT, frames = 1, textSelector } = options
+
+    return page.evaluate(
+        ([selector, frameCount, sampleTextSelector]) => {
+            const readSample = (phase: number) => {
+                const viewport = document.querySelector(selector) as HTMLElement | null
+                if (!viewport) throw new Error(`Missing viewport ${selector}`)
+
+                const maxScroll = viewport.scrollHeight - viewport.clientHeight
+                const sample: ViewportFrameSample = {
+                    phase,
+                    scrollTop: Math.round(viewport.scrollTop),
+                    scrollHeight: Math.round(viewport.scrollHeight),
+                    clientHeight: Math.round(viewport.clientHeight),
+                    maxScroll: Math.round(maxScroll),
+                    scrollProgress: maxScroll > 0 ? viewport.scrollTop / maxScroll : 1,
+                    gapFromBottom: Math.round(maxScroll - viewport.scrollTop)
+                }
+
+                if (sampleTextSelector) {
+                    sample.text = document.querySelector(sampleTextSelector)?.textContent ?? ''
+                }
+
+                return sample
+            }
+
+            const nextFrame = () =>
+                new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+
+            return (async () => {
+                const samples: ViewportFrameSample[] = []
+                for (let phase = 0; phase < frameCount; phase++) {
+                    await nextFrame()
+                    samples.push(readSample(phase))
+                }
+                return samples
+            })()
+        },
+        [viewportSelector, frames, textSelector] as const
+    )
 }
 
 /**

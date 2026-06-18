@@ -1,5 +1,12 @@
 import { expect, test, type Page } from '@playwright/test'
-import { STATS, VIEWPORT, getScrollState, rafWait, waitForMount } from '../helpers.js'
+import {
+    STATS,
+    VIEWPORT,
+    getScrollState,
+    rafWait,
+    sampleViewportFrames,
+    waitForMount
+} from '../helpers.js'
 
 type ScrollSample = {
     tick: number
@@ -13,16 +20,23 @@ type ScrollSample = {
     growths: string
 }
 
-async function captureScrollSample(page: Page, tick: number, phase: number) {
-    const scroll = await getScrollState(page)
-    const stats = await page.locator(STATS).textContent()
-    const parsedStats = Object.fromEntries(
+const INPUT_SAMPLE_FRAMES = 18
+const GROWTH_SETTLE_TIMEOUT_MS = 1500
+const STABLE_GROWTH_FRAMES = 6
+
+function parseStatsText(stats: string | null | undefined) {
+    return Object.fromEntries(
         (stats ?? '')
             .trim()
             .split(/\s+/)
             .map((token) => token.split('='))
             .filter(([key, value]) => key && value)
     )
+}
+
+async function captureScrollSample(page: Page, tick: number, phase: number) {
+    const scroll = await getScrollState(page)
+    const parsedStats = parseStatsText(await page.locator(STATS).textContent())
 
     return {
         tick,
@@ -35,6 +49,84 @@ async function captureScrollSample(page: Page, tick: number, phase: number) {
         measured: parsedStats['measured'] ?? '0',
         growths: parsedStats['growths'] ?? '0'
     } satisfies ScrollSample
+}
+
+async function captureScrollSamplesForFrames(
+    page: Page,
+    tick: number,
+    frames = INPUT_SAMPLE_FRAMES
+) {
+    const samples = await sampleViewportFrames(page, {
+        viewportSelector: VIEWPORT,
+        frames,
+        textSelector: STATS
+    })
+
+    return samples.map((sample) => {
+        const parsedStats = parseStatsText(sample.text)
+        return {
+            tick,
+            phase: sample.phase,
+            scrollTop: sample.scrollTop,
+            scrollHeight: sample.scrollHeight,
+            maxScroll: sample.maxScroll,
+            scrollProgress: sample.scrollProgress,
+            gapFromBottom: sample.gapFromBottom,
+            measured: parsedStats['measured'] ?? '0',
+            growths: parsedStats['growths'] ?? '0'
+        } satisfies ScrollSample
+    })
+}
+
+async function waitForGrowthToSettle(page: Page) {
+    await page.waitForFunction(
+        ([statsSelector, stableFrames]) => {
+            const growthNodesExpanded = () => {
+                const nodes = Array.from(document.querySelectorAll('[data-testid^="late-growth-"]'))
+                return (
+                    nodes.length > 0 &&
+                    nodes.every((node) => (node as HTMLElement).dataset.state === 'expanded')
+                )
+            }
+
+            const readGrowths = () => {
+                const stats = document.querySelector(statsSelector)?.textContent ?? ''
+                const match = stats.match(/(?:^|\s)growths=(\d+)/)
+                return match ? Number(match[1]) : null
+            }
+
+            return new Promise<boolean>((resolve) => {
+                let lastGrowths = readGrowths()
+                let stableCount = 0
+
+                const poll = () => {
+                    const growths = readGrowths()
+                    if (growths === null) {
+                        resolve(false)
+                        return
+                    }
+
+                    if (growthNodesExpanded() && growths === lastGrowths) {
+                        stableCount += 1
+                    } else {
+                        lastGrowths = growths
+                        stableCount = 0
+                    }
+
+                    if (stableCount >= stableFrames) {
+                        resolve(true)
+                        return
+                    }
+
+                    requestAnimationFrame(poll)
+                }
+
+                requestAnimationFrame(poll)
+            })
+        },
+        [STATS, STABLE_GROWTH_FRAMES] as const,
+        { timeout: GROWTH_SETTLE_TIMEOUT_MS }
+    )
 }
 
 async function openWheelJumpPage(page: Page, growthMode: 'remount' | 'persist' = 'remount') {
@@ -153,10 +245,7 @@ test.describe('Wheel scroll jump', () => {
         const samples: ScrollSample[] = []
         for (let tick = 0; tick < 18; tick++) {
             await page.mouse.wheel(0, 520)
-            for (let phase = 0; phase < 5; phase++) {
-                await page.waitForTimeout(60)
-                samples.push(await captureScrollSample(page, tick, phase))
-            }
+            samples.push(...(await captureScrollSamplesForFrames(page, tick)))
         }
 
         const backwardScrollTopJumps = samples.slice(1).flatMap((sample, index) => {
@@ -185,10 +274,7 @@ test.describe('Wheel scroll jump', () => {
         const samples: ScrollSample[] = []
         for (let tick = 0; tick < 10; tick++) {
             await page.mouse.wheel(0, -650)
-            for (let phase = 0; phase < 5; phase++) {
-                await page.waitForTimeout(60)
-                samples.push(await captureScrollSample(page, tick, phase))
-            }
+            samples.push(...(await captureScrollSamplesForFrames(page, tick)))
         }
 
         const first = samples[0]
@@ -205,17 +291,17 @@ test.describe('Wheel scroll jump', () => {
 
         for (let tick = 0; tick < 8; tick++) {
             await page.mouse.wheel(0, -650)
-            await page.waitForTimeout(120)
+            await captureScrollSamplesForFrames(page, tick, 8)
         }
-        await page.waitForTimeout(700)
+        await waitForGrowthToSettle(page)
 
         const firstPassTop = await captureScrollSample(page, 0, 0)
 
         for (let tick = 0; tick < 4; tick++) {
             await page.mouse.wheel(0, 650)
-            await page.waitForTimeout(120)
+            await captureScrollSamplesForFrames(page, tick, 8)
         }
-        await page.waitForTimeout(350)
+        await waitForGrowthToSettle(page)
 
         const beforeSecondPass = await captureScrollSample(page, 0, 0)
         const growthsBeforeSecondPass = Number(beforeSecondPass.growths)
@@ -223,10 +309,7 @@ test.describe('Wheel scroll jump', () => {
         const samples: ScrollSample[] = []
         for (let tick = 0; tick < 3; tick++) {
             await page.mouse.wheel(0, -650)
-            for (let phase = 0; phase < 5; phase++) {
-                await page.waitForTimeout(60)
-                samples.push(await captureScrollSample(page, tick, phase))
-            }
+            samples.push(...(await captureScrollSamplesForFrames(page, tick)))
         }
 
         const afterSecondPass = samples.at(-1)
@@ -256,10 +339,7 @@ test.describe('Touch scroll jump', () => {
         const samples: ScrollSample[] = []
         for (let tick = 0; tick < 10; tick++) {
             await touchScroll(page, -650)
-            for (let phase = 0; phase < 5; phase++) {
-                await page.waitForTimeout(60)
-                samples.push(await captureScrollSample(page, tick, phase))
-            }
+            samples.push(...(await captureScrollSamplesForFrames(page, tick)))
         }
 
         const first = samples[0]
@@ -276,17 +356,17 @@ test.describe('Touch scroll jump', () => {
 
         for (let tick = 0; tick < 8; tick++) {
             await touchScroll(page, -650)
-            await page.waitForTimeout(120)
+            await captureScrollSamplesForFrames(page, tick, 8)
         }
-        await page.waitForTimeout(700)
+        await waitForGrowthToSettle(page)
 
         const firstPassTop = await captureScrollSample(page, 0, 0)
 
         for (let tick = 0; tick < 4; tick++) {
             await touchScroll(page, 650)
-            await page.waitForTimeout(120)
+            await captureScrollSamplesForFrames(page, tick, 8)
         }
-        await page.waitForTimeout(350)
+        await waitForGrowthToSettle(page)
 
         const beforeSecondPass = await captureScrollSample(page, 0, 0)
         const growthsBeforeSecondPass = Number(beforeSecondPass.growths)
@@ -294,10 +374,7 @@ test.describe('Touch scroll jump', () => {
         const samples: ScrollSample[] = []
         for (let tick = 0; tick < 3; tick++) {
             await touchScroll(page, -650)
-            for (let phase = 0; phase < 5; phase++) {
-                await page.waitForTimeout(60)
-                samples.push(await captureScrollSample(page, tick, phase))
-            }
+            samples.push(...(await captureScrollSamplesForFrames(page, tick)))
         }
 
         const afterSecondPass = samples.at(-1)
