@@ -68,6 +68,19 @@ export const getWheelScrollDirection = (event: WheelEvent): ChatScrollDirection 
     return null
 }
 
+export const getTouchScrollDirection = (
+    previousClientY: number | null,
+    event: TouchEvent
+): ChatScrollDirection | null => {
+    const touch = event.touches[0]
+    if (!touch || previousClientY === null) return null
+
+    const deltaY = previousClientY - touch.clientY
+    if (deltaY > 0) return 'down'
+    if (deltaY < 0) return 'up'
+    return null
+}
+
 export const getKeyScrollDirection = (event: KeyboardEvent): ChatScrollDirection | null => {
     if (!isScrollIntentKey(event.key)) return null
 
@@ -80,22 +93,40 @@ export const trackScrollIntent = (
     node: HTMLElement,
     onIntent: (_event: ChatScrollIntentEvent) => void
 ) => {
+    let previousTouchClientY: number | null = null
+
     const handleWheelIntent = (event: WheelEvent) =>
         onIntent({ direction: getWheelScrollDirection(event) })
-    const handlePointerIntent = () => onIntent({ direction: null })
+    const handleTouchStartIntent = (event: TouchEvent) => {
+        previousTouchClientY = event.touches[0]?.clientY ?? null
+    }
+    const handleTouchMoveIntent = (event: TouchEvent) => {
+        const direction = getTouchScrollDirection(previousTouchClientY, event)
+        previousTouchClientY = event.touches[0]?.clientY ?? previousTouchClientY
+        onIntent({ direction })
+    }
+    const handleTouchEndIntent = () => {
+        previousTouchClientY = null
+    }
     const handleKeydown = (event: KeyboardEvent) => {
         const direction = getKeyScrollDirection(event)
         if (direction) onIntent({ direction })
     }
 
     node.addEventListener('wheel', handleWheelIntent, { passive: true })
-    node.addEventListener('touchmove', handlePointerIntent, { passive: true })
+    node.addEventListener('touchstart', handleTouchStartIntent, { passive: true })
+    node.addEventListener('touchmove', handleTouchMoveIntent, { passive: true })
+    node.addEventListener('touchend', handleTouchEndIntent, { passive: true })
+    node.addEventListener('touchcancel', handleTouchEndIntent, { passive: true })
     node.addEventListener('keydown', handleKeydown)
 
     return {
         destroy() {
             node.removeEventListener('wheel', handleWheelIntent)
-            node.removeEventListener('touchmove', handlePointerIntent)
+            node.removeEventListener('touchstart', handleTouchStartIntent)
+            node.removeEventListener('touchmove', handleTouchMoveIntent)
+            node.removeEventListener('touchend', handleTouchEndIntent)
+            node.removeEventListener('touchcancel', handleTouchEndIntent)
             node.removeEventListener('keydown', handleKeydown)
         }
     }
