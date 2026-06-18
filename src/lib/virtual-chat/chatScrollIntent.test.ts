@@ -150,18 +150,20 @@ describe('trackScrollIntent', () => {
         node.dispatchEvent(new WheelEvent('wheel', { deltaY: 10 }))
         node.dispatchEvent(createTouchEvent('touchstart', 120))
         node.dispatchEvent(createTouchEvent('touchmove', 80))
+        node.dispatchEvent(createTouchEvent('touchmove', 100))
         node.dispatchEvent(new KeyboardEvent('keydown', { key: 'PageDown' }))
         node.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }))
 
-        expect(onIntent).toHaveBeenCalledTimes(3)
+        expect(onIntent).toHaveBeenCalledTimes(4)
         expect(onIntent).toHaveBeenNthCalledWith(1, { direction: 'down' })
         expect(onIntent).toHaveBeenNthCalledWith(2, { direction: 'down' })
-        expect(onIntent).toHaveBeenNthCalledWith(3, { direction: 'down' })
+        expect(onIntent).toHaveBeenNthCalledWith(3, { direction: 'up' })
+        expect(onIntent).toHaveBeenNthCalledWith(4, { direction: 'down' })
 
         action.destroy()
         node.dispatchEvent(new WheelEvent('wheel', { deltaY: 10 }))
         node.dispatchEvent(createTouchEvent('touchmove', 40))
 
-        expect(onIntent).toHaveBeenCalledTimes(3)
+        expect(onIntent).toHaveBeenCalledTimes(4)
     })
 })

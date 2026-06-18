@@ -1,5 +1,5 @@
-import { expect, test } from '@playwright/test'
-import { VIEWPORT, getScrollState, rafWait, waitForMount } from '../helpers.js'
+import { expect, test, type Page } from '@playwright/test'
+import { STATS, VIEWPORT, getScrollState, rafWait, waitForMount } from '../helpers.js'
 
 type ScrollSample = {
     tick: number
@@ -13,13 +13,9 @@ type ScrollSample = {
     growths: string
 }
 
-async function captureScrollSample(
-    page: import('@playwright/test').Page,
-    tick: number,
-    phase: number
-) {
+async function captureScrollSample(page: Page, tick: number, phase: number) {
     const scroll = await getScrollState(page)
-    const stats = await page.locator('[data-testid="debug-stats"]').textContent()
+    const stats = await page.locator(STATS).textContent()
     const parsedStats = Object.fromEntries(
         (stats ?? '')
             .trim()
@@ -41,14 +37,12 @@ async function captureScrollSample(
     } satisfies ScrollSample
 }
 
-async function openWheelJumpPage(
-    page: import('@playwright/test').Page,
-    growthMode: 'remount' | 'persist' = 'remount'
-) {
+async function openWheelJumpPage(page: Page, growthMode: 'remount' | 'persist' = 'remount') {
     await page.goto(`/tests/chat/wheel-scroll-jump?growth=${growthMode}`, {
         waitUntil: 'domcontentloaded'
     })
     await waitForMount(page)
+    await expect(page.locator(STATS)).toBeVisible()
 }
 
 function findForwardJumps(samples: ScrollSample[]) {
@@ -66,36 +60,37 @@ function findForwardJumps(samples: ScrollSample[]) {
     return { forwardProgressJumps, forwardGapJumps }
 }
 
-async function setupAtBottom(page: import('@playwright/test').Page) {
+async function setupAtBottom(page: Page) {
     await rafWait(page, 3)
 
     const viewport = page.locator(VIEWPORT)
     const box = await viewport.boundingBox()
     expect(box).not.toBeNull()
-    if (!box) return null
+    if (!box) throw new Error(`Missing viewport ${VIEWPORT}`)
 
-    await page.evaluate((selector) => {
-        const el = document.querySelector(selector) as HTMLElement
+    const didScrollToBottom = await page.evaluate((selector) => {
+        const el = document.querySelector(selector) as HTMLElement | null
+        if (!el) return false
         el.scrollTop = el.scrollHeight
+        return true
     }, VIEWPORT)
+    expect(didScrollToBottom).toBe(true)
     await rafWait(page, 2)
 
     return box
 }
 
-async function setupWheelAtBottom(page: import('@playwright/test').Page) {
+async function setupWheelAtBottom(page: Page) {
     const box = await setupAtBottom(page)
-    if (!box) return false
 
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
-    return true
 }
 
-async function setupTouchAtBottom(page: import('@playwright/test').Page) {
-    return !!(await setupAtBottom(page))
+async function setupTouchAtBottom(page: Page) {
+    await setupAtBottom(page)
 }
 
-async function touchScroll(page: import('@playwright/test').Page, deltaY: number) {
+async function touchScroll(page: Page, deltaY: number) {
     const didScroll = await page.evaluate(
         ([selector, dy]) => {
             const el = document.querySelector(selector) as HTMLElement | null
@@ -142,12 +137,15 @@ test.describe('Wheel scroll jump', () => {
         const viewport = page.locator(VIEWPORT)
         const box = await viewport.boundingBox()
         expect(box).not.toBeNull()
-        if (!box) return
+        if (!box) throw new Error(`Missing viewport ${VIEWPORT}`)
 
-        await page.evaluate((selector) => {
-            const el = document.querySelector(selector) as HTMLElement
+        const didScrollToTop = await page.evaluate((selector) => {
+            const el = document.querySelector(selector) as HTMLElement | null
+            if (!el) return false
             el.scrollTop = 0
+            return true
         }, VIEWPORT)
+        expect(didScrollToTop).toBe(true)
         await rafWait(page, 2)
 
         await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
@@ -182,7 +180,7 @@ test.describe('Wheel scroll jump', () => {
         page
     }) => {
         await openWheelJumpPage(page)
-        if (!(await setupWheelAtBottom(page))) return
+        await setupWheelAtBottom(page)
 
         const samples: ScrollSample[] = []
         for (let tick = 0; tick < 10; tick++) {
@@ -203,7 +201,7 @@ test.describe('Wheel scroll jump', () => {
         page
     }) => {
         await openWheelJumpPage(page, 'persist')
-        if (!(await setupWheelAtBottom(page))) return
+        await setupWheelAtBottom(page)
 
         for (let tick = 0; tick < 8; tick++) {
             await page.mouse.wheel(0, -650)
@@ -253,7 +251,7 @@ test.describe('Touch scroll jump', () => {
 
     test('keeps moving away from bottom during first-time upward touch input', async ({ page }) => {
         await openWheelJumpPage(page)
-        if (!(await setupTouchAtBottom(page))) return
+        await setupTouchAtBottom(page)
 
         const samples: ScrollSample[] = []
         for (let tick = 0; tick < 10; tick++) {
@@ -274,7 +272,7 @@ test.describe('Touch scroll jump', () => {
         page
     }) => {
         await openWheelJumpPage(page, 'persist')
-        if (!(await setupTouchAtBottom(page))) return
+        await setupTouchAtBottom(page)
 
         for (let tick = 0; tick < 8; tick++) {
             await touchScroll(page, -650)
