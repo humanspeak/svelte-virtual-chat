@@ -82,6 +82,8 @@ async function waitForGrowthToSettle(page: Page) {
     await page.waitForFunction(
         ([statsSelector, stableFrames]) => {
             const growthNodesExpanded = () => {
+                // Persist-mode fixtures should render late-growth nodes; zero nodes means the
+                // test setup has not reached the state we intend to sample.
                 const nodes = Array.from(document.querySelectorAll('[data-testid^="late-growth-"]'))
                 return (
                     nodes.length > 0 &&
