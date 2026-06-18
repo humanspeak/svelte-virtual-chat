@@ -85,6 +85,13 @@ async function setupWheelAtBottom(page: import('@playwright/test').Page) {
 }
 
 test.describe('Wheel scroll jump', () => {
+    test.beforeEach(({ page: _page }, testInfo) => {
+        test.skip(
+            testInfo.project.name === 'mobile-safari',
+            'Playwright does not support mouse.wheel in mobile WebKit'
+        )
+    })
+
     test('does not move the outer viewport backward during positive wheel input', async ({
         page
     }) => {
