@@ -4,50 +4,46 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "build": "tsx ./scripts/fetch-github-stats.ts && node ./scripts/generate-sitemap-manifest.mjs && tsx ./scripts/generate-social-cards.ts && vite build",
+        "build": "tsx ./scripts/fetch-github-stats.ts && vite build",
+        "build:indexnow": "tsx ./scripts/fetch-github-stats.ts && vite build --mode indexnow",
         "cf-typegen": "wrangler types && mv worker-configuration.d.ts src/",
         "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-        "deploy": "npm run build && wrangler deploy",
-        "deploy:indexnow": "tsx ./scripts/indexnow-ping.ts",
+        "deploy": "pnpm run build:indexnow && wrangler deploy",
         "dev": "vite dev",
         "format": "prettier --write .",
-        "generate-social": "tsx ./scripts/generate-social-cards.ts",
         "lint": "prettier --check . && eslint .",
-        "preview": "vite preview",
-        "sitemap:manifest": "node ./scripts/generate-sitemap-manifest.mjs",
-        "sitemap:watch": "chokidar 'src/routes/**/*.svelte' 'src/routes/**/*.svx' 'src/routes/**/*.md' -c 'node ./scripts/generate-sitemap-manifest.mjs' --initial --silent",
-        "social:watch": "chokidar 'src/lib/components/shared-link/OG.svelte' 'scripts/generate-social-cards.ts' -c 'tsx ./scripts/generate-social-cards.ts' --initial --silent"
+        "preview": "vite preview"
     },
     "dependencies": {
-        "@humanspeak/docs-kit": "github:humanspeak/docs-kit#2026.3.31",
-        "@humanspeak/svelte-markdown": "^1.4.1",
+        "@humanspeak/docs-kit": "github:humanspeak/docs-kit#2026.6.14",
+        "@humanspeak/svelte-markdown": "^1.6.0",
+        "@humanspeak/svelte-motion": "^0.7.0",
         "@humanspeak/svelte-virtual-chat": "workspace:*"
     },
     "devDependencies": {
         "@icons-pack/svelte-simple-icons": "^7.2.0",
-        "@lucide/svelte": "^1.11.0",
+        "@lucide/svelte": "^1.18.0",
         "@sveltejs/adapter-cloudflare": "^7.2.8",
-        "@sveltejs/kit": "^2.58.0",
-        "@sveltejs/vite-plugin-svelte": "^7.0.0",
-        "@tailwindcss/typography": "^0.5.19",
-        "@tailwindcss/vite": "^4.2.4",
-        "chokidar-cli": "^3.0.0",
-        "eslint": "^10.2.1",
+        "@sveltejs/kit": "^2.65.1",
+        "@sveltejs/vite-plugin-svelte": "^7.1.2",
+        "@tailwindcss/typography": "^0.5.20",
+        "@tailwindcss/vite": "^4.3.1",
+        "eslint": "^10.5.0",
         "mdsvex": "^0.12.7",
         "mode-watcher": "^1.1.0",
-        "prettier": "^3.8.3",
-        "prettier-plugin-svelte": "^3.5.1",
+        "prettier": "^3.8.4",
+        "prettier-plugin-svelte": "^4.1.1",
         "prettier-plugin-tailwindcss": "^0.8.0",
-        "shiki": "^4.0.2",
-        "svelte": "^5.55.5",
-        "svelte-check": "^4.4.6",
-        "tailwindcss": "^4.2.4",
-        "tsx": "^4.21.0",
+        "shiki": "^4.2.0",
+        "svelte": "^5.56.3",
+        "svelte-check": "^4.6.0",
+        "tailwindcss": "^4.3.1",
+        "tsx": "^4.22.4",
         "typescript": "^6.0.3",
-        "vite": "^8.0.10",
-        "wrangler": "^4.86.0"
+        "vite": "^8.0.16",
+        "wrangler": "^4.100.0"
     },
     "volta": {
-        "node": "24.15.0"
+        "node": "24.16.0"
     }
 }

@@ -1,15 +1,12 @@
 <script lang="ts">
-    import { DocsLayout } from '@humanspeak/docs-kit'
+    import { DocsLayout, type NavItem } from '@humanspeak/docs-kit'
     import { docsConfig } from '$lib/docs-config'
     import { buildBreadcrumbs, docsSections } from '$lib/docsNav'
     import favicon from '$lib/assets/logo.svg'
 
     import type { Snippet } from 'svelte'
 
-    const {
-        children,
-        data
-    }: { children: Snippet; data: { otherProjects: Record<string, unknown>[] } } = $props()
+    const { children, data }: { children: Snippet; data: { otherProjects: NavItem[] } } = $props()
 </script>
 
 <DocsLayout

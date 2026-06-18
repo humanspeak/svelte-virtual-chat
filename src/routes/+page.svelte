@@ -16,7 +16,10 @@
         },
         {
             title: 'Tests — Streaming',
-            links: [{ href: resolve('/tests/chat/streaming'), label: 'Streaming growth' }]
+            links: [
+                { href: resolve('/tests/chat/streaming'), label: 'Streaming growth' },
+                { href: resolve('/tests/chat/late-table-growth'), label: 'Late table growth' }
+            ]
         },
         {
             title: 'Tests — History',

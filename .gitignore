@@ -45,6 +45,9 @@ mprocs.log
 
 # docs
 docs/static/social-cards/**
+docs/static/docs/**
+docs/static/llms.txt
+docs/static/llms-full.txt
 docs/src/lib/github-stats.json
 tmp/
 /docs/.wrangler

@@ -7,3 +7,9 @@ yarn.lock
 node_modules/
 .svelte-kit/
 build/
+src/lib/github-stats.json
+src/lib/sitemap-manifest.json
+src/worker-configuration.d.ts
+static/docs/
+static/llms.txt
+static/llms-full.txt

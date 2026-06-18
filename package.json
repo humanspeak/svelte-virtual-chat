@@ -59,7 +59,7 @@
         "lint:fix": "pnpm run format && eslint . --fix",
         "package": "svelte-kit sync && svelte-package && publint",
         "prepare": "npx husky",
-        "prepublishOnly": "npm run package",
+        "prepublishOnly": "pnpm run package",
         "preview": "vite preview",
         "test": "vitest run --coverage --",
         "test:all": "pnpm run test && pnpm run test:e2e",
@@ -72,53 +72,49 @@
         "esm-env": "^1.2.2"
     },
     "devDependencies": {
-        "@eslint/compat": "^2.0.5",
+        "@eslint/compat": "^2.1.0",
         "@eslint/js": "^10.0.1",
-        "@playwright/test": "^1.59.1",
+        "@playwright/test": "^1.61.0",
         "@sveltejs/adapter-auto": "^7.0.1",
-        "@sveltejs/kit": "^2.58.0",
-        "@sveltejs/package": "^2.5.7",
-        "@sveltejs/vite-plugin-svelte": "^7.0.0",
-        "@tailwindcss/vite": "^4.2.4",
+        "@sveltejs/kit": "^2.65.1",
+        "@sveltejs/package": "^2.5.8",
+        "@sveltejs/vite-plugin-svelte": "^7.1.2",
+        "@tailwindcss/vite": "^4.3.1",
         "@testing-library/jest-dom": "^6.9.1",
         "@testing-library/svelte": "^5.3.1",
         "@testing-library/user-event": "^14.6.1",
-        "@types/node": "^25.6.0",
-        "@typescript-eslint/eslint-plugin": "^8.59.1",
-        "@typescript-eslint/parser": "^8.59.1",
-        "@vitest/coverage-v8": "^4.1.5",
-        "eslint": "^10.2.1",
+        "@types/node": "^25.9.3",
+        "@typescript-eslint/eslint-plugin": "^8.61.1",
+        "@typescript-eslint/parser": "^8.61.1",
+        "@vitest/coverage-v8": "^4.1.9",
+        "eslint": "^10.5.0",
         "eslint-config-prettier": "^10.1.8",
-        "eslint-plugin-svelte": "^3.17.1",
+        "eslint-plugin-svelte": "^3.19.0",
         "eslint-plugin-unused-imports": "^4.4.1",
-        "globals": "^17.5.0",
-        "jsdom": "^29.1.0",
-        "mprocs": "^0.9.2",
-        "prettier": "^3.8.3",
+        "globals": "^17.6.0",
+        "jsdom": "^29.1.1",
+        "mprocs": "^0.9.6",
+        "prettier": "^3.8.4",
         "prettier-plugin-organize-imports": "^4.3.0",
-        "prettier-plugin-svelte": "^3.5.1",
+        "prettier-plugin-svelte": "^4.1.1",
         "prettier-plugin-tailwindcss": "^0.8.0",
-        "publint": "^0.3.18",
-        "svelte": "^5.55.5",
-        "svelte-check": "^4.4.6",
-        "tailwindcss": "^4.2.4",
+        "publint": "^0.3.21",
+        "svelte": "^5.56.3",
+        "svelte-check": "^4.6.0",
+        "tailwindcss": "^4.3.1",
         "typescript": "^6.0.3",
-        "typescript-eslint": "^8.59.1",
-        "vite": "^8.0.10",
-        "vitest": "^4.1.5"
+        "typescript-eslint": "^8.61.1",
+        "vite": "^8.0.16",
+        "vitest": "^4.1.9"
     },
     "peerDependencies": {
         "svelte": "^5.0.0"
     },
+    "packageManager": "pnpm@11.7.0",
     "volta": {
-        "node": "24.15.0"
+        "node": "24.16.0"
     },
     "publishConfig": {
         "access": "public"
-    },
-    "pnpm": {
-        "onlyBuiltDependencies": [
-            "@humanspeak/docs-kit"
-        ]
     }
 }

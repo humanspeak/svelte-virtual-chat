@@ -181,8 +181,7 @@
                 class="w-full rounded border border-gray-300 px-3 py-2 text-sm"
                 rows="6"
                 placeholder="Type a message…"
-                data-testid="composer-input"
-            ></textarea>
+                data-testid="composer-input"></textarea>
             <div class="flex justify-end gap-2">
                 <button class="rounded bg-gray-200 px-3 py-1 text-sm">Attach</button>
                 <button class="rounded bg-blue-500 px-3 py-1 text-sm text-white">Send</button>
