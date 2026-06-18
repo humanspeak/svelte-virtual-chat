@@ -8,6 +8,12 @@ const SCROLL_INTENT_KEYS = new Set([
     ' '
 ])
 
+export type ChatScrollDirection = 'up' | 'down'
+
+export type ChatScrollIntentEvent = {
+    direction: ChatScrollDirection | null
+}
+
 export type ChatScrollIntentOptions = {
     timeoutMs?: number
     onIntentStart?: () => void
@@ -56,19 +62,39 @@ export class ChatScrollIntent {
 
 export const isScrollIntentKey = (key: string): boolean => SCROLL_INTENT_KEYS.has(key)
 
-export const trackScrollIntent = (node: HTMLElement, onIntent: () => void) => {
-    const handlePointerIntent = () => onIntent()
+export const getWheelScrollDirection = (event: WheelEvent): ChatScrollDirection | null => {
+    if (event.deltaY > 0) return 'down'
+    if (event.deltaY < 0) return 'up'
+    return null
+}
+
+export const getKeyScrollDirection = (event: KeyboardEvent): ChatScrollDirection | null => {
+    if (!isScrollIntentKey(event.key)) return null
+
+    if (event.key === 'ArrowUp' || event.key === 'PageUp' || event.key === 'Home') return 'up'
+    if (event.key === ' ' && event.shiftKey) return 'up'
+    return 'down'
+}
+
+export const trackScrollIntent = (
+    node: HTMLElement,
+    onIntent: (_event: ChatScrollIntentEvent) => void
+) => {
+    const handleWheelIntent = (event: WheelEvent) =>
+        onIntent({ direction: getWheelScrollDirection(event) })
+    const handlePointerIntent = () => onIntent({ direction: null })
     const handleKeydown = (event: KeyboardEvent) => {
-        if (isScrollIntentKey(event.key)) onIntent()
+        const direction = getKeyScrollDirection(event)
+        if (direction) onIntent({ direction })
     }
 
-    node.addEventListener('wheel', handlePointerIntent, { passive: true })
+    node.addEventListener('wheel', handleWheelIntent, { passive: true })
     node.addEventListener('touchmove', handlePointerIntent, { passive: true })
     node.addEventListener('keydown', handleKeydown)
 
     return {
         destroy() {
-            node.removeEventListener('wheel', handlePointerIntent)
+            node.removeEventListener('wheel', handleWheelIntent)
             node.removeEventListener('touchmove', handlePointerIntent)
             node.removeEventListener('keydown', handleKeydown)
         }

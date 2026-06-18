@@ -8,11 +8,17 @@
         calculateVisibleRange
     } from './virtual-chat/chatMeasurement.svelte.js'
     import { ChatLayoutPreservation } from './virtual-chat/chatLayoutPreservation.js'
-    import { ChatScrollIntent, trackScrollIntent } from './virtual-chat/chatScrollIntent.js'
+    import {
+        ChatScrollIntent,
+        trackScrollIntent,
+        type ChatScrollIntentEvent
+    } from './virtual-chat/chatScrollIntent.js'
     import {
         decideFollowBottomAfterScroll,
-        isViewportAtBottom
+        isViewportAtBottom,
+        type ScrollGeometry
     } from './virtual-chat/chatScrollPolicy.js'
+    import { ChatScrollProgressPreserver } from './virtual-chat/chatScrollProgress.js'
     import {
         captureVisualAnchor,
         restoreVisualAnchor,
@@ -38,10 +44,12 @@
 
     // ── DOM refs ────────────────────────────────────────────────────
     let viewportEl: HTMLDivElement | undefined = $state()
+    let contentEl: HTMLDivElement | undefined = $state()
 
     // ── Core state ──────────────────────────────────────────────────
     const heightCache = new ChatHeightCache()
     const layoutPreservation = new ChatLayoutPreservation()
+    const scrollProgressPreserver = new ChatScrollProgressPreserver()
     const scrollIntent = new ChatScrollIntent({
         onIntentStart: () => layoutPreservation.end(),
         onIntentEnd: () => {
@@ -55,6 +63,8 @@
     let isFollowingBottom = $state(true)
     let pendingSnapToBottom = $state(false)
     let pendingAnchor: VisualAnchor | null = null
+    let pendingProgressPreservation = false
+    let scrollMutationObserver: MutationObserver | null = null
 
     // ── Derived: total content height ───────────────────────────────
     const totalHeight = $derived.by(() => {
@@ -139,10 +149,26 @@
     const setFollowingBottom = (next: boolean) => {
         const wasFollowing = isFollowingBottom
         isFollowingBottom = next
+        if (next) {
+            scrollProgressPreserver.reset()
+            stopScrollMutationObserver()
+        }
         if (wasFollowing !== next) {
             onFollowBottomChange?.(next)
         }
     }
+
+    const captureViewportGeometry = (): ScrollGeometry | null => {
+        if (!viewportEl) return null
+        return {
+            scrollTop: viewportEl.scrollTop,
+            scrollHeight: viewportEl.scrollHeight,
+            clientHeight: viewportEl.clientHeight
+        }
+    }
+
+    const isUserScrollPreservationActive = () =>
+        scrollIntent.isActive || scrollProgressPreserver.isActive(performance.now())
 
     const isAtViewportBottom = () => {
         if (!viewportEl) return true
@@ -155,9 +181,6 @@
             followBottomThresholdPx
         )
     }
-
-    const trackViewportScrollIntent = (node: HTMLElement) =>
-        trackScrollIntent(node, () => scrollIntent.mark())
 
     const captureCurrentVisualAnchor = (): VisualAnchor | null => {
         if (!viewportEl || messages.length === 0) return null
@@ -172,6 +195,24 @@
             scrollTop: viewportEl.scrollTop
         })
     }
+
+    const handleViewportScrollIntent = (event: ChatScrollIntentEvent) => {
+        scrollIntent.mark()
+        if (!event.direction) return
+
+        const currentGeometry = captureViewportGeometry()
+        if (!currentGeometry) return
+
+        scrollProgressPreserver.recordScrollIntent({
+            direction: event.direction,
+            current: currentGeometry,
+            now: performance.now()
+        })
+        scheduleScrollProgressPreservation()
+    }
+
+    const trackViewportScrollIntent = (node: HTMLElement) =>
+        trackScrollIntent(node, handleViewportScrollIntent)
 
     const restoreCurrentVisualAnchor = (anchor: VisualAnchor) => {
         if (!viewportEl) return
@@ -191,7 +232,7 @@
     }
 
     const scheduleAnchorRestore = (anchor: VisualAnchor | null) => {
-        if (!anchor || !viewportEl || isFollowingBottom || scrollIntent.isActive) return
+        if (!anchor || !viewportEl || isFollowingBottom || isUserScrollPreservationActive()) return
         // A rAF is in flight iff an anchor is pending; the first anchor wins.
         if (pendingAnchor) return
         pendingAnchor = anchor
@@ -200,30 +241,130 @@
             const anchorToRestore = pendingAnchor
             pendingAnchor = null
             layoutPreservation.end()
-            if (anchorToRestore && !isFollowingBottom && !scrollIntent.isActive) {
+            if (anchorToRestore && !isFollowingBottom && !isUserScrollPreservationActive()) {
                 restoreCurrentVisualAnchor(anchorToRestore)
+            }
+        })
+    }
+
+    const restoreScrollProgressIfNeeded = (now: number): ScrollGeometry | null => {
+        if (!viewportEl) return null
+
+        const currentGeometry = captureViewportGeometry()
+        if (!currentGeometry) return null
+
+        const targetScrollTop = scrollProgressPreserver.getPreservationTarget({
+            current: currentGeometry,
+            now
+        })
+        if (targetScrollTop === null) return null
+
+        viewportEl.scrollTop = targetScrollTop
+        scrollTop = viewportEl.scrollTop
+
+        const adjustedGeometry = captureViewportGeometry()
+        if (adjustedGeometry) {
+            scrollProgressPreserver.commitAdjustment(adjustedGeometry, now)
+        }
+
+        return adjustedGeometry
+    }
+
+    const stopScrollMutationObserver = () => {
+        scrollMutationObserver?.disconnect()
+        scrollMutationObserver = null
+    }
+
+    const startScrollMutationObserver = () => {
+        if (!contentEl || scrollMutationObserver) return
+
+        scrollMutationObserver = new MutationObserver(() => {
+            if (!isUserScrollPreservationActive()) {
+                stopScrollMutationObserver()
+                return
+            }
+
+            if (restoreScrollProgressIfNeeded(performance.now())) {
+                setFollowingBottom(isAtViewportBottom())
+            }
+            scheduleScrollProgressPreservation()
+        })
+        scrollMutationObserver.observe(contentEl, {
+            attributes: true,
+            childList: true,
+            subtree: true
+        })
+    }
+
+    const scheduleScrollProgressPreservation = () => {
+        if (
+            !viewportEl ||
+            pendingProgressPreservation ||
+            (isFollowingBottom && !isUserScrollPreservationActive())
+        ) {
+            return
+        }
+        startScrollMutationObserver()
+        pendingProgressPreservation = true
+        requestAnimationFrame(() => {
+            pendingProgressPreservation = false
+            if (!viewportEl || (isFollowingBottom && !isUserScrollPreservationActive())) return
+
+            const now = performance.now()
+            if (restoreScrollProgressIfNeeded(now)) {
+                setFollowingBottom(isAtViewportBottom())
+            }
+
+            if (scrollProgressPreserver.isActive(performance.now())) {
+                scheduleScrollProgressPreservation()
+            } else {
+                stopScrollMutationObserver()
             }
         })
     }
 
     /** Anchor the first visible message before a layout change, unless pinned to bottom. */
     const captureLayoutAnchor = (): VisualAnchor | null =>
-        !isFollowingBottom && !scrollIntent.isActive ? captureCurrentVisualAnchor() : null
+        !isFollowingBottom && !isUserScrollPreservationActive()
+            ? captureCurrentVisualAnchor()
+            : null
 
     const handleLayoutHeightChange = (anchor: VisualAnchor | null) => {
+        if (isUserScrollPreservationActive() && restoreScrollProgressIfNeeded(performance.now())) {
+            setFollowingBottom(isAtViewportBottom())
+        }
+
         if (isFollowingBottom) {
-            layoutPreservation.begin()
-            scheduleSnapToBottom()
+            if (isUserScrollPreservationActive()) {
+                scheduleScrollProgressPreservation()
+            } else {
+                layoutPreservation.begin()
+                scheduleSnapToBottom()
+            }
             return
         }
         scheduleAnchorRestore(anchor)
+        scheduleScrollProgressPreservation()
     }
 
     // ── Scroll event handler ────────────────────────────────────────
     const handleScroll = () => {
         if (!viewportEl) return
         const previousScrollTop = scrollTop
-        scrollTop = viewportEl.scrollTop
+        let currentGeometry = captureViewportGeometry()
+        if (!currentGeometry) return
+        scrollTop = currentGeometry.scrollTop
+
+        if (scrollIntent.isActive) {
+            const now = performance.now()
+            scrollProgressPreserver.recordUserScroll({
+                previousScrollTop,
+                current: currentGeometry,
+                now
+            })
+        }
+
+        restoreScrollProgressIfNeeded(performance.now())
 
         const decision = decideFollowBottomAfterScroll({
             atBottom: isAtViewportBottom(),
@@ -242,6 +383,7 @@
         if (decision.shouldScheduleSnapToBottom) {
             scheduleSnapToBottom()
         }
+        scheduleScrollProgressPreservation()
 
         if (onNeedHistory && scrollTop - topGap < viewportHeight * 0.5) {
             onNeedHistory()
@@ -251,13 +393,13 @@
     // ── Snap scheduling ─────────────────────────────────────────────
     /** Batches snap-to-bottom into a single rAF, respecting real user scroll intent. */
     const scheduleSnapToBottom = () => {
-        if (!isFollowingBottom || !viewportEl || scrollIntent.isActive) return
+        if (!isFollowingBottom || !viewportEl || isUserScrollPreservationActive()) return
         if (pendingSnapToBottom) return
         pendingSnapToBottom = true
         requestAnimationFrame(() => {
             pendingSnapToBottom = false
             layoutPreservation.end()
-            if (isFollowingBottom && !scrollIntent.isActive) {
+            if (isFollowingBottom && !isUserScrollPreservationActive()) {
                 snapToBottom()
             }
         })
@@ -336,7 +478,7 @@
     // ── Follow-bottom on new messages ───────────────────────────────
     $effect(() => {
         void messages.length
-        if (isFollowingBottom && viewportEl && !scrollIntent.isActive) {
+        if (isFollowingBottom && viewportEl && !isUserScrollPreservationActive()) {
             layoutPreservation.begin()
             scheduleSnapToBottom()
         }
@@ -354,6 +496,7 @@
         return () => {
             scrollIntent.destroy()
             layoutPreservation.destroy()
+            stopScrollMutationObserver()
         }
     })
 
@@ -473,6 +616,7 @@
                 estimatedMessageHeight
             )
 
+        scrollProgressPreserver.reset()
         setFollowingBottom(false)
         viewportEl?.scrollTo({
             top: offset,
@@ -528,10 +672,11 @@
         class={viewportClass}
         onscroll={handleScroll}
         use:trackViewportScrollIntent
-        style="overflow-y: auto; flex: 1 1 0%; min-height: 0;"
+        style="overflow-y: auto; overflow-anchor: none; flex: 1 1 0%; min-height: 0;"
         data-testid={testId ? `${testId}-viewport` : undefined}
     >
         <div
+            bind:this={contentEl}
             style="min-height: 100%; position: relative; width: 100%; display: flex; flex-direction: column; justify-content: flex-end;"
             data-testid={testId ? `${testId}-content` : undefined}
         >
