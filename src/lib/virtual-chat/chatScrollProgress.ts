@@ -152,11 +152,10 @@ export class ChatScrollProgressPreserver {
         const previous = this.#lastDirectionalScroll
         const delta = current.scrollTop - previousScrollTop
         const baselineDelta = previous ? current.scrollTop - previous.scrollTop : delta
-        const matchesDirection =
-            (direction === 'down' && delta > this.#movementThresholdPx) ||
-            (direction === 'up' && delta < -this.#movementThresholdPx) ||
-            (direction === 'down' && baselineDelta > this.#movementThresholdPx) ||
-            (direction === 'up' && baselineDelta < -this.#movementThresholdPx)
+        const threshold = this.#movementThresholdPx
+        const movedInDirection = (d: number) =>
+            direction === 'down' ? d > threshold : d < -threshold
+        const matchesDirection = movedInDirection(delta) || movedInDirection(baselineDelta)
 
         if (matchesDirection) {
             this.#lastDirectionalScroll =

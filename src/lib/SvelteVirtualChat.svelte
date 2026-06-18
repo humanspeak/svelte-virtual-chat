@@ -170,16 +170,9 @@
     const isUserScrollPreservationActive = () =>
         scrollIntent.isActive || scrollProgressPreserver.isActive(performance.now())
 
-    const isAtViewportBottom = () => {
-        if (!viewportEl) return true
-        return isViewportAtBottom(
-            {
-                scrollTop: viewportEl.scrollTop,
-                scrollHeight: viewportEl.scrollHeight,
-                clientHeight: viewportEl.clientHeight
-            },
-            followBottomThresholdPx
-        )
+    const isAtViewportBottom = (geometry: ScrollGeometry | null = captureViewportGeometry()) => {
+        if (!geometry) return true
+        return isViewportAtBottom(geometry, followBottomThresholdPx)
     }
 
     const captureCurrentVisualAnchor = (): VisualAnchor | null => {
@@ -270,6 +263,12 @@
         return adjustedGeometry
     }
 
+    /** Snap progress back if needed, then sync follow state off the adjusted geometry. */
+    const restoreProgressAndSyncFollow = (now: number) => {
+        const adjusted = restoreScrollProgressIfNeeded(now)
+        if (adjusted) setFollowingBottom(isAtViewportBottom(adjusted))
+    }
+
     const stopScrollMutationObserver = () => {
         scrollMutationObserver?.disconnect()
         scrollMutationObserver = null
@@ -284,9 +283,7 @@
                 return
             }
 
-            if (restoreScrollProgressIfNeeded(performance.now())) {
-                setFollowingBottom(isAtViewportBottom())
-            }
+            restoreProgressAndSyncFollow(performance.now())
             scheduleScrollProgressPreservation()
         })
         scrollMutationObserver.observe(contentEl, {
@@ -311,11 +308,9 @@
             if (!viewportEl || (isFollowingBottom && !isUserScrollPreservationActive())) return
 
             const now = performance.now()
-            if (restoreScrollProgressIfNeeded(now)) {
-                setFollowingBottom(isAtViewportBottom())
-            }
+            restoreProgressAndSyncFollow(now)
 
-            if (scrollProgressPreserver.isActive(performance.now())) {
+            if (scrollProgressPreserver.isActive(now)) {
                 scheduleScrollProgressPreservation()
             } else {
                 stopScrollMutationObserver()
@@ -330,8 +325,8 @@
             : null
 
     const handleLayoutHeightChange = (anchor: VisualAnchor | null) => {
-        if (isUserScrollPreservationActive() && restoreScrollProgressIfNeeded(performance.now())) {
-            setFollowingBottom(isAtViewportBottom())
+        if (isUserScrollPreservationActive()) {
+            restoreProgressAndSyncFollow(performance.now())
         }
 
         if (isFollowingBottom) {
@@ -351,12 +346,12 @@
     const handleScroll = () => {
         if (!viewportEl) return
         const previousScrollTop = scrollTop
-        let currentGeometry = captureViewportGeometry()
+        const currentGeometry = captureViewportGeometry()
         if (!currentGeometry) return
         scrollTop = currentGeometry.scrollTop
 
+        const now = performance.now()
         if (scrollIntent.isActive) {
-            const now = performance.now()
             scrollProgressPreserver.recordUserScroll({
                 previousScrollTop,
                 current: currentGeometry,
@@ -364,7 +359,7 @@
             })
         }
 
-        restoreScrollProgressIfNeeded(performance.now())
+        restoreScrollProgressIfNeeded(now)
 
         const decision = decideFollowBottomAfterScroll({
             atBottom: isAtViewportBottom(),
