@@ -240,7 +240,15 @@ function getKeyboardViewport(page: Page) {
 }
 
 async function pressViewportKey(page: Page, key: string) {
-    await getKeyboardViewport(page).press(key)
+    const viewport = getKeyboardViewport(page)
+    await viewport.focus()
+    await expect(viewport).toBeFocused()
+
+    if (key.includes('+')) {
+        await page.keyboard.press(key)
+    } else {
+        await viewport.press(key)
+    }
 }
 
 async function pressKeyAndCaptureSamples(
@@ -402,7 +410,7 @@ test.describe('Keyboard scroll jump', () => {
     })
 
     const keyboardScrollCases = [
-        { key: 'PageUp', progress: 1, direction: 'up', minDelta: 200 },
+        { key: 'PageUp', progress: 0.65, direction: 'up', minDelta: 200 },
         { key: 'PageDown', progress: 0.35, direction: 'down', minDelta: 200 },
         { key: 'Space', progress: 0.35, direction: 'down', minDelta: 200 },
         { key: 'Shift+Space', progress: 0.65, direction: 'up', minDelta: 200 },
