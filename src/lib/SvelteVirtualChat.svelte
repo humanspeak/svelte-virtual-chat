@@ -408,6 +408,8 @@
             return
         }
 
+        if (event.target !== viewportEl) return
+
         const isHomeKey = event.key === 'Home' || event.code === 'Home'
         const isEndKey = event.key === 'End' || event.code === 'End'
         const isSpaceKey =

@@ -471,6 +471,38 @@ test.describe('Keyboard scroll jump', () => {
         expect(atTop.following).toBe('false')
     })
 
+    test('does not intercept keys from focused interactive descendants', async ({ page }) => {
+        await openWheelJumpPage(page)
+        await setupKeyboardAtProgress(page, 0.5)
+        await waitForGrowthToSettle(page)
+
+        const input = page.getByRole('textbox', { name: 'Pinned chat search' })
+        await input.focus()
+        await expect(input).toBeFocused()
+        await rafWait(page, 2)
+
+        for (const key of ['Space', 'Home', 'End']) {
+            await input.focus()
+            await expect(input).toBeFocused()
+            await input.evaluate((node) => {
+                delete (node as HTMLElement).dataset.defaultPrevented
+            })
+
+            const before = await captureScrollSample(page, 0, 0)
+            await input.press(key)
+            await expect(input).toHaveAttribute('data-default-prevented', 'false')
+            await rafWait(page, 3)
+            const after = await captureScrollSample(page, 0, 0)
+
+            if (key === 'End') continue
+
+            expect(
+                Math.abs(after.scrollTop - before.scrollTop),
+                `${key} should stay owned by the focused descendant`
+            ).toBeLessThanOrEqual(4)
+        }
+    })
+
     test('keeps moving away from bottom during first-time PageUp input', async ({ page }) => {
         await openWheelJumpPage(page)
         await setupKeyboardAtBottom(page)

@@ -79,6 +79,15 @@
     function recordWheel() {
         wheelCount++
     }
+
+    function recordDescendantKeydown(event: KeyboardEvent) {
+        const target = event.currentTarget
+        if (!(target instanceof HTMLElement)) return
+
+        requestAnimationFrame(() => {
+            target.dataset.defaultPrevented = String(event.defaultPrevented)
+        })
+    }
 </script>
 
 <svelte:head>
@@ -112,6 +121,16 @@
             viewportClass="h-full"
             testId="chat"
         >
+            {#snippet header()}
+                <div class="sticky top-0 z-10 bg-white/95 px-8 py-2">
+                    <textarea
+                        aria-label="Pinned chat search"
+                        class="h-8 resize-none rounded border border-gray-300 px-2 py-1 text-xs text-gray-900"
+                        data-testid="descendant-input"
+                        onkeydown={recordDescendantKeydown}></textarea>
+                </div>
+            {/snippet}
+
             {#snippet renderMessage(message: Message, index: number)}
                 <div class="px-8 py-1.5" data-testid="msg-{message.id}" onwheel={recordWheel}>
                     <div
