@@ -494,6 +494,8 @@ test.describe('Keyboard scroll jump', () => {
             await rafWait(page, 3)
             const after = await captureScrollSample(page, 0, 0)
 
+            // End can trigger browser-level textbox scroll/caret behavior.
+            // The default-prevented assertion above covers viewport interception.
             if (key === 'End') continue
 
             expect(
