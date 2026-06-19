@@ -409,11 +409,13 @@ test.describe('Keyboard scroll jump', () => {
         )
     })
 
+    // Page-sized keys are viewport-relative; WebKit CI can report compact
+    // movement here, so this table asserts direction rather than desktop-sized deltas.
     const keyboardScrollCases = [
-        { key: 'PageUp', progress: 0.65, direction: 'up', minDelta: 200 },
-        { key: 'PageDown', progress: 0.35, direction: 'down', minDelta: 200 },
-        { key: 'Space', progress: 0.35, direction: 'down', minDelta: 200 },
-        { key: 'Shift+Space', progress: 0.65, direction: 'up', minDelta: 200 },
+        { key: 'PageUp', progress: 0.65, direction: 'up', minDelta: 40 },
+        { key: 'PageDown', progress: 0.35, direction: 'down', minDelta: 40 },
+        { key: 'Space', progress: 0.35, direction: 'down', minDelta: 40 },
+        { key: 'Shift+Space', progress: 0.65, direction: 'up', minDelta: 40 },
         { key: 'ArrowUp', progress: 0.65, direction: 'up', minDelta: 15 },
         { key: 'ArrowDown', progress: 0.35, direction: 'down', minDelta: 15 }
     ] as const
