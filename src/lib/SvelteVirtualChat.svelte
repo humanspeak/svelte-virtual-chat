@@ -39,6 +39,7 @@
         onDebugInfo,
         containerClass = '',
         viewportClass = '',
+        viewportLabel = 'Chat messages',
         testId
     }: SvelteVirtualChatProps<TMessage> = $props()
 
@@ -69,6 +70,7 @@
     let previousMessageCount = -1
     let pendingAnchor: VisualAnchor | null = null
     let pendingProgressPreservation = false
+    let explicitKeyboardFollowBottom = false
     let scrollMutationObserver: MutationObserver | null = null
 
     // ── Derived: total content height ───────────────────────────────
@@ -196,6 +198,7 @@
 
     const handleViewportScrollIntent = (event: ChatScrollIntentEvent) => {
         scrollIntent.mark()
+        if (event.direction === 'up') explicitKeyboardFollowBottom = false
         if (!event.direction) return
 
         const currentGeometry = captureViewportGeometry()
@@ -330,6 +333,15 @@
             : null
 
     const handleLayoutHeightChange = (anchor: VisualAnchor | null) => {
+        if (explicitKeyboardFollowBottom) {
+            setFollowingBottom(true)
+            layoutPreservation.begin()
+            requestAnimationFrame(() => {
+                if (explicitKeyboardFollowBottom) snapToBottom()
+            })
+            return
+        }
+
         if (isUserScrollPreservationActive()) {
             restoreProgressAndSyncFollow(performance.now())
         }
@@ -382,7 +394,7 @@
             atBottom: isAtViewportBottom(),
             wasFollowingBottom: isFollowingBottom,
             preservingLayout: layoutPreservation.isActive,
-            userScrolling: scrollIntent.isActive,
+            userScrolling: scrollIntent.isActive && !explicitKeyboardFollowBottom,
             previousScrollTop,
             scrollTop,
             followBottomThresholdPx
@@ -399,6 +411,99 @@
 
         if (onNeedHistory && scrollTop - topGap < viewportHeight * 0.5) {
             onNeedHistory()
+        }
+    }
+
+    const handleViewportKeydown = (event: KeyboardEvent) => {
+        if (
+            !viewportEl ||
+            event.defaultPrevented ||
+            event.altKey ||
+            event.ctrlKey ||
+            event.metaKey
+        ) {
+            return
+        }
+
+        if (event.target !== viewportEl) return
+
+        const isHomeKey = event.key === 'Home' || event.code === 'Home'
+        const isEndKey = event.key === 'End' || event.code === 'End'
+        const isSpaceKey =
+            event.key === ' ' ||
+            event.key === 'Space' ||
+            event.key === 'Spacebar' ||
+            event.code === 'Space'
+
+        const scrollByKeyboard = (delta: number, direction: 'up' | 'down') => {
+            const viewport = viewportEl
+            if (!viewport) return
+
+            event.preventDefault()
+            event.stopImmediatePropagation()
+            if (direction === 'up') explicitKeyboardFollowBottom = false
+            handleViewportScrollIntent({ direction })
+            viewport.scrollTop += delta
+            scrollTop = viewport.scrollTop
+        }
+
+        if (event.key === 'ArrowUp' || event.code === 'ArrowUp') {
+            scrollByKeyboard(-40, 'up')
+            return
+        }
+
+        if (event.key === 'ArrowDown' || event.code === 'ArrowDown') {
+            scrollByKeyboard(40, 'down')
+            return
+        }
+
+        if (event.key === 'PageUp' || event.code === 'PageUp') {
+            scrollByKeyboard(-viewportEl.clientHeight * 0.85, 'up')
+            return
+        }
+
+        if (event.key === 'PageDown' || event.code === 'PageDown') {
+            scrollByKeyboard(viewportEl.clientHeight * 0.85, 'down')
+            return
+        }
+
+        if (isSpaceKey) {
+            scrollByKeyboard(
+                viewportEl.clientHeight * 0.85 * (event.shiftKey ? -1 : 1),
+                event.shiftKey ? 'up' : 'down'
+            )
+            return
+        }
+
+        if (isHomeKey) {
+            event.preventDefault()
+            event.stopImmediatePropagation()
+            explicitKeyboardFollowBottom = false
+            handleViewportScrollIntent({ direction: 'up' })
+            viewportEl.scrollTop = 0
+            scrollTop = viewportEl.scrollTop
+            setFollowingBottom(false)
+            scheduleScrollProgressPreservation()
+            return
+        }
+
+        if (isEndKey) {
+            event.preventDefault()
+            event.stopImmediatePropagation()
+            explicitKeyboardFollowBottom = true
+            layoutPreservation.begin()
+            handleViewportScrollIntent({ direction: 'down' })
+            snapToBottom()
+        }
+    }
+
+    const handleViewportKeyboard = (node: HTMLElement) => {
+        node.addEventListener('keydown', handleViewportKeydown)
+
+        return {
+            destroy() {
+                node.removeEventListener('keydown', handleViewportKeydown)
+            }
         }
     }
 
@@ -708,6 +813,7 @@
         const index = messages.findIndex((m) => getMessageId(m) === id)
         if (index === -1) return
 
+        explicitKeyboardFollowBottom = false
         const offset =
             topGap +
             headerHeight +
@@ -770,13 +876,18 @@
     data-testid={testId ? `${testId}-container` : undefined}
     style="display: flex; flex-direction: column; overflow: hidden;"
 >
+    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
     <div
         bind:this={viewportEl}
         class={viewportClass}
         onscroll={handleScroll}
+        use:handleViewportKeyboard
         use:trackViewportScrollIntent
         style="overflow-y: auto; overflow-anchor: none; flex: 1 1 0%; min-height: 0;"
         data-testid={testId ? `${testId}-viewport` : undefined}
+        role="region"
+        aria-label={viewportLabel}
+        tabindex="0"
     >
         <div
             bind:this={contentEl}

@@ -81,6 +81,12 @@ export type SvelteVirtualChatProps<TMessage = any> = {
     viewportClass?: string
 
     /**
+     * Accessible label for the scrollable viewport region.
+     * @default "Chat messages"
+     */
+    viewportLabel?: string
+
+    /**
      * Enable debug logging and stats.
      * @default false
      */
