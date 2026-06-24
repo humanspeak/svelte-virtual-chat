@@ -62,6 +62,11 @@
     let footerHeight = $state(0)
     let isFollowingBottom = $state(true)
     let pendingSnapToBottom = $state(false)
+    let pendingSmoothSnap = false
+    let scrollAnimationFrame: number | null = null
+    let isAnimatingToBottom = false
+    let hasAnchoredToBottom = false
+    let previousMessageCount = -1
     let pendingAnchor: VisualAnchor | null = null
     let pendingProgressPreservation = false
     let scrollMutationObserver: MutationObserver | null = null
@@ -350,6 +355,18 @@
         if (!currentGeometry) return
         scrollTop = currentGeometry.scrollTop
 
+        // Scroll events fired by our own smooth-scroll animation must not be
+        // read as the user leaving the bottom. A real user interaction raises
+        // scroll intent, which cancels the animation and falls through to the
+        // normal follow-bottom decision below.
+        if (isAnimatingToBottom) {
+            if (scrollIntent.isActive) {
+                finishSmoothScroll()
+            } else {
+                return
+            }
+        }
+
         const now = performance.now()
         if (scrollIntent.isActive) {
             scrollProgressPreserver.recordUserScroll({
@@ -387,15 +404,19 @@
 
     // ── Snap scheduling ─────────────────────────────────────────────
     /** Batches snap-to-bottom into a single rAF, respecting real user scroll intent. */
-    const scheduleSnapToBottom = () => {
+    const scheduleSnapToBottom = (options?: { smooth?: boolean }) => {
         if (!isFollowingBottom || !viewportEl || isUserScrollPreservationActive()) return
+        // If any caller this frame wants smooth, the coalesced snap is smooth.
+        if (options?.smooth) pendingSmoothSnap = true
         if (pendingSnapToBottom) return
         pendingSnapToBottom = true
         requestAnimationFrame(() => {
             pendingSnapToBottom = false
+            const smooth = pendingSmoothSnap
+            pendingSmoothSnap = false
             layoutPreservation.end()
             if (isFollowingBottom && !isUserScrollPreservationActive()) {
-                snapToBottom()
+                snapToBottom({ smooth })
             }
         })
     }
@@ -458,24 +479,110 @@
         }
     }
 
-    // ── Snap to bottom helper ───────────────────────────────────────
-    /** Instantly scrolls viewport to bottom and syncs follow state. */
-    const snapToBottom = () => {
+    // ── Snap / smooth scroll to bottom ──────────────────────────────
+    // When following the bottom and the content grows by a noticeable amount,
+    // ease toward the new bottom over a few frames instead of jumping. Small
+    // growth (streaming tokens, minor reflow) still lands instantly so the
+    // viewport stays pinned without lag, and reduced-motion users always jump.
+    const SMOOTH_FACTOR = 0.25 // fraction of the remaining distance eased per frame
+    const SMOOTH_SNAP_EPSILON_PX = 6 // within this of the bottom → land exactly
+    const SMOOTH_MIN_DISTANCE_PX = 80 // ignore tiny growth (streaming tokens) — jump
+    const SMOOTH_MAX_DISTANCE_FLOOR_PX = 1200 // never ease a teleport-sized jump
+
+    const prefersReducedMotion = () =>
+        typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
+
+    const maxScrollOf = (el: HTMLElement) => Math.max(0, el.scrollHeight - el.clientHeight)
+
+    /** Stop any in-flight smooth scroll. */
+    const finishSmoothScroll = () => {
+        isAnimatingToBottom = false
+        if (scrollAnimationFrame !== null) {
+            cancelAnimationFrame(scrollAnimationFrame)
+            scrollAnimationFrame = null
+        }
+    }
+
+    /** Instantly place the viewport at the bottom and sync the scroll signal. */
+    const jumpToBottom = () => {
         if (!viewportEl) return
-        const maxScroll = viewportEl.scrollHeight - viewportEl.clientHeight
-        if (maxScroll > 0) {
+        if (maxScrollOf(viewportEl) > 0) {
             viewportEl.scrollTop = viewportEl.scrollHeight
         }
         scrollTop = viewportEl.scrollTop
+    }
+
+    /**
+     * One eased step toward the (live) bottom. Re-reads geometry every frame so
+     * it keeps tracking content that is still growing (e.g. streaming).
+     */
+    const smoothScrollStep = () => {
+        if (!viewportEl || !isAnimatingToBottom) return
+        // Lost follow or the user took over — abandon the animation.
+        if (!isFollowingBottom || isUserScrollPreservationActive()) {
+            finishSmoothScroll()
+            return
+        }
+
+        const maxScroll = maxScrollOf(viewportEl)
+        const remaining = maxScroll - viewportEl.scrollTop
+        if (remaining <= SMOOTH_SNAP_EPSILON_PX) {
+            viewportEl.scrollTop = maxScroll
+            scrollTop = viewportEl.scrollTop
+            finishSmoothScroll()
+            return
+        }
+
+        viewportEl.scrollTop = viewportEl.scrollTop + remaining * SMOOTH_FACTOR
+        scrollTop = viewportEl.scrollTop
+        scrollAnimationFrame = requestAnimationFrame(smoothScrollStep)
+    }
+
+    /**
+     * Bring the viewport to the bottom and sync follow state. Eases for large
+     * jumps; lands instantly for small ones or when reduced motion is set.
+     */
+    const snapToBottom = (options?: { smooth?: boolean }) => {
+        if (!viewportEl) return
         setFollowingBottom(true)
+
+        // Already easing — the live-target loop will pick up the new bottom.
+        if (isAnimatingToBottom) return
+
+        const remaining = maxScrollOf(viewportEl) - viewportEl.scrollTop
+        // Ease only when a caller explicitly asks (new messages arriving while
+        // pinned), once we are already anchored at the bottom, and only for
+        // moderate distances. The first positioning (mount), reduced motion,
+        // height/measurement settling, tiny growth, and teleport-sized jumps
+        // (e.g. bulk-loading a huge backlog) all land instantly.
+        const maxEaseDistance = Math.max(SMOOTH_MAX_DISTANCE_FLOOR_PX, viewportEl.clientHeight * 3)
+        const shouldEase =
+            options?.smooth === true &&
+            hasAnchoredToBottom &&
+            !prefersReducedMotion() &&
+            remaining >= SMOOTH_MIN_DISTANCE_PX &&
+            remaining <= maxEaseDistance
+
+        hasAnchoredToBottom = true
+        if (!shouldEase) {
+            jumpToBottom()
+            return
+        }
+
+        isAnimatingToBottom = true
+        scrollAnimationFrame = requestAnimationFrame(smoothScrollStep)
     }
 
     // ── Follow-bottom on new messages ───────────────────────────────
     $effect(() => {
-        void messages.length
+        const count = messages.length
+        // Ease only on a real message-count increase — not on the effect's
+        // mount/settle re-fires, which would animate the initial positioning.
+        const grew = previousMessageCount >= 0 && count > previousMessageCount
+        previousMessageCount = count
         if (isFollowingBottom && viewportEl && !isUserScrollPreservationActive()) {
             layoutPreservation.begin()
-            scheduleSnapToBottom()
+            scheduleSnapToBottom({ smooth: grew })
         }
     })
 
@@ -489,6 +596,7 @@
     // ── Cleanup scroll timers on destroy ────────────────────────────
     $effect(() => {
         return () => {
+            finishSmoothScroll()
             scrollIntent.destroy()
             layoutPreservation.destroy()
             stopScrollMutationObserver()
