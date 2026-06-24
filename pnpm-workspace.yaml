@@ -12,3 +12,4 @@ allowBuilds:
 minimumReleaseAge: 2880
 minimumReleaseAgeExclude:
     - '@humanspeak/*'
+    - svelte
