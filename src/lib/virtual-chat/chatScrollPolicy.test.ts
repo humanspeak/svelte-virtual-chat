@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
     decideFollowBottomAfterScroll,
-    didMoveAwayFromBottom,
     getMaxScroll,
+    isMovementAttributableToUser,
     isViewportAtBottom
 } from './chatScrollPolicy.js'
 
@@ -36,35 +36,23 @@ describe('isViewportAtBottom', () => {
     })
 })
 
-describe('didMoveAwayFromBottom', () => {
-    it('ignores small upward deltas within threshold', () => {
-        expect(
-            didMoveAwayFromBottom({
-                previousScrollTop: 400,
-                scrollTop: 370,
-                followBottomThresholdPx: 48
-            })
-        ).toBe(false)
+describe('isMovementAttributableToUser', () => {
+    it('attributes movement to the user while input is active', () => {
+        expect(isMovementAttributableToUser({ userScrolling: true, preservingLayout: true })).toBe(
+            true
+        )
     })
 
-    it('detects meaningful upward movement', () => {
+    it('attributes movement to the user when no layout change is in flight', () => {
         expect(
-            didMoveAwayFromBottom({
-                previousScrollTop: 400,
-                scrollTop: 330,
-                followBottomThresholdPx: 48
-            })
+            isMovementAttributableToUser({ userScrolling: false, preservingLayout: false })
         ).toBe(true)
     })
 
-    it('does not treat exactly-threshold movement as moving away', () => {
-        expect(
-            didMoveAwayFromBottom({
-                previousScrollTop: 400,
-                scrollTop: 352,
-                followBottomThresholdPx: 48
-            })
-        ).toBe(false)
+    it('attributes movement to layout during turbulence without input', () => {
+        expect(isMovementAttributableToUser({ userScrolling: false, preservingLayout: true })).toBe(
+            false
+        )
     })
 })
 
@@ -76,9 +64,8 @@ describe('decideFollowBottomAfterScroll', () => {
                 wasFollowingBottom: true,
                 preservingLayout: true,
                 userScrolling: false,
-                previousScrollTop: 400,
-                scrollTop: 400,
-                followBottomThresholdPx: 48
+                followBottomThresholdPx: 48,
+                upwardTravelPx: 0
             })
         ).toEqual({
             nextFollowingBottom: true,
@@ -87,16 +74,15 @@ describe('decideFollowBottomAfterScroll', () => {
         })
     })
 
-    it('keeps following and schedules a snap during late layout growth', () => {
+    it('keeps following and schedules a snap when growth outruns the viewport', () => {
         expect(
             decideFollowBottomAfterScroll({
                 atBottom: false,
                 wasFollowingBottom: true,
                 preservingLayout: true,
                 userScrolling: false,
-                previousScrollTop: 400,
-                scrollTop: 430,
-                followBottomThresholdPx: 48
+                followBottomThresholdPx: 48,
+                upwardTravelPx: 0
             })
         ).toEqual({
             nextFollowingBottom: true,
@@ -105,16 +91,36 @@ describe('decideFollowBottomAfterScroll', () => {
         })
     })
 
-    it('stops following when a real user scroll interrupts preservation', () => {
+    it('keeps following through a growth-inflated gap when user displacement is trivial', () => {
+        // The #40 scenario: a 2px trackpad drift while streaming. The gap is
+        // large (atBottom=false) but the user barely moved — stay attached.
         expect(
             decideFollowBottomAfterScroll({
                 atBottom: false,
                 wasFollowingBottom: true,
                 preservingLayout: true,
                 userScrolling: true,
-                previousScrollTop: 400,
-                scrollTop: 430,
-                followBottomThresholdPx: 48
+                followBottomThresholdPx: 48,
+                upwardTravelPx: 2
+            })
+        ).toEqual({
+            nextFollowingBottom: true,
+            shouldEndLayoutPreservation: false,
+            shouldScheduleSnapToBottom: true
+        })
+    })
+
+    it('stops following when accumulated upward travel exceeds the threshold', () => {
+        // Covers both a single large flick (the caller folds each event's
+        // delta into upwardTravelPx before deciding) and a slow drag.
+        expect(
+            decideFollowBottomAfterScroll({
+                atBottom: false,
+                wasFollowingBottom: true,
+                preservingLayout: false,
+                userScrolling: true,
+                followBottomThresholdPx: 48,
+                upwardTravelPx: 80
             })
         ).toEqual({
             nextFollowingBottom: false,
@@ -123,16 +129,53 @@ describe('decideFollowBottomAfterScroll', () => {
         })
     })
 
-    it('stops following when scrollTop moves meaningfully away from bottom', () => {
+    it('does not unfollow at exactly-threshold accumulated travel', () => {
+        expect(
+            decideFollowBottomAfterScroll({
+                atBottom: false,
+                wasFollowingBottom: true,
+                preservingLayout: false,
+                userScrolling: true,
+                followBottomThresholdPx: 48,
+                upwardTravelPx: 48
+            })
+        ).toEqual({
+            nextFollowingBottom: true,
+            shouldEndLayoutPreservation: false,
+            shouldScheduleSnapToBottom: true
+        })
+    })
+
+    it('ignores browser-driven movement during layout turbulence (no user input)', () => {
+        // A mid-transition snap write can bounce through a momentarily
+        // zero-scrollable boundary; the browser clamp inflates travel-like
+        // movement, but no input is active and layout preservation is —
+        // attribute it to layout and stay attached.
         expect(
             decideFollowBottomAfterScroll({
                 atBottom: false,
                 wasFollowingBottom: true,
                 preservingLayout: true,
                 userScrolling: false,
-                previousScrollTop: 400,
-                scrollTop: 320,
-                followBottomThresholdPx: 48
+                followBottomThresholdPx: 48,
+                upwardTravelPx: 55
+            })
+        ).toEqual({
+            nextFollowingBottom: true,
+            shouldEndLayoutPreservation: false,
+            shouldScheduleSnapToBottom: true
+        })
+    })
+
+    it('unfollows on non-input movement when no layout change is in flight (scrollbar drag)', () => {
+        expect(
+            decideFollowBottomAfterScroll({
+                atBottom: false,
+                wasFollowingBottom: true,
+                preservingLayout: false,
+                userScrolling: false,
+                followBottomThresholdPx: 48,
+                upwardTravelPx: 80
             })
         ).toEqual({
             nextFollowingBottom: false,
@@ -148,9 +191,8 @@ describe('decideFollowBottomAfterScroll', () => {
                 wasFollowingBottom: false,
                 preservingLayout: true,
                 userScrolling: false,
-                previousScrollTop: 200,
-                scrollTop: 220,
-                followBottomThresholdPx: 48
+                followBottomThresholdPx: 48,
+                upwardTravelPx: 0
             })
         ).toEqual({
             nextFollowingBottom: false,

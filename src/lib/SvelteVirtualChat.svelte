@@ -15,6 +15,8 @@
     } from './virtual-chat/chatScrollIntent.js'
     import {
         decideFollowBottomAfterScroll,
+        getMaxScroll,
+        isMovementAttributableToUser,
         isViewportAtBottom,
         type ScrollGeometry
     } from './virtual-chat/chatScrollPolicy.js'
@@ -53,7 +55,15 @@
     const scrollIntent = new ChatScrollIntent({
         onIntentStart: () => layoutPreservation.end(),
         onIntentEnd: () => {
-            if (isFollowingBottom) scheduleSnapToBottom()
+            if (isFollowingBottom) {
+                // The gesture is over and follow survived it (displacement
+                // stayed under the threshold). Drop any directional progress
+                // preservation — left active, it keeps dragging a stale
+                // scroll ratio against growing content, ballooning the gap
+                // and blocking every snap (#40) — then catch back up.
+                scrollProgressPreserver.reset()
+                scheduleSnapToBottom()
+            }
         }
     })
     let scrollTop = $state(0)
@@ -61,11 +71,20 @@
     let headerHeight = $state(0)
     let footerHeight = $state(0)
     let isFollowingBottom = $state(true)
-    let pendingSnapToBottom = $state(false)
+    // Plain (non-reactive) on purpose: `scheduleSnapToBottom` reads this flag
+    // and is called from effects. As `$state`, the rAF resetting it to false
+    // re-triggered those effects, which re-scheduled the snap — a
+    // self-perpetuating loop that forced layout + wrote scrollTop every frame
+    // while following, even at idle (#41).
+    let pendingSnapToBottom = false
     let pendingSmoothSnap = false
     let scrollAnimationFrame: number | null = null
     let isAnimatingToBottom = false
     let hasAnchoredToBottom = false
+    // Cumulative upward scrollTop travel since the viewport was last within
+    // the follow threshold — the user's real displacement, as opposed to the
+    // bottom gap, which content growth can inflate on its own.
+    let upwardTravelPx = 0
     let previousMessageCount = -1
     let pendingAnchor: VisualAnchor | null = null
     let pendingProgressPreservation = false
@@ -339,7 +358,7 @@
                 scheduleScrollProgressPreservation()
             } else {
                 layoutPreservation.begin()
-                scheduleSnapToBottom()
+                snapToBottomPrePaint()
             }
             return
         }
@@ -350,21 +369,25 @@
     // ── Scroll event handler ────────────────────────────────────────
     const handleScroll = () => {
         if (!viewportEl) return
+
+        // Scroll events fired by our own smooth-scroll animation must not be
+        // read as the user leaving the bottom. A real user interaction raises
+        // scroll intent, which cancels the animation and falls through to the
+        // normal follow-bottom decision below. Bail before the full geometry
+        // capture — the ease writes scrollTop every frame and keeps the
+        // scroll signal in sync itself.
+        if (isAnimatingToBottom && !scrollIntent.isActive) {
+            scrollTop = viewportEl.scrollTop
+            return
+        }
+
         const previousScrollTop = scrollTop
         const currentGeometry = captureViewportGeometry()
         if (!currentGeometry) return
         scrollTop = currentGeometry.scrollTop
 
-        // Scroll events fired by our own smooth-scroll animation must not be
-        // read as the user leaving the bottom. A real user interaction raises
-        // scroll intent, which cancels the animation and falls through to the
-        // normal follow-bottom decision below.
         if (isAnimatingToBottom) {
-            if (scrollIntent.isActive) {
-                finishSmoothScroll()
-            } else {
-                return
-            }
+            finishSmoothScroll()
         }
 
         const now = performance.now()
@@ -376,16 +399,25 @@
             })
         }
 
-        restoreScrollProgressIfNeeded(now)
+        const adjustedGeometry = restoreScrollProgressIfNeeded(now)
+
+        const attribution = {
+            userScrolling: scrollIntent.isActive,
+            preservingLayout: layoutPreservation.isActive
+        }
+        const atBottom = isAtViewportBottom(adjustedGeometry ?? currentGeometry)
+        if (atBottom) {
+            upwardTravelPx = 0
+        } else if (isMovementAttributableToUser(attribution) && scrollTop < previousScrollTop) {
+            upwardTravelPx += previousScrollTop - scrollTop
+        }
 
         const decision = decideFollowBottomAfterScroll({
-            atBottom: isAtViewportBottom(),
+            ...attribution,
+            atBottom,
             wasFollowingBottom: isFollowingBottom,
-            preservingLayout: layoutPreservation.isActive,
-            userScrolling: scrollIntent.isActive,
-            previousScrollTop,
-            scrollTop,
-            followBottomThresholdPx
+            followBottomThresholdPx,
+            upwardTravelPx
         })
 
         if (decision.shouldEndLayoutPreservation) {
@@ -489,10 +521,11 @@
     const SMOOTH_MIN_DISTANCE_PX = 80 // ignore tiny growth (streaming tokens) — jump
     const SMOOTH_MAX_DISTANCE_FLOOR_PX = 1200 // never ease a teleport-sized jump
 
-    const prefersReducedMotion = () =>
-        typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
-
-    const maxScrollOf = (el: HTMLElement) => Math.max(0, el.scrollHeight - el.clientHeight)
+    // A MediaQueryList is live — create it once and read `.matches` instead
+    // of re-parsing the query on every smooth-flagged snap.
+    const reducedMotionQuery =
+        typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null
+    const prefersReducedMotion = () => reducedMotionQuery?.matches ?? false
 
     /** Stop any in-flight smooth scroll. */
     const finishSmoothScroll = () => {
@@ -506,8 +539,11 @@
     /** Instantly place the viewport at the bottom and sync the scroll signal. */
     const jumpToBottom = () => {
         if (!viewportEl) return
-        if (maxScrollOf(viewportEl) > 0) {
-            viewportEl.scrollTop = viewportEl.scrollHeight
+        const maxScroll = getMaxScroll(viewportEl)
+        // Skip the no-op write when already pinned (within sub-pixel): a
+        // redundant write still fires a scroll event and a handleScroll run.
+        if (maxScroll > 0 && maxScroll - viewportEl.scrollTop > 0.5) {
+            viewportEl.scrollTop = maxScroll
         }
         scrollTop = viewportEl.scrollTop
     }
@@ -524,7 +560,7 @@
             return
         }
 
-        const maxScroll = maxScrollOf(viewportEl)
+        const maxScroll = getMaxScroll(viewportEl)
         const remaining = maxScroll - viewportEl.scrollTop
         if (remaining <= SMOOTH_SNAP_EPSILON_PX) {
             viewportEl.scrollTop = maxScroll
@@ -549,28 +585,45 @@
         // Already easing — the live-target loop will pick up the new bottom.
         if (isAnimatingToBottom) return
 
-        const remaining = maxScrollOf(viewportEl) - viewportEl.scrollTop
         // Ease only when a caller explicitly asks (new messages arriving while
         // pinned), once we are already anchored at the bottom, and only for
         // moderate distances. The first positioning (mount), reduced motion,
         // height/measurement settling, tiny growth, and teleport-sized jumps
-        // (e.g. bulk-loading a huge backlog) all land instantly.
-        const maxEaseDistance = Math.max(SMOOTH_MAX_DISTANCE_FLOOR_PX, viewportEl.clientHeight * 3)
-        const shouldEase =
-            options?.smooth === true &&
-            hasAnchoredToBottom &&
-            !prefersReducedMotion() &&
-            remaining >= SMOOTH_MIN_DISTANCE_PX &&
-            remaining <= maxEaseDistance
+        // (e.g. bulk-loading a huge backlog) all land instantly. The instant
+        // path is the per-measurement hot path — keep it free of the extra
+        // geometry reads the ease decision needs.
+        if (options?.smooth !== true || !hasAnchoredToBottom || prefersReducedMotion()) {
+            hasAnchoredToBottom = true
+            jumpToBottom()
+            return
+        }
 
-        hasAnchoredToBottom = true
-        if (!shouldEase) {
+        const remaining = getMaxScroll(viewportEl) - viewportEl.scrollTop
+        const maxEaseDistance = Math.max(SMOOTH_MAX_DISTANCE_FLOOR_PX, viewportEl.clientHeight * 3)
+        if (remaining < SMOOTH_MIN_DISTANCE_PX || remaining > maxEaseDistance) {
             jumpToBottom()
             return
         }
 
         isAnimatingToBottom = true
         scrollAnimationFrame = requestAnimationFrame(smoothScrollStep)
+    }
+
+    /**
+     * Pre-paint correction for ResizeObserver contexts (height changes,
+     * viewport resizes): RO callbacks run after layout and before paint, so a
+     * synchronous snap pins the bottom in the same frame the content changed —
+     * deferring to a rAF paints one frame off-bottom per growth step (#42).
+     * A running or queued smooth ease is never preempted (it tracks the live
+     * bottom every frame), and the coalesced rAF re-assert covers same-frame
+     * relayout clamping the sync write away (deferred height-cache flush, CSS
+     * transitions mid-step).
+     */
+    const snapToBottomPrePaint = () => {
+        if (!(isAnimatingToBottom || pendingSmoothSnap)) {
+            snapToBottom()
+        }
+        scheduleSnapToBottom()
     }
 
     // ── Follow-bottom on new messages ───────────────────────────────
@@ -586,8 +639,12 @@
         }
     })
 
-    // ── Follow-bottom on height changes ─────────────────────────────
-    // Height changes during scroll (e.g. newly measured items) respect user-scroll suppression
+    // ── Follow-bottom on estimate-driven height changes ─────────────
+    // Measured height changes are handled synchronously in the ResizeObserver
+    // path (handleLayoutHeightChange). This effect covers the one case with
+    // no measurement event: totalHeight moving because unmeasured estimates
+    // changed (e.g. `estimatedMessageHeight` updated, or a same-length
+    // message replacement swapping estimated slots).
     $effect(() => {
         void totalHeight
         scheduleSnapToBottom()
@@ -612,7 +669,7 @@
             if (viewportEl) {
                 viewportHeight = viewportEl.clientHeight
                 if (isFollowingBottom) {
-                    requestAnimationFrame(() => snapToBottom())
+                    snapToBottomPrePaint()
                 }
             }
         })
