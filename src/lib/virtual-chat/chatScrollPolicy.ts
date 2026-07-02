@@ -24,6 +24,13 @@ export type DecideFollowBottomAfterScrollArgs = {
     previousScrollTop: number
     scrollTop: number
     followBottomThresholdPx: number
+    /**
+     * Cumulative upward scrollTop travel (px) since the viewport was last
+     * within the follow threshold. This — not the distance from the bottom —
+     * is the user's actual displacement: content growth can manufacture an
+     * arbitrarily large bottom gap out of a trivial (or nonexistent) gesture.
+     */
+    upwardTravelPx: number
 }
 
 export const getMaxScroll = (geometry: Pick<ScrollGeometry, 'scrollHeight' | 'clientHeight'>) =>
@@ -57,22 +64,43 @@ export const decideFollowBottomAfterScroll = (
         }
     }
 
-    if (
-        args.wasFollowingBottom &&
-        args.preservingLayout &&
-        !args.userScrolling &&
-        !didMoveAwayFromBottom(args)
-    ) {
+    if (!args.wasFollowingBottom) {
         return {
-            nextFollowingBottom: true,
-            shouldEndLayoutPreservation: false,
-            shouldScheduleSnapToBottom: true
+            nextFollowingBottom: false,
+            shouldEndLayoutPreservation: true,
+            shouldScheduleSnapToBottom: false
         }
     }
 
+    // Attribute scroll movement to the user only when they are actually
+    // giving input, or when no layout change is in flight. During layout
+    // turbulence the browser moves scrollTop on its own — e.g. a snap write
+    // bouncing through a momentarily zero-scrollable boundary while a CSS
+    // transition grows a message — and that must not read as "the user
+    // scrolled away".
+    const attributableToUser = args.userScrolling || !args.preservingLayout
+
+    // Unfollow only on a deliberate departure: a single meaningful upward
+    // movement, or accumulated upward travel beyond the threshold. Being far
+    // from the bottom is NOT a departure signal by itself — during streaming,
+    // content growth turns a 1-2px trackpad drift into a large gap, and
+    // unfollowing on that gap strands the viewport permanently (#40).
+    if (
+        attributableToUser &&
+        (didMoveAwayFromBottom(args) || args.upwardTravelPx > args.followBottomThresholdPx)
+    ) {
+        return {
+            nextFollowingBottom: false,
+            shouldEndLayoutPreservation: true,
+            shouldScheduleSnapToBottom: false
+        }
+    }
+
+    // Off the bottom while following, without meaningful user displacement:
+    // growth outran the viewport. Stay attached and catch back up.
     return {
-        nextFollowingBottom: false,
-        shouldEndLayoutPreservation: true,
-        shouldScheduleSnapToBottom: false
+        nextFollowingBottom: true,
+        shouldEndLayoutPreservation: false,
+        shouldScheduleSnapToBottom: true
     }
 }

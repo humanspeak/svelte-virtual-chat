@@ -53,7 +53,15 @@
     const scrollIntent = new ChatScrollIntent({
         onIntentStart: () => layoutPreservation.end(),
         onIntentEnd: () => {
-            if (isFollowingBottom) scheduleSnapToBottom()
+            if (isFollowingBottom) {
+                // The gesture is over and follow survived it (displacement
+                // stayed under the threshold). Drop any directional progress
+                // preservation — left active, it keeps dragging a stale
+                // scroll ratio against growing content, ballooning the gap
+                // and blocking every snap (#40) — then catch back up.
+                scrollProgressPreserver.reset()
+                scheduleSnapToBottom()
+            }
         }
     })
     let scrollTop = $state(0)
@@ -61,11 +69,20 @@
     let headerHeight = $state(0)
     let footerHeight = $state(0)
     let isFollowingBottom = $state(true)
-    let pendingSnapToBottom = $state(false)
+    // Plain (non-reactive) on purpose: `scheduleSnapToBottom` reads this flag
+    // and is called from effects. As `$state`, the rAF resetting it to false
+    // re-triggered those effects, which re-scheduled the snap — a
+    // self-perpetuating loop that forced layout + wrote scrollTop every frame
+    // while following, even at idle (#41).
+    let pendingSnapToBottom = false
     let pendingSmoothSnap = false
     let scrollAnimationFrame: number | null = null
     let isAnimatingToBottom = false
     let hasAnchoredToBottom = false
+    // Cumulative upward scrollTop travel since the viewport was last within
+    // the follow threshold — the user's real displacement, as opposed to the
+    // bottom gap, which content growth can inflate on its own.
+    let upwardTravelPx = 0
     let previousMessageCount = -1
     let pendingAnchor: VisualAnchor | null = null
     let pendingProgressPreservation = false
@@ -339,7 +356,22 @@
                 scheduleScrollProgressPreservation()
             } else {
                 layoutPreservation.begin()
-                scheduleSnapToBottom()
+                if (isAnimatingToBottom || (pendingSnapToBottom && pendingSmoothSnap)) {
+                    // A smooth ease is running or queued — it tracks the live
+                    // bottom every frame, so don't preempt it with a jump.
+                    scheduleSnapToBottom()
+                } else {
+                    // This runs from a ResizeObserver callback: after layout,
+                    // before paint. Correcting synchronously pins the bottom
+                    // in the same frame the content grew — deferring to a rAF
+                    // paints one frame off-bottom per growth step (#42).
+                    snapToBottom()
+                    // Settle net: the same-frame relayout that follows (the
+                    // deferred height-cache flush, CSS transitions mid-step)
+                    // can clamp the write away; the coalesced rAF re-asserts
+                    // the bottom after the dust settles.
+                    scheduleSnapToBottom()
+                }
             }
             return
         }
@@ -378,14 +410,26 @@
 
         restoreScrollProgressIfNeeded(now)
 
+        const atBottom = isAtViewportBottom()
+        // Upward travel counts only when the movement is attributable to the
+        // user — real input, or no layout change in flight (see the matching
+        // guard in decideFollowBottomAfterScroll).
+        const attributableToUser = scrollIntent.isActive || !layoutPreservation.isActive
+        if (atBottom) {
+            upwardTravelPx = 0
+        } else if (attributableToUser && scrollTop < previousScrollTop) {
+            upwardTravelPx += previousScrollTop - scrollTop
+        }
+
         const decision = decideFollowBottomAfterScroll({
-            atBottom: isAtViewportBottom(),
+            atBottom,
             wasFollowingBottom: isFollowingBottom,
             preservingLayout: layoutPreservation.isActive,
             userScrolling: scrollIntent.isActive,
             previousScrollTop,
             scrollTop,
-            followBottomThresholdPx
+            followBottomThresholdPx,
+            upwardTravelPx
         })
 
         if (decision.shouldEndLayoutPreservation) {
@@ -612,7 +656,9 @@
             if (viewportEl) {
                 viewportHeight = viewportEl.clientHeight
                 if (isFollowingBottom) {
-                    requestAnimationFrame(() => snapToBottom())
+                    // ResizeObserver context: after layout, before paint —
+                    // same-frame correction, same reasoning as height changes.
+                    snapToBottom()
                 }
             }
         })
