@@ -4,6 +4,7 @@ A high-performance virtual chat viewport for Svelte 5. Purpose-built for LLM con
 
 [![NPM version](https://img.shields.io/npm/v/@humanspeak/svelte-virtual-chat.svg)](https://www.npmjs.com/package/@humanspeak/svelte-virtual-chat)
 [![Build Status](https://github.com/humanspeak/svelte-virtual-chat/actions/workflows/npm-publish.yml/badge.svg)](https://github.com/humanspeak/svelte-virtual-chat/actions/workflows/npm-publish.yml)
+[![tokenmaxing](https://tokenmaxing.app/badge/humanspeak/svelte-virtual-chat)](https://tokenmaxing.app/card/humanspeak/svelte-virtual-chat)
 [![License](https://img.shields.io/npm/l/@humanspeak/svelte-virtual-chat.svg)](https://github.com/humanspeak/svelte-virtual-chat/blob/main/LICENSE)
 [![Downloads](https://img.shields.io/npm/dm/@humanspeak/svelte-virtual-chat.svg)](https://www.npmjs.com/package/@humanspeak/svelte-virtual-chat)
 [![Install size](https://packagephobia.com/badge?p=@humanspeak/svelte-virtual-chat)](https://packagephobia.com/result?p=@humanspeak/svelte-virtual-chat)
@@ -328,18 +329,18 @@ With 10,000 messages, the DOM contains ~15-25 elements instead of 10,000.
 
 Part of the [Humanspeak](https://humanspeak.com) family of runes-native Svelte 5 packages:
 
-| Package | Description |
-| --- | --- |
-| [@humanspeak/svelte-markdown](https://markdown.svelte.page) | Runtime markdown renderer for Svelte |
-| [@humanspeak/svelte-virtual-list](https://virtuallist.svelte.page) | Virtual scrolling for Svelte |
-| [@humanspeak/svelte-motion](https://motion.svelte.page) | Framer Motion for Svelte 5 |
-| [@humanspeak/svelte-headless-table](https://table.svelte.page) | Headless data tables for Svelte |
-| [@humanspeak/svelte-diff-match-patch](https://diff.svelte.page) | Diff comparison for Svelte |
-| [@humanspeak/svelte-purify](https://purify.svelte.page) | HTML sanitisation for Svelte |
-| **[@humanspeak/svelte-virtual-chat](https://virtualchat.svelte.page)** — _this package_ | Virtual chat viewport for Svelte 5 |
-| [@humanspeak/memory-cache](https://memory.svelte.page) | In-memory cache for TypeScript |
-| [@humanspeak/svelte-json-view-lite](https://jsonview.svelte.page) | JSON tree viewer for Svelte 5 |
-| [@humanspeak/svelte-scoped-props](https://scoped.svelte.page) | Scoped class props for Svelte |
+| Package                                                                                 | Description                          |
+| --------------------------------------------------------------------------------------- | ------------------------------------ |
+| [@humanspeak/svelte-markdown](https://markdown.svelte.page)                             | Runtime markdown renderer for Svelte |
+| [@humanspeak/svelte-virtual-list](https://virtuallist.svelte.page)                      | Virtual scrolling for Svelte         |
+| [@humanspeak/svelte-motion](https://motion.svelte.page)                                 | Framer Motion for Svelte 5           |
+| [@humanspeak/svelte-headless-table](https://table.svelte.page)                          | Headless data tables for Svelte      |
+| [@humanspeak/svelte-diff-match-patch](https://diff.svelte.page)                         | Diff comparison for Svelte           |
+| [@humanspeak/svelte-purify](https://purify.svelte.page)                                 | HTML sanitisation for Svelte         |
+| **[@humanspeak/svelte-virtual-chat](https://virtualchat.svelte.page)** — _this package_ | Virtual chat viewport for Svelte 5   |
+| [@humanspeak/memory-cache](https://memory.svelte.page)                                  | In-memory cache for TypeScript       |
+| [@humanspeak/svelte-json-view-lite](https://jsonview.svelte.page)                       | JSON tree viewer for Svelte 5        |
+| [@humanspeak/svelte-scoped-props](https://scoped.svelte.page)                           | Scoped class props for Svelte        |
 
 ## License
 

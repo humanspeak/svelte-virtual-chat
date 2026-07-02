@@ -26,13 +26,20 @@ export type DecideFollowBottomAfterScrollArgs = MovementAttributionArgs & {
     wasFollowingBottom: boolean
     followBottomThresholdPx: number
     /**
-     * Cumulative upward scrollTop travel (px) since the viewport was last
-     * within the follow threshold, counting only user-attributable movement
-     * (see `isMovementAttributableToUser`). This — not the distance from the
-     * bottom — is the user's actual displacement: content growth can
-     * manufacture an arbitrarily large bottom gap out of a trivial (or
-     * nonexistent) gesture.
+     * Cumulative upward scrollTop travel (px) since the last non-upward
+     * arrival at the bottom, counting only user-attributable movement — see
+     * `accumulateUpwardTravel`, which owns the transition rule. This — not
+     * the distance from the bottom — is the user's actual displacement:
+     * content growth can manufacture an arbitrarily large bottom gap out of
+     * a trivial (or nonexistent) gesture.
      */
+    upwardTravelPx: number
+}
+
+export type AccumulateUpwardTravelArgs = MovementAttributionArgs & {
+    previousScrollTop: number
+    scrollTop: number
+    atBottom: boolean
     upwardTravelPx: number
 }
 
@@ -61,6 +68,26 @@ export const isMovementAttributableToUser = ({
     userScrolling,
     preservingLayout
 }: MovementAttributionArgs): boolean => userScrolling || !preservingLayout
+
+/**
+ * Advance the upward-travel accumulator for one scroll event.
+ *
+ * Upward user-attributable movement always accumulates, inside or outside
+ * the follow threshold: resetting within the threshold let the component's
+ * own snap-backs erase the trail, so a sustained slow programmatic scroll
+ * (no scroll intent to suppress the snap) could never accumulate past the
+ * threshold and unfollow — a livelock at the bottom (#45).
+ *
+ * Only a non-upward arrival at the bottom wipes the slate: the component's
+ * snap-backs, downward user scrolls, and clamps. Layout-turbulence movement
+ * (see `isMovementAttributableToUser`) never accumulates.
+ */
+export const accumulateUpwardTravel = (args: AccumulateUpwardTravelArgs): number => {
+    if (isMovementAttributableToUser(args) && args.scrollTop < args.previousScrollTop) {
+        return args.upwardTravelPx + (args.previousScrollTop - args.scrollTop)
+    }
+    return args.atBottom ? 0 : args.upwardTravelPx
+}
 
 const UNFOLLOW_DECISION: FollowBottomScrollDecision = {
     nextFollowingBottom: false,
