@@ -16,8 +16,9 @@
      * of play: any drift or painted jump here is caused by margins alone.
      *
      * The built-in monitor reports two things in the stats line:
-     * - realPitchPx vs measuredPx: offsetTop delta between adjacent rendered
-     *   wrappers vs the height the cache recorded (marginLossPx = the gap).
+     * - realPitchPx vs cachePitchPx: offsetTop delta between adjacent
+     *   rendered wrappers vs the height the cache recorded, derived from
+     *   totalHeight (marginLossPx = the gap).
      * - The sweep (same technique as the estimate-miss fixture): scroll up
      *   SWEEP_STEP_PX per frame, sample message positions after each paint;
      *   while scrolling by exactly N px per frame every on-screen message
@@ -50,7 +51,7 @@
     let maxJumpPx = $state(0)
     let totalJumpPx = $state(0)
     let realPitchPx = $state(0)
-    let measuredPx = $state(0)
+    let cachePitchPx = $state(0)
     let scrollHeightDriftPx = $state(0)
     let unmounted = false
 
@@ -76,7 +77,16 @@
             realPitchPx = Math.round(
                 wrappers[1].getBoundingClientRect().top - wrappers[0].getBoundingClientRect().top
             )
-            measuredPx = Math.round(wrappers[0].getBoundingClientRect().height)
+        }
+        if (debugInfo && debugInfo.measuredCount > 0) {
+            // The cache's average recorded height for measured messages —
+            // unmeasured ones sit at the estimate (BUBBLE_PX) by definition,
+            // so subtract them out of totalHeight first. All bubbles are
+            // identical, so this equals the per-message recorded pitch.
+            const unmeasured = debugInfo.totalMessages - debugInfo.measuredCount
+            cachePitchPx = Math.round(
+                (debugInfo.totalHeight - unmeasured * BUBBLE_PX) / debugInfo.measuredCount
+            )
         }
         if (debugInfo) {
             scrollHeightDriftPx = Math.round(
@@ -178,9 +188,9 @@
             dom={debugInfo.renderedCount}
             measured={debugInfo.measuredCount}
             following={debugInfo.isFollowingBottom}
-            height={Math.round(debugInfo.totalHeight)}px measuredPx={measuredPx}
+            height={Math.round(debugInfo.totalHeight)}px cachePitchPx={cachePitchPx}
             realPitchPx={realPitchPx}
-            marginLossPx={realPitchPx > 0 ? realPitchPx - measuredPx : 0}
+            marginLossPx={realPitchPx > 0 && cachePitchPx > 0 ? realPitchPx - cachePitchPx : 0}
             scrollHeightDriftPx={scrollHeightDriftPx}
             sweep={sweepState}
             sweepFrames={sweepFrame}

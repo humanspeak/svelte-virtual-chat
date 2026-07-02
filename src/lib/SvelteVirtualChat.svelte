@@ -47,6 +47,7 @@
     // ── DOM refs ────────────────────────────────────────────────────
     let viewportEl: HTMLDivElement | undefined = $state()
     let contentEl: HTMLDivElement | undefined = $state()
+    let itemsEl: HTMLDivElement | undefined = $state()
 
     // ── Core state ──────────────────────────────────────────────────
     const heightCache = new ChatHeightCache()
@@ -489,31 +490,59 @@
         })
     }
 
-    // ── Measurement action ──────────────────────────────────────────
-    /** Svelte action: attaches a ResizeObserver to track message height changes. */
-    const measureMessage = (node: HTMLElement, messageId: string) => {
+    // ── Measurement ─────────────────────────────────────────────────
+    /**
+     * Derive rendered message heights from wrapper offsets inside the items
+     * container. `offsetTop` deltas are layout ground truth: they include
+     * bubble margins that collapse through the unstyled wrappers and escape
+     * a border-box measurement entirely (#47). The last wrapper is closed by
+     * the container's own height, which contains the trailing margin. Reads
+     * are cheap here — this runs in ResizeObserver context, after layout.
+     *
+     * Self-coalescing: computes first, and only runs the anchor/snap
+     * machinery when at least one pitch actually changed — so a burst of
+     * per-message observer firings in one delivery does the work once.
+     */
+    const remeasureRenderedPitches = () => {
+        if (!itemsEl) return
+        const wrappers = itemsEl.children as HTMLCollectionOf<HTMLElement>
+        const count = wrappers.length
+        if (count === 0) return
+        const containerBottom = itemsEl.offsetHeight
+        const changes: { id: string; pitch: number }[] = []
+        for (let i = 0; i < count; i++) {
+            const id = wrappers[i].dataset.messageId
+            if (!id) continue
+            const nextTop = i + 1 < count ? wrappers[i + 1].offsetTop : containerBottom
+            const pitch = nextTop - wrappers[i].offsetTop
+            if (pitch > 0 && heightCache.get(id) !== pitch) {
+                changes.push({ id, pitch })
+            }
+        }
+        if (changes.length === 0) return
+        applyMeasuredHeightChange(() => {
+            for (const { id, pitch } of changes) heightCache.set(id, pitch)
+        })
+    }
+
+    /**
+     * Svelte action: a per-message ResizeObserver used purely as the change
+     * trigger — the actual heights come from `remeasureRenderedPitches`,
+     * never from the entry's border box (which excludes escaped margins).
+     */
+    const measureMessage = (node: HTMLElement) => {
         const observer = new ResizeObserver((entries) => {
             for (const entry of entries) {
                 const height = entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height
-                if (height > 0 && heightCache.get(messageId) !== height) {
-                    applyMeasuredHeightChange(() => heightCache.set(messageId, height))
+                if (height > 0) {
+                    remeasureRenderedPitches()
+                    break
                 }
             }
         })
         observer.observe(node)
 
         return {
-            update(newMessageId: string) {
-                // Svelte's keyed `{#each}` block doesn't recycle DOM nodes
-                // across different keys, so this path almost never fires in
-                // practice. Defensively keep the closed-over `messageId` in
-                // sync (the ResizeObserver callback reads it) but skip the
-                // sync `getBoundingClientRect()` — the next ResizeObserver
-                // fire after layout will re-measure correctly. Sync DOM reads
-                // here would force a reflow in any edge case Svelte does
-                // recycle a node.
-                messageId = newMessageId
-            },
             destroy() {
                 observer.disconnect()
             }
@@ -887,12 +916,13 @@
             {/if}
             <div style="height: {totalHeight}px; position: relative; flex-shrink: 0;">
                 <div
+                    bind:this={itemsEl}
                     style="position: absolute; top: 0; left: 0; right: 0; transform: translateY({startOffset}px);"
                 >
                     {#each renderedMessages as message, i (getMessageId(message))}
                         {@const globalIndex = visibleRange.start + i}
                         <div
-                            use:measureMessage={getMessageId(message)}
+                            use:measureMessage
                             data-testid={testId ? `${testId}-item-${globalIndex}` : undefined}
                             data-message-id={getMessageId(message)}
                         >
