@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { SETTLE_MS, getStats, waitForMount, waitForStat } from '../helpers.js'
+import { SETTLE_MS, expectNoPaintedJumps, getStats, runSweep, waitForMount } from '../helpers.js'
 
 /**
  * Estimate-vs-measured corrections while scrolling through an unmeasured
@@ -25,10 +25,7 @@ test.describe('Estimate miss (unmeasured backlog corrections)', () => {
         expect(before['following']).toBe('true')
         expect(Number(before['measured'])).toBeLessThan(20)
 
-        await page.locator('[data-testid="start-sweep"]').click()
-        await waitForStat(page, 'sweep', 'done', 20000)
-
-        const after = await getStats(page)
+        const after = await runSweep(page)
 
         // Sanity: the sweep genuinely traversed unmeasured territory (it
         // disengaged follow with one deliberate jump, then measured a
@@ -39,10 +36,6 @@ test.describe('Estimate miss (unmeasured backlog corrections)', () => {
 
         // Every jump here is an estimate-miss correction the user saw as a
         // lurch (when failing, maxJumpPx ≈ the 249px per-message miss).
-        expect({
-            jumps: Number(after['jumps']),
-            maxJumpPx: Number(after['maxJumpPx']),
-            totalJumpPx: Number(after['totalJumpPx'])
-        }).toEqual({ jumps: 0, maxJumpPx: 0, totalJumpPx: 0 })
+        expectNoPaintedJumps(after)
     })
 })
