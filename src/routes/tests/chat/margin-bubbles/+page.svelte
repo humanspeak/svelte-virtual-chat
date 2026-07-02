@@ -2,29 +2,29 @@
     import SvelteVirtualChat from '$lib/index.js'
     import type { SvelteVirtualChatDebugInfo } from '$lib/types.js'
     import { onMount } from 'svelte'
+    import { SweepMonitor } from '../sweepMonitor.svelte.js'
 
     /**
      * Margin-bubbles fixture: every message is a fixed 200px bubble with
      * `margin: 12px 0` — the near-universal chat-bubble spacing style. The
-     * component measures each wrapper's border box, which EXCLUDES the
-     * bubble's margins (they collapse through the unstyled wrapper), so the
-     * geometry math sees 200px per message while the real visual pitch is
-     * 212px (adjacent 12px margins collapse).
+     * real visual pitch is 212px (adjacent 12px margins collapse), while a
+     * border-box measurement of the wrapper reads 200px: pre-fix (#47) the
+     * margins collapsed through the unstyled wrappers and escaped the
+     * geometry math entirely.
      *
-     * `estimatedMessageHeight` is set to exactly the measured border-box
-     * height (200), so estimate-vs-measured corrections (#44) are fully out
-     * of play: any drift or painted jump here is caused by margins alone.
+     * `estimatedMessageHeight` is set to exactly the border-box height
+     * (200), so estimate-vs-measured corrections (#44) are fully out of
+     * play: any drift or painted jump here is caused by margins alone.
      *
-     * The built-in monitor reports two things in the stats line:
+     * The stats line reports:
      * - realPitchPx vs cachePitchPx: offsetTop delta between adjacent
      *   rendered wrappers vs the height the cache recorded, derived from
      *   totalHeight (marginLossPx = the gap).
-     * - The sweep (same technique as the estimate-miss fixture): scroll up
-     *   SWEEP_STEP_PX per frame, sample message positions after each paint;
-     *   while scrolling by exactly N px per frame every on-screen message
-     *   must move by exactly N px per painted frame — deviations are jumps
-     *   the user saw. With margins under-counted, the whole slice shifts by
-     *   the lost margin every time the render range advances a message.
+     * - The shared SweepMonitor's jump accounting (see sweepMonitor.svelte.ts
+     *   for the paint-aligned technique).
+     * - scrollHeightDriftPx: the known bounded leading-margin error — the
+     *   first wrapper's collapsed top margin belongs to no pitch, so
+     *   totalHeight runs short by at most one margin, a constant.
      */
 
     type Message = {
@@ -35,50 +35,32 @@
     const BUBBLE_PX = 200
     const BUBBLE_MARGIN_PX = 12
     const SEED_COUNT = 50
-    const SWEEP_STEP_PX = 30
-    const SWEEP_FRAMES = 200
-    const JUMP_TOLERANCE_PX = 2
+    const VIEWPORT_SELECTOR = '[data-testid="chat-viewport"]'
 
     const messages: Message[] = Array.from({ length: SEED_COUNT }, (_, i) => ({
         id: String(i + 1),
         role: i % 2 === 0 ? ('user' as const) : ('assistant' as const)
     }))
 
+    const sweep = new SweepMonitor()
     let debugInfo: SvelteVirtualChatDebugInfo | null = $state(null)
-    let sweepState: 'idle' | 'running' | 'done' = $state('idle')
-    let sweepFrame = $state(0)
-    let jumpCount = $state(0)
-    let maxJumpPx = $state(0)
-    let totalJumpPx = $state(0)
     let realPitchPx = $state(0)
     let cachePitchPx = $state(0)
     let scrollHeightDriftPx = $state(0)
-    let unmounted = false
 
-    /** Resolve just after the next paint; `beforePaint` runs in the rAF phase. */
-    const afterPaint = (beforePaint?: () => void) =>
-        new Promise<void>((resolve) => {
-            requestAnimationFrame(() => {
-                beforePaint?.()
-                const channel = new MessageChannel()
-                channel.port1.onmessage = () => resolve()
-                channel.port2.postMessage(null)
-            })
-        })
+    const getViewport = () => document.querySelector(VIEWPORT_SELECTOR) as HTMLElement | null
 
     /** Compare the real rendered pitch against what the height cache sees. */
     function measurePitch() {
-        const viewport = document.querySelector(
-            '[data-testid="chat-viewport"]'
-        ) as HTMLElement | null
-        if (!viewport) return
+        const viewport = getViewport()
+        if (!viewport || !debugInfo) return
         const wrappers = [...viewport.querySelectorAll('[data-message-id]')] as HTMLElement[]
         if (wrappers.length >= 2) {
             realPitchPx = Math.round(
                 wrappers[1].getBoundingClientRect().top - wrappers[0].getBoundingClientRect().top
             )
         }
-        if (debugInfo && debugInfo.measuredCount > 0) {
+        if (debugInfo.measuredCount > 0) {
             // The cache's average recorded height for measured messages —
             // unmeasured ones sit at the estimate (BUBBLE_PX) by definition,
             // so subtract them out of totalHeight first. All bubbles are
@@ -88,86 +70,12 @@
                 (debugInfo.totalHeight - unmeasured * BUBBLE_PX) / debugInfo.measuredCount
             )
         }
-        if (debugInfo) {
-            scrollHeightDriftPx = Math.round(
-                viewport.scrollHeight - Math.max(viewport.clientHeight, debugInfo.totalHeight)
-            )
-        }
+        scrollHeightDriftPx = Math.round(
+            viewport.scrollHeight - Math.max(viewport.clientHeight, debugInfo.totalHeight)
+        )
     }
 
-    /**
-     * Constant-rate sweep in either direction. Downward sweeps stop well
-     * above the follow threshold — re-engaging follow-bottom snaps to the
-     * bottom by design, which would read as a (legitimate) jump.
-     */
-    async function startSweep(direction: 'up' | 'down') {
-        if (sweepState === 'running') return
-        sweepState = 'running'
-        sweepFrame = 0
-        jumpCount = 0
-        maxJumpPx = 0
-        totalJumpPx = 0
-
-        const viewport = document.querySelector(
-            '[data-testid="chat-viewport"]'
-        ) as HTMLElement | null
-        if (!viewport) {
-            sweepState = 'idle'
-            return
-        }
-
-        const readTops = () => {
-            const tops: Record<string, number> = {}
-            for (const el of viewport.querySelectorAll('[data-message-id]')) {
-                tops[(el as HTMLElement).dataset.messageId!] = el.getBoundingClientRect().top
-            }
-            return tops
-        }
-        const gapFromBottom = () =>
-            viewport.scrollHeight - viewport.clientHeight - viewport.scrollTop
-        const step = direction === 'up' ? -SWEEP_STEP_PX : SWEEP_STEP_PX
-
-        // Disengage follow-bottom with one deliberate jump, then settle:
-        // upward sweeps start just above the bottom, downward sweeps at the top.
-        viewport.scrollTop = direction === 'up' ? viewport.scrollTop - 600 : 0
-        await afterPaint()
-        await afterPaint()
-
-        let previousTops = readTops()
-        for (let frame = 0; frame < SWEEP_FRAMES; frame++) {
-            if (unmounted) return
-            if (direction === 'up' && viewport.scrollTop <= 0) break
-            if (direction === 'down' && gapFromBottom() <= 120) break
-
-            let scrolled = 0
-            await afterPaint(() => {
-                const before = viewport.scrollTop
-                viewport.scrollTop = Math.max(0, before + step)
-                scrolled = before - viewport.scrollTop
-            })
-
-            const tops = readTops()
-            for (const [id, top] of Object.entries(tops)) {
-                const previous = previousTops[id]
-                if (previous === undefined) continue
-                const deviation = Math.abs(top - previous - scrolled)
-                if (deviation > JUMP_TOLERANCE_PX) {
-                    jumpCount += 1
-                    totalJumpPx += Math.round(deviation)
-                    maxJumpPx = Math.max(maxJumpPx, Math.round(deviation))
-                    break // one jump per frame, not per message
-                }
-            }
-            previousTops = tops
-            sweepFrame = frame + 1
-        }
-        measurePitch()
-        sweepState = 'done'
-    }
-
-    onMount(() => () => {
-        unmounted = true
-    })
+    onMount(() => () => sweep.destroy())
 </script>
 
 <div class="p-4">
@@ -175,25 +83,25 @@
         Test: Margin bubbles ({BUBBLE_PX}px bubbles, {BUBBLE_MARGIN_PX}px margins)
     </h1>
     <p class="mb-3 text-sm text-gray-500">
-        The wrapper border-box measures {BUBBLE_PX}px but the real visual pitch is {BUBBLE_PX +
-            BUBBLE_MARGIN_PX}px — margins collapse through the wrapper and escape measurement.
-        Estimates match measurements exactly, so every number below is margin damage only.
+        Real visual pitch is {BUBBLE_PX + BUBBLE_MARGIN_PX}px; a border-box read of the wrapper
+        gives {BUBBLE_PX}px — pre-fix the collapsed margins escaped measurement. Estimates match the
+        border box exactly, so every number below is margin accounting only.
     </p>
 
     <div class="mb-3 flex gap-2">
         <button
-            onclick={() => startSweep('up')}
+            onclick={() => sweep.start('up', { onDone: measurePitch })}
             data-testid="start-sweep"
             class="rounded bg-blue-500 px-3 py-1 text-sm text-white"
-            disabled={sweepState === 'running'}
+            disabled={sweep.state === 'running'}
         >
             Scroll-up sweep
         </button>
         <button
-            onclick={() => startSweep('down')}
+            onclick={() => sweep.start('down', { onDone: measurePitch })}
             data-testid="start-sweep-down"
             class="rounded bg-blue-500 px-3 py-1 text-sm text-white"
-            disabled={sweepState === 'running'}
+            disabled={sweep.state === 'running'}
         >
             Scroll-down sweep
         </button>
@@ -209,11 +117,11 @@
             realPitchPx={realPitchPx}
             marginLossPx={realPitchPx > 0 && cachePitchPx > 0 ? realPitchPx - cachePitchPx : 0}
             scrollHeightDriftPx={scrollHeightDriftPx}
-            sweep={sweepState}
-            sweepFrames={sweepFrame}
-            jumps={jumpCount}
-            maxJumpPx={maxJumpPx}
-            totalJumpPx={totalJumpPx}
+            sweep={sweep.state}
+            sweepFrames={sweep.frames}
+            jumps={sweep.jumps}
+            maxJumpPx={sweep.maxJumpPx}
+            totalJumpPx={sweep.totalJumpPx}
         </div>
     {/if}
 

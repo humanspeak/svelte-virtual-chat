@@ -5,7 +5,8 @@
         ChatHeightCache,
         calculateOffsetForIndex,
         calculateTotalHeight,
-        calculateVisibleRange
+        calculateVisibleRange,
+        collectPitchChanges
     } from './virtual-chat/chatMeasurement.svelte.js'
     import { ChatLayoutPreservation } from './virtual-chat/chatLayoutPreservation.js'
     import {
@@ -492,67 +493,53 @@
 
     // ── Measurement ─────────────────────────────────────────────────
     /**
-     * Derive rendered message heights from wrapper offsets inside the items
-     * container. `offsetTop` deltas are layout ground truth: they include
-     * bubble margins that collapse through the unstyled wrappers and escape
-     * a border-box measurement entirely (#47). The last wrapper is closed by
-     * the container's own height, which contains the trailing margin. Reads
-     * are cheap here — this runs in ResizeObserver context, after layout.
-     *
-     * Self-coalescing: computes first, and only runs the anchor/snap
-     * machinery when at least one pitch actually changed — so a burst of
-     * per-message observer firings in one delivery does the work once.
+     * Re-derive rendered message heights from layout via
+     * `collectPitchChanges` (offset-delta pitches — see its doc for why the
+     * entry border box is never used). Runs in ResizeObserver context, after
+     * layout, so a synchronous walk is cheap, and the anchor/snap machinery
+     * only engages when a pitch actually changed.
      */
     const remeasureRenderedPitches = () => {
         if (!itemsEl) return
-        const wrappers = itemsEl.children
-        const count = wrappers.length
-        if (count === 0) return
-        const containerBottom = itemsEl.offsetHeight
-        const changes: { id: string; pitch: number }[] = []
-        for (let i = 0; i < count; i++) {
-            const wrapper = wrappers[i] as HTMLElement
-            const id = wrapper.dataset.messageId
-            if (!id) continue
-            const nextTop =
-                i + 1 < count ? (wrappers[i + 1] as HTMLElement).offsetTop : containerBottom
-            const pitch = nextTop - wrapper.offsetTop
-            if (pitch > 0 && heightCache.get(id) !== pitch) {
-                changes.push({ id, pitch })
-            }
-        }
+        const changes = collectPitchChanges(itemsEl, heightCache)
         if (changes.length === 0) return
         applyMeasuredHeightChange(() => {
             for (const { id, pitch } of changes) heightCache.set(id, pitch)
         })
     }
 
-    /**
-     * Svelte action: a per-message ResizeObserver used purely as the change
-     * trigger — the actual heights come from `remeasureRenderedPitches`,
-     * never from the entry's border box (which excludes escaped margins).
-     */
+    // One shared observer for all message wrappers: a burst of simultaneous
+    // resizes arrives as a single delivery → one callback → one walk,
+    // instead of one callback (and one redundant walk) per per-message
+    // observer instance. Created lazily — the action only runs in the
+    // browser, where ResizeObserver exists.
+    let messageResizeObserver: ResizeObserver | null = null
+
+    /** Svelte action: observe a message wrapper as a remeasure trigger. */
     const measureMessage = (node: HTMLElement) => {
-        const observer = new ResizeObserver((entries) => {
-            for (const entry of entries) {
-                const height = entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height
-                if (height > 0) {
-                    remeasureRenderedPitches()
-                    break
-                }
-            }
+        messageResizeObserver ??= new ResizeObserver((entries) => {
+            // Ignore all-zero-height deliveries (e.g. display:none subtrees).
+            const anyVisible = entries.some(
+                (entry) => (entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height) > 0
+            )
+            if (anyVisible) remeasureRenderedPitches()
         })
-        observer.observe(node)
+        messageResizeObserver.observe(node)
 
         return {
             destroy() {
-                observer.disconnect()
+                messageResizeObserver?.unobserve(node)
             }
         }
     }
 
     // ── Element measurement action (header/footer) ───────────────────
-    /** Svelte action: attaches a ResizeObserver to track an element's height. */
+    /**
+     * Svelte action: attaches a ResizeObserver to track an element's height.
+     * Border-box is exact here, unlike for message wrappers: header/footer
+     * wrappers are flex items, which establish independent formatting
+     * contexts — child margins cannot collapse through them.
+     */
     const measureElement = (node: HTMLElement, setter: (_h: number) => void) => {
         let prev = 0
         const observer = new ResizeObserver((entries) => {
@@ -724,6 +711,8 @@
             scrollIntent.destroy()
             layoutPreservation.destroy()
             stopScrollMutationObserver()
+            messageResizeObserver?.disconnect()
+            messageResizeObserver = null
         }
     })
 

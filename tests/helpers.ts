@@ -1,4 +1,4 @@
-import type { Locator, Page, TestInfo } from '@playwright/test'
+import { expect, type Locator, type Page, type TestInfo } from '@playwright/test'
 
 /** CSS selector for the scrollable viewport inside the chat component. */
 export const VIEWPORT = '[data-testid="chat-viewport"]'
@@ -342,6 +342,32 @@ export async function getRenderedIds(page: Page): Promise<string[]> {
             .map((el) => el.getAttribute('data-message-id') ?? '')
             .filter(Boolean)
     })
+}
+
+/**
+ * Click a fixture's sweep trigger and wait for its SweepMonitor to finish.
+ * Returns the post-sweep stats snapshot.
+ */
+export async function runSweep(
+    page: Page,
+    trigger = '[data-testid="start-sweep"]'
+): Promise<Record<string, string>> {
+    await page.locator(trigger).click()
+    await waitForStat(page, 'sweep', 'done', 20000)
+    return getStats(page)
+}
+
+/**
+ * Assert a sweep's painted-jump accounting is all zeros: while scrolling at
+ * a constant rate, no painted frame may move content by anything other than
+ * the scroll delta.
+ */
+export function expectNoPaintedJumps(stats: Record<string, string>): void {
+    expect({
+        jumps: Number(stats['jumps']),
+        maxJumpPx: Number(stats['maxJumpPx']),
+        totalJumpPx: Number(stats['totalJumpPx'])
+    }).toEqual({ jumps: 0, maxJumpPx: 0, totalJumpPx: 0 })
 }
 
 /** Full pipeline settle time (ms) — ResizeObserver + scroll correction + layout */

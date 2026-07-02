@@ -1,5 +1,11 @@
 import { expect, test, type Page } from '@playwright/test'
-import { getStats, waitForFollowing, waitForMount, waitForStat } from '../helpers.js'
+import {
+    expectNoPaintedJumps,
+    getStats,
+    runSweep,
+    waitForFollowing,
+    waitForMount
+} from '../helpers.js'
 
 /**
  * Bubble margins must not escape the geometry math (#47). The contract has
@@ -8,36 +14,27 @@ import { getStats, waitForFollowing, waitForMount, waitForStat } from '../helper
  * range-boundary jumps — in either direction. Fixture mechanics and the
  * live numbers (marginLossPx, jumps / maxJumpPx / totalJumpPx) live in
  * src/routes/tests/chat/margin-bubbles/+page.svelte; estimates there equal
- * measured heights exactly, so margins are the only variable.
+ * the bubbles' border-box height exactly, so margins are the only variable.
  */
+
+const BUBBLE_MARGIN_PX = 12
 
 async function openSettled(page: Page) {
     await page.goto('/tests/chat/margin-bubbles', { waitUntil: 'domcontentloaded' })
     await waitForMount(page)
     await waitForFollowing(page, true)
-    // Condition-based settle: the pitch probe runs off component updates;
-    // poll it instead of sleeping a fixed interval. Both probes must have
-    // real data — marginLossPx reads 0 (unknown) while either is 0.
+    // Condition-based settle: the pitch probes run off component updates;
+    // poll them instead of sleeping a fixed interval. marginLossPx reads 0
+    // (unknown) while either probe is 0, so both must have real data.
     await expect
-        .poll(async () => Number((await getStats(page))['realPitchPx']), { timeout: 5000 })
+        .poll(
+            async () => {
+                const stats = await getStats(page)
+                return Math.min(Number(stats['realPitchPx']), Number(stats['cachePitchPx']))
+            },
+            { timeout: 5000 }
+        )
         .toBeGreaterThan(0)
-    await expect
-        .poll(async () => Number((await getStats(page))['cachePitchPx']), { timeout: 5000 })
-        .toBeGreaterThan(0)
-}
-
-async function runSweep(page: Page, trigger: string) {
-    await page.locator(trigger).click()
-    await waitForStat(page, 'sweep', 'done', 20000)
-    return getStats(page)
-}
-
-function paintedJumps(stats: Record<string, string>) {
-    return {
-        jumps: Number(stats['jumps']),
-        maxJumpPx: Number(stats['maxJumpPx']),
-        totalJumpPx: Number(stats['totalJumpPx'])
-    }
 }
 
 test.describe('Margin bubbles (margins escape measurement)', () => {
@@ -46,10 +43,17 @@ test.describe('Margin bubbles (margins escape measurement)', () => {
     }) => {
         await openSettled(page)
 
+        const before = await getStats(page)
+
         // The direct measurement contract: the recorded height must cover
         // the bubble's full visual pitch, margins included. Pre-fix the 12px
         // collapsed margin escaped (cachePitchPx=200, realPitchPx=212).
-        expect(Number((await getStats(page))['marginLossPx'])).toBe(0)
+        expect(Number(before['marginLossPx'])).toBe(0)
+
+        // Known bounded error, asserted so it stays bounded: the leading
+        // collapsed margin belongs to no pitch, so totalHeight may run short
+        // by at most one margin — a constant, invisible to scrolling.
+        expect(Number(before['scrollHeightDriftPx'])).toBeLessThanOrEqual(BUBBLE_MARGIN_PX)
 
         const after = await runSweep(page, '[data-testid="start-sweep"]')
 
@@ -57,10 +61,9 @@ test.describe('Margin bubbles (margins escape measurement)', () => {
         expect(after['following']).toBe('false')
         expect(Number(after['sweepFrames'])).toBeGreaterThan(100)
 
-        // While scrolling at a constant rate, no painted frame may move
-        // content by anything other than the scroll delta. Pre-fix the slice
-        // shifted by the lost margin at every render-range boundary.
-        expect(paintedJumps(after)).toEqual({ jumps: 0, maxJumpPx: 0, totalJumpPx: 0 })
+        // Pre-fix the slice shifted by the lost margin at every
+        // render-range boundary.
+        expectNoPaintedJumps(after)
     })
 
     test('downward sweep paints no range-boundary jumps either', async ({ page }) => {
@@ -73,6 +76,6 @@ test.describe('Margin bubbles (margins escape measurement)', () => {
         // is intended behavior, not a jump).
         expect(Number(after['sweepFrames'])).toBeGreaterThan(100)
 
-        expect(paintedJumps(after)).toEqual({ jumps: 0, maxJumpPx: 0, totalJumpPx: 0 })
+        expectNoPaintedJumps(after)
     })
 })
