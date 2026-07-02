@@ -19,6 +19,13 @@ export type FollowBottomScrollDecision = {
 export type MovementAttributionArgs = {
     userScrolling: boolean
     preservingLayout: boolean
+    /**
+     * Whether the movement landed on a clamp boundary (scrollTop 0 or
+     * maxScroll). Browser-driven movement during layout turbulence is always
+     * a clamp, and clamps can only land on boundaries — so a mid-list
+     * landing is user movement no matter what else is in flight.
+     */
+    landedOnClampBoundary: boolean
 }
 
 export type DecideFollowBottomAfterScrollArgs = MovementAttributionArgs & {
@@ -55,19 +62,26 @@ export const isViewportAtBottom = (
 }
 
 /**
- * Attribute scroll movement to the user only when they are actually giving
- * input, or when no layout change is in flight. During layout turbulence the
- * browser moves scrollTop on its own — e.g. a snap write bouncing through a
- * momentarily zero-scrollable boundary while a CSS transition grows a
- * message — and that must not read as "the user scrolled".
+ * Attribute scroll movement to the user when they are actually giving
+ * input, when no layout change is in flight, or when the movement landed
+ * somewhere only a user could put it.
+ *
+ * During layout turbulence the browser moves scrollTop on its own — e.g. a
+ * snap write bouncing through a momentarily zero-scrollable boundary while
+ * a CSS transition grows a message — and that must not read as "the user
+ * scrolled". But those browser moves are clamps, and clamps can only land
+ * on a boundary (0 or maxScroll): a mid-list landing during turbulence is
+ * programmatic user navigation (scrollTo/scrollBy without input events) and
+ * must not be yanked back by follow-bottom.
  *
  * The caller accumulating `upwardTravelPx` and this module's unfollow
  * decision must share this predicate, so it lives here, once.
  */
 export const isMovementAttributableToUser = ({
     userScrolling,
-    preservingLayout
-}: MovementAttributionArgs): boolean => userScrolling || !preservingLayout
+    preservingLayout,
+    landedOnClampBoundary
+}: MovementAttributionArgs): boolean => userScrolling || !preservingLayout || !landedOnClampBoundary
 
 /**
  * Advance the upward-travel accumulator for one scroll event.

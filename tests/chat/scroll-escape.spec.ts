@@ -68,6 +68,37 @@ test.describe('Programmatic scroll escape (#45)', () => {
         expect(before.scrollTop - after.scrollTop).toBeGreaterThan(500)
     })
 
+    test('a programmatic jump into the list sticks during streaming growth', async ({ page }) => {
+        // With growth in flight, layout preservation is hot on every frame —
+        // and movement without input events used to be attributed to layout
+        // wholesale, so a scrollTo() into the list (a jump-to-message button,
+        // an a11y tool) was snapped straight back to the bottom. Clamps can
+        // only land on boundaries; a mid-list landing is the user's.
+        await page.locator('[data-testid="start-fill"]').click()
+        await page.waitForTimeout(400)
+        expect(await isFollowing(page)).toBe(true)
+
+        const target = await page.evaluate((sel) => {
+            const viewport = document.querySelector(sel) as HTMLElement
+            const to = Math.round((viewport.scrollHeight - viewport.clientHeight) * 0.4)
+            viewport.scrollTop = to
+            return to
+        }, VIEWPORT)
+
+        await waitForFollowing(page, false)
+        await page
+            .locator('[data-testid="stop-fill"]')
+            .click({ timeout: 1000 })
+            .catch(() => {})
+        await page.waitForTimeout(SETTLE_MS)
+
+        expect(await isFollowing(page)).toBe(false)
+        const { scrollTop } = await getScrollState(page)
+        // Anchored near the jump target (growth above may shift it slightly),
+        // nowhere near the bottom it was yanked back to pre-fix.
+        expect(Math.abs(scrollTop - target)).toBeLessThan(600)
+    })
+
     test('control: a single sub-threshold nudge stays within the follow magnet', async ({
         page
     }) => {

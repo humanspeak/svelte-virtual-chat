@@ -281,8 +281,10 @@
             // is marked below with the resolved direction.
             event.stopImmediatePropagation()
             handleViewportScrollIntent({ direction })
+            // Write the DOM only — handleScroll owns the scrollTop state
+            // sync. Pre-syncing here would zero the displacement the scroll
+            // event reports, and the follow policy decides on displacement.
             viewport.scrollTop += delta
-            scrollTop = viewport.scrollTop
         }
 
         if (event.key === 'ArrowUp' || event.code === 'ArrowUp') {
@@ -318,7 +320,6 @@
             event.stopImmediatePropagation()
             handleViewportScrollIntent({ direction: 'up' })
             viewportEl.scrollTop = 0
-            scrollTop = viewportEl.scrollTop
             setFollowingBottom(false)
             scheduleScrollProgressPreservation()
             return
@@ -542,11 +543,15 @@
 
         const adjustedGeometry = restoreScrollProgressIfNeeded(now)
 
+        const settledGeometry = adjustedGeometry ?? currentGeometry
         const attribution = {
             userScrolling: scrollIntent.isActive,
-            preservingLayout: layoutPreservation.isActive
+            preservingLayout: layoutPreservation.isActive,
+            landedOnClampBoundary:
+                settledGeometry.scrollTop <= 0 ||
+                settledGeometry.scrollTop >= getMaxScroll(settledGeometry) - 1
         }
-        const atBottom = isAtViewportBottom(adjustedGeometry ?? currentGeometry)
+        const atBottom = isAtViewportBottom(settledGeometry)
         upwardTravelPx = accumulateUpwardTravel({
             ...attribution,
             previousScrollTop,
@@ -702,6 +707,11 @@
             viewportEl.scrollTop = maxScroll
         }
         scrollTop = viewportEl.scrollTop
+        // A deliberate arrival at the bottom wipes the travel slate directly.
+        // The scroll event this write fires would do the same, but content
+        // growth can race the async dispatch and deny the at-bottom reset —
+        // leaving stale travel to spuriously unfollow on the next event.
+        upwardTravelPx = 0
     }
 
     /**
@@ -721,6 +731,8 @@
         if (remaining <= SMOOTH_SNAP_EPSILON_PX) {
             viewportEl.scrollTop = maxScroll
             scrollTop = viewportEl.scrollTop
+            // Landed at the bottom — same direct travel reset as jumpToBottom.
+            upwardTravelPx = 0
             finishSmoothScroll()
             return
         }
