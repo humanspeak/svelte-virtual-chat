@@ -95,7 +95,12 @@
         }
     }
 
-    async function startSweep() {
+    /**
+     * Constant-rate sweep in either direction. Downward sweeps stop well
+     * above the follow threshold — re-engaging follow-bottom snaps to the
+     * bottom by design, which would read as a (legitimate) jump.
+     */
+    async function startSweep(direction: 'up' | 'down') {
         if (sweepState === 'running') return
         sweepState = 'running'
         sweepFrame = 0
@@ -106,7 +111,10 @@
         const viewport = document.querySelector(
             '[data-testid="chat-viewport"]'
         ) as HTMLElement | null
-        if (!viewport) return
+        if (!viewport) {
+            sweepState = 'idle'
+            return
+        }
 
         const readTops = () => {
             const tops: Record<string, number> = {}
@@ -115,21 +123,26 @@
             }
             return tops
         }
+        const gapFromBottom = () =>
+            viewport.scrollHeight - viewport.clientHeight - viewport.scrollTop
+        const step = direction === 'up' ? -SWEEP_STEP_PX : SWEEP_STEP_PX
 
-        // Disengage follow-bottom with one deliberate jump, then settle.
-        viewport.scrollTop = viewport.scrollTop - 600
+        // Disengage follow-bottom with one deliberate jump, then settle:
+        // upward sweeps start just above the bottom, downward sweeps at the top.
+        viewport.scrollTop = direction === 'up' ? viewport.scrollTop - 600 : 0
         await afterPaint()
         await afterPaint()
 
         let previousTops = readTops()
         for (let frame = 0; frame < SWEEP_FRAMES; frame++) {
             if (unmounted) return
-            if (viewport.scrollTop <= 0) break
+            if (direction === 'up' && viewport.scrollTop <= 0) break
+            if (direction === 'down' && gapFromBottom() <= 120) break
 
             let scrolled = 0
             await afterPaint(() => {
                 const before = viewport.scrollTop
-                viewport.scrollTop = Math.max(0, before - SWEEP_STEP_PX)
+                viewport.scrollTop = Math.max(0, before + step)
                 scrolled = before - viewport.scrollTop
             })
 
@@ -152,12 +165,8 @@
         sweepState = 'done'
     }
 
-    onMount(() => {
-        const settle = setTimeout(measurePitch, 300)
-        return () => {
-            unmounted = true
-            clearTimeout(settle)
-        }
+    onMount(() => () => {
+        unmounted = true
     })
 </script>
 
@@ -173,12 +182,20 @@
 
     <div class="mb-3 flex gap-2">
         <button
-            onclick={startSweep}
+            onclick={() => startSweep('up')}
             data-testid="start-sweep"
             class="rounded bg-blue-500 px-3 py-1 text-sm text-white"
             disabled={sweepState === 'running'}
         >
             Scroll-up sweep
+        </button>
+        <button
+            onclick={() => startSweep('down')}
+            data-testid="start-sweep-down"
+            class="rounded bg-blue-500 px-3 py-1 text-sm text-white"
+            disabled={sweepState === 'running'}
+        >
+            Scroll-down sweep
         </button>
     </div>
 
@@ -209,7 +226,16 @@
             {messages}
             getMessageId={(msg: Message) => msg.id}
             estimatedMessageHeight={BUBBLE_PX}
-            onDebugInfo={(info: SvelteVirtualChatDebugInfo) => (debugInfo = info)}
+            onDebugInfo={(info: SvelteVirtualChatDebugInfo) => {
+                debugInfo = info
+                // Keep the pitch probe live off every meaningful component
+                // update — no timers to race the specs against. Deferred to
+                // a microtask: this callback runs inside the component's
+                // debug $effect, and synchronously reading the just-written
+                // debugInfo state there makes the effect depend on state it
+                // writes — an infinite update loop.
+                queueMicrotask(measurePitch)
+            }}
             containerClass="h-full"
             viewportClass="h-full"
             testId="chat"

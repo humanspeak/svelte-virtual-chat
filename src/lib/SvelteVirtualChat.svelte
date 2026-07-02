@@ -505,16 +505,18 @@
      */
     const remeasureRenderedPitches = () => {
         if (!itemsEl) return
-        const wrappers = itemsEl.children as HTMLCollectionOf<HTMLElement>
+        const wrappers = itemsEl.children
         const count = wrappers.length
         if (count === 0) return
         const containerBottom = itemsEl.offsetHeight
         const changes: { id: string; pitch: number }[] = []
         for (let i = 0; i < count; i++) {
-            const id = wrappers[i].dataset.messageId
+            const wrapper = wrappers[i] as HTMLElement
+            const id = wrapper.dataset.messageId
             if (!id) continue
-            const nextTop = i + 1 < count ? wrappers[i + 1].offsetTop : containerBottom
-            const pitch = nextTop - wrappers[i].offsetTop
+            const nextTop =
+                i + 1 < count ? (wrappers[i + 1] as HTMLElement).offsetTop : containerBottom
+            const pitch = nextTop - wrapper.offsetTop
             if (pitch > 0 && heightCache.get(id) !== pitch) {
                 changes.push({ id, pitch })
             }
