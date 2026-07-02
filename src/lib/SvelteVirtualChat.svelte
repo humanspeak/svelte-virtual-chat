@@ -444,10 +444,17 @@
             preservingLayout: layoutPreservation.isActive
         }
         const atBottom = isAtViewportBottom(adjustedGeometry ?? currentGeometry)
-        if (atBottom) {
-            upwardTravelPx = 0
-        } else if (isMovementAttributableToUser(attribution) && scrollTop < previousScrollTop) {
+        if (isMovementAttributableToUser(attribution) && scrollTop < previousScrollTop) {
+            // Upward movement keeps its evidence even inside the follow
+            // threshold. Resetting there let the component's own snap-backs
+            // erase the trail, so a sustained slow programmatic scroll (no
+            // intent to suppress the snap) could never accumulate past the
+            // threshold and unfollow — a livelock at the bottom (#45).
             upwardTravelPx += previousScrollTop - scrollTop
+        } else if (atBottom) {
+            // Only a non-upward arrival at the bottom wipes the slate: the
+            // component's own snap-backs, downward user scrolls, and clamps.
+            upwardTravelPx = 0
         }
 
         const decision = decideFollowBottomAfterScroll({
