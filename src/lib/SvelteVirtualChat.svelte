@@ -15,9 +15,9 @@
         type ChatScrollIntentEvent
     } from './virtual-chat/chatScrollIntent.js'
     import {
+        accumulateUpwardTravel,
         decideFollowBottomAfterScroll,
         getMaxScroll,
-        isMovementAttributableToUser,
         isViewportAtBottom,
         type ScrollGeometry
     } from './virtual-chat/chatScrollPolicy.js'
@@ -83,9 +83,9 @@
     let scrollAnimationFrame: number | null = null
     let isAnimatingToBottom = false
     let hasAnchoredToBottom = false
-    // Cumulative upward scrollTop travel since the viewport was last within
-    // the follow threshold — the user's real displacement, as opposed to the
-    // bottom gap, which content growth can inflate on its own.
+    // The user's real upward displacement, as opposed to the bottom gap,
+    // which content growth can inflate on its own. Transition rule lives in
+    // `accumulateUpwardTravel` (chatScrollPolicy).
     let upwardTravelPx = 0
     let previousMessageCount = -1
     let pendingAnchor: VisualAnchor | null = null
@@ -444,18 +444,13 @@
             preservingLayout: layoutPreservation.isActive
         }
         const atBottom = isAtViewportBottom(adjustedGeometry ?? currentGeometry)
-        if (isMovementAttributableToUser(attribution) && scrollTop < previousScrollTop) {
-            // Upward movement keeps its evidence even inside the follow
-            // threshold. Resetting there let the component's own snap-backs
-            // erase the trail, so a sustained slow programmatic scroll (no
-            // intent to suppress the snap) could never accumulate past the
-            // threshold and unfollow — a livelock at the bottom (#45).
-            upwardTravelPx += previousScrollTop - scrollTop
-        } else if (atBottom) {
-            // Only a non-upward arrival at the bottom wipes the slate: the
-            // component's own snap-backs, downward user scrolls, and clamps.
-            upwardTravelPx = 0
-        }
+        upwardTravelPx = accumulateUpwardTravel({
+            ...attribution,
+            previousScrollTop,
+            scrollTop,
+            atBottom,
+            upwardTravelPx
+        })
 
         const decision = decideFollowBottomAfterScroll({
             ...attribution,
