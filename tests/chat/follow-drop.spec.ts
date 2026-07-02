@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import { SETTLE_MS, VIEWPORT, getScrollState, isFollowing, waitForMount } from '../helpers.js'
 
 /**
@@ -29,23 +29,19 @@ import { SETTLE_MS, VIEWPORT, getScrollState, isFollowing, waitForMount } from '
  * scroll-away.spec.ts).
  */
 
-const startStreamingGrowth = (page: import('@playwright/test').Page) =>
-    page.evaluate(() => {
-        const growBtn = document.querySelector(
-            '[data-testid="grow-once"]'
-        ) as HTMLButtonElement | null
-        if (!growBtn) throw new Error('Missing [data-testid="grow-once"]')
-        // Task-cadence growth like a real token stream: +48px every 30ms.
-        const w = window as unknown as { __growTimer?: ReturnType<typeof setInterval> }
-        clearInterval(w.__growTimer)
-        w.__growTimer = setInterval(() => growBtn.click(), 30)
-    })
-
-const stopStreamingGrowth = (page: import('@playwright/test').Page) =>
-    page.evaluate(() => {
-        const w = window as unknown as { __growTimer?: ReturnType<typeof setInterval> }
-        clearInterval(w.__growTimer)
-    })
+/**
+ * One real 2px upward wheel tick over the viewport — trackpad noise, 24×
+ * smaller than the 48px follow threshold. Real input on purpose: a synthetic
+ * WheelEvent marks intent without actually scrolling, which is a different
+ * (weaker) scenario. `scrollByWheel` from helpers is not used because its
+ * firefox/mobile fallback bypasses real wheel events.
+ */
+async function wheelDriftUp(page: Page): Promise<void> {
+    const box = await page.locator(VIEWPORT).boundingBox()
+    if (!box) throw new Error(`Missing viewport ${VIEWPORT}`)
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+    await page.mouse.wheel(0, -2)
+}
 
 test.describe('Follow-bottom survives incidental input during streaming', () => {
     test.beforeEach(async ({ page }, testInfo) => {
@@ -63,25 +59,25 @@ test.describe('Follow-bottom survives incidental input during streaming', () => 
     }) => {
         expect(await isFollowing(page)).toBe(true)
 
-        await startStreamingGrowth(page)
+        // The fixture's own token-stream fill: +24px every 20ms for ~2.4s.
+        await page.locator('[data-testid="start-fill"]').click()
         try {
             // Sanity: streaming alone keeps following.
             await page.waitForTimeout(500)
             expect(await isFollowing(page)).toBe(true)
 
-            // One real 2px upward wheel tick over the viewport — trackpad
-            // noise, 24× smaller than the 48px follow threshold.
-            const box = await page.locator(VIEWPORT).boundingBox()
-            expect(box).not.toBeNull()
-            if (!box) throw new Error(`Missing viewport ${VIEWPORT}`)
-            await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
-            await page.mouse.wheel(0, -2)
+            await wheelDriftUp(page)
 
             // Let the stream keep running past every suppression window
             // (scroll intent 150ms, progress preserver 700ms).
             await page.waitForTimeout(1500)
         } finally {
-            await stopStreamingGrowth(page)
+            // If the fill already ran out (extreme timer drift), the button
+            // is disabled and there is nothing left to stop.
+            await page
+                .locator('[data-testid="stop-fill"]')
+                .click({ timeout: 1000 })
+                .catch(() => {})
         }
         await page.waitForTimeout(SETTLE_MS)
 
@@ -97,11 +93,7 @@ test.describe('Follow-bottom survives incidental input during streaming', () => 
     }) => {
         expect(await isFollowing(page)).toBe(true)
 
-        const box = await page.locator(VIEWPORT).boundingBox()
-        expect(box).not.toBeNull()
-        if (!box) throw new Error(`Missing viewport ${VIEWPORT}`)
-        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
-        await page.mouse.wheel(0, -2)
+        await wheelDriftUp(page)
         await page.waitForTimeout(SETTLE_MS)
 
         // 2px is inside followBottomThresholdPx — still following.

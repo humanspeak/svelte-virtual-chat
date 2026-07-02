@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 import {
     getScrollState,
     isFollowing,
-    rafWait,
+    scrollToTop,
     SETTLE_MS,
     VIEWPORT,
     waitForMount
@@ -76,15 +76,9 @@ async function recordGrowth(
  */
 function heightSettleIndex(frames: FollowFrame[]): number {
     const finalHeight = frames[frames.length - 1].scrollHeight
-    for (let i = 0; i < frames.length; i++) {
-        if (
-            frames[i].scrollHeight === finalHeight &&
-            frames.slice(i).every((f) => f.scrollHeight === finalHeight)
-        ) {
-            return i
-        }
-    }
-    return frames.length - 1
+    let i = frames.length - 1
+    while (i > 0 && frames[i - 1].scrollHeight === finalHeight) i--
+    return i
 }
 
 test.describe('Smooth scroll to bottom on growth', () => {
@@ -140,11 +134,7 @@ test.describe('Smooth scroll to bottom on growth', () => {
 
     test('does not animate when not following (user scrolled away stays put)', async ({ page }) => {
         // Scroll up so we are no longer following bottom.
-        await page.evaluate((sel) => {
-            const el = document.querySelector(sel) as HTMLElement
-            el.scrollTo({ top: 0, behavior: 'instant' })
-        }, VIEWPORT)
-        await rafWait(page, 2)
+        await scrollToTop(page)
         expect(await isFollowing(page)).toBe(false)
 
         const before = await getScrollState(page)

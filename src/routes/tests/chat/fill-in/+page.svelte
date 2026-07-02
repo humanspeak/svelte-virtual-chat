@@ -12,7 +12,10 @@
     // viewport widths — no dependence on font metrics or text wrapping.
     const BLOCK_PX = 24
     const SEED_COUNT = 30
-    const FILL_STEPS = 50
+    // Long enough that specs can interact mid-fill (follow-drop wheels at
+    // ~0.5s, observes through ~2s, then clicks stop) without the fill running
+    // out first — even under CI timer drift.
+    const FILL_STEPS = 200
     const FILL_INTERVAL_MS = 20
 
     let messages: Message[] = $state(

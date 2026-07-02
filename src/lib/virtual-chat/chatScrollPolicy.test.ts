@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
     decideFollowBottomAfterScroll,
-    didMoveAwayFromBottom,
     getMaxScroll,
+    isMovementAttributableToUser,
     isViewportAtBottom
 } from './chatScrollPolicy.js'
 
@@ -36,35 +36,23 @@ describe('isViewportAtBottom', () => {
     })
 })
 
-describe('didMoveAwayFromBottom', () => {
-    it('ignores small upward deltas within threshold', () => {
-        expect(
-            didMoveAwayFromBottom({
-                previousScrollTop: 400,
-                scrollTop: 370,
-                followBottomThresholdPx: 48
-            })
-        ).toBe(false)
+describe('isMovementAttributableToUser', () => {
+    it('attributes movement to the user while input is active', () => {
+        expect(isMovementAttributableToUser({ userScrolling: true, preservingLayout: true })).toBe(
+            true
+        )
     })
 
-    it('detects meaningful upward movement', () => {
+    it('attributes movement to the user when no layout change is in flight', () => {
         expect(
-            didMoveAwayFromBottom({
-                previousScrollTop: 400,
-                scrollTop: 330,
-                followBottomThresholdPx: 48
-            })
+            isMovementAttributableToUser({ userScrolling: false, preservingLayout: false })
         ).toBe(true)
     })
 
-    it('does not treat exactly-threshold movement as moving away', () => {
-        expect(
-            didMoveAwayFromBottom({
-                previousScrollTop: 400,
-                scrollTop: 352,
-                followBottomThresholdPx: 48
-            })
-        ).toBe(false)
+    it('attributes movement to layout during turbulence without input', () => {
+        expect(isMovementAttributableToUser({ userScrolling: false, preservingLayout: true })).toBe(
+            false
+        )
     })
 })
 
@@ -76,8 +64,6 @@ describe('decideFollowBottomAfterScroll', () => {
                 wasFollowingBottom: true,
                 preservingLayout: true,
                 userScrolling: false,
-                previousScrollTop: 400,
-                scrollTop: 400,
                 followBottomThresholdPx: 48,
                 upwardTravelPx: 0
             })
@@ -95,8 +81,6 @@ describe('decideFollowBottomAfterScroll', () => {
                 wasFollowingBottom: true,
                 preservingLayout: true,
                 userScrolling: false,
-                previousScrollTop: 400,
-                scrollTop: 430,
                 followBottomThresholdPx: 48,
                 upwardTravelPx: 0
             })
@@ -116,8 +100,6 @@ describe('decideFollowBottomAfterScroll', () => {
                 wasFollowingBottom: true,
                 preservingLayout: true,
                 userScrolling: true,
-                previousScrollTop: 400,
-                scrollTop: 398,
                 followBottomThresholdPx: 48,
                 upwardTravelPx: 2
             })
@@ -128,38 +110,17 @@ describe('decideFollowBottomAfterScroll', () => {
         })
     })
 
-    it('stops following when scrollTop moves meaningfully away in one event', () => {
-        expect(
-            decideFollowBottomAfterScroll({
-                atBottom: false,
-                wasFollowingBottom: true,
-                preservingLayout: true,
-                userScrolling: true,
-                previousScrollTop: 400,
-                scrollTop: 320,
-                followBottomThresholdPx: 48,
-                upwardTravelPx: 80
-            })
-        ).toEqual({
-            nextFollowingBottom: false,
-            shouldEndLayoutPreservation: true,
-            shouldScheduleSnapToBottom: false
-        })
-    })
-
     it('stops following when accumulated upward travel exceeds the threshold', () => {
-        // A slow deliberate drag: no single event crosses the threshold, but
-        // the accumulated displacement does.
+        // Covers both a single large flick (the caller folds each event's
+        // delta into upwardTravelPx before deciding) and a slow drag.
         expect(
             decideFollowBottomAfterScroll({
                 atBottom: false,
                 wasFollowingBottom: true,
                 preservingLayout: false,
                 userScrolling: true,
-                previousScrollTop: 400,
-                scrollTop: 394,
                 followBottomThresholdPx: 48,
-                upwardTravelPx: 54
+                upwardTravelPx: 80
             })
         ).toEqual({
             nextFollowingBottom: false,
@@ -175,8 +136,6 @@ describe('decideFollowBottomAfterScroll', () => {
                 wasFollowingBottom: true,
                 preservingLayout: false,
                 userScrolling: true,
-                previousScrollTop: 400,
-                scrollTop: 398,
                 followBottomThresholdPx: 48,
                 upwardTravelPx: 48
             })
@@ -187,28 +146,10 @@ describe('decideFollowBottomAfterScroll', () => {
         })
     })
 
-    it('keeps an already unfollowed viewport unfollowed', () => {
-        expect(
-            decideFollowBottomAfterScroll({
-                atBottom: false,
-                wasFollowingBottom: false,
-                preservingLayout: true,
-                userScrolling: false,
-                previousScrollTop: 200,
-                scrollTop: 220,
-                followBottomThresholdPx: 48,
-                upwardTravelPx: 0
-            })
-        ).toEqual({
-            nextFollowingBottom: false,
-            shouldEndLayoutPreservation: true,
-            shouldScheduleSnapToBottom: false
-        })
-    })
     it('ignores browser-driven movement during layout turbulence (no user input)', () => {
         // A mid-transition snap write can bounce through a momentarily
-        // zero-scrollable boundary; the browser clamp looks like a large
-        // upward move, but no input is active and layout preservation is —
+        // zero-scrollable boundary; the browser clamp inflates travel-like
+        // movement, but no input is active and layout preservation is —
         // attribute it to layout and stay attached.
         expect(
             decideFollowBottomAfterScroll({
@@ -216,10 +157,8 @@ describe('decideFollowBottomAfterScroll', () => {
                 wasFollowingBottom: true,
                 preservingLayout: true,
                 userScrolling: false,
-                previousScrollTop: 55,
-                scrollTop: 0,
                 followBottomThresholdPx: 48,
-                upwardTravelPx: 0
+                upwardTravelPx: 55
             })
         ).toEqual({
             nextFollowingBottom: true,
@@ -235,10 +174,25 @@ describe('decideFollowBottomAfterScroll', () => {
                 wasFollowingBottom: true,
                 preservingLayout: false,
                 userScrolling: false,
-                previousScrollTop: 400,
-                scrollTop: 320,
                 followBottomThresholdPx: 48,
                 upwardTravelPx: 80
+            })
+        ).toEqual({
+            nextFollowingBottom: false,
+            shouldEndLayoutPreservation: true,
+            shouldScheduleSnapToBottom: false
+        })
+    })
+
+    it('keeps an already unfollowed viewport unfollowed', () => {
+        expect(
+            decideFollowBottomAfterScroll({
+                atBottom: false,
+                wasFollowingBottom: false,
+                preservingLayout: true,
+                userScrolling: false,
+                followBottomThresholdPx: 48,
+                upwardTravelPx: 0
             })
         ).toEqual({
             nextFollowingBottom: false,
