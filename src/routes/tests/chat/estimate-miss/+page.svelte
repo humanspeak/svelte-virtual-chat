@@ -47,33 +47,21 @@
     let jumpCount = $state(0)
     let maxJumpPx = $state(0)
     let totalJumpPx = $state(0)
-    let sweepSession = 0
+    let unmounted = false
 
-    function appendOne() {
-        messages.push({
-            id: String(messages.length + 1),
-            role: 'assistant',
-            blocks: BLOCKS_PER_MESSAGE
-        })
-    }
-
-    const afterPaint = () =>
+    /** Resolve just after the next paint; `beforePaint` runs in the rAF phase. */
+    const afterPaint = (beforePaint?: () => void) =>
         new Promise<void>((resolve) => {
             requestAnimationFrame(() => {
+                beforePaint?.()
                 const channel = new MessageChannel()
                 channel.port1.onmessage = () => resolve()
                 channel.port2.postMessage(null)
             })
         })
 
-    /**
-     * Scroll upward SWEEP_STEP_PX per frame and, after each paint, compare
-     * every still-visible message's viewport position against the exact
-     * SWEEP_STEP_PX it should have moved. Deviations are painted jumps.
-     */
     async function startSweep() {
         if (sweepState === 'running') return
-        const session = ++sweepSession
         sweepState = 'running'
         sweepFrame = 0
         jumpCount = 0
@@ -103,21 +91,14 @@
 
         let previousTops = readTops()
         for (let frame = 0; frame < SWEEP_FRAMES; frame++) {
-            if (session !== sweepSession) return
+            if (unmounted) return
             if (viewport.scrollTop <= 0) break
 
             let scrolled = 0
-            await new Promise<void>((resolve) => {
-                requestAnimationFrame(() => {
-                    // rAF phase: apply this frame's scroll step, then align
-                    // the sample to just after this frame's paint.
-                    const before = viewport.scrollTop
-                    viewport.scrollTop = Math.max(0, before - SWEEP_STEP_PX)
-                    scrolled = before - viewport.scrollTop
-                    const channel = new MessageChannel()
-                    channel.port1.onmessage = () => resolve()
-                    channel.port2.postMessage(null)
-                })
+            await afterPaint(() => {
+                const before = viewport.scrollTop
+                viewport.scrollTop = Math.max(0, before - SWEEP_STEP_PX)
+                scrolled = before - viewport.scrollTop
             })
 
             const tops = readTops()
@@ -137,15 +118,12 @@
             previousTops = tops
             sweepFrame = frame + 1
         }
-        if (session === sweepSession) sweepState = 'done'
+        sweepState = 'done'
     }
 
-    function stopSweep() {
-        sweepSession++
-        sweepState = 'idle'
-    }
-
-    onMount(() => () => stopSweep())
+    onMount(() => () => {
+        unmounted = true
+    })
 </script>
 
 <div class="p-4">
@@ -164,21 +142,6 @@
             disabled={sweepState === 'running'}
         >
             Scroll-up sweep
-        </button>
-        <button
-            onclick={stopSweep}
-            data-testid="stop-sweep"
-            class="rounded bg-red-500 px-3 py-1 text-sm text-white"
-            disabled={sweepState !== 'running'}
-        >
-            Stop
-        </button>
-        <button
-            onclick={appendOne}
-            data-testid="append-one"
-            class="rounded bg-green-500 px-3 py-1 text-sm text-white"
-        >
-            Append one
         </button>
     </div>
 

@@ -64,6 +64,15 @@ export class ChatHeightCache {
         return id in this.#heights
     }
 
+    /**
+     * Index of a message id in the most recently synced ordering, or -1.
+     * O(1) — call after `sync()` so the ordering reflects the current
+     * messages array.
+     */
+    getIndexForId(id: string): number {
+        return this.#idToIndex[id] ?? -1
+    }
+
     /** Number of measured entries. */
     get size(): number {
         void this.#version

@@ -311,18 +311,26 @@ export async function touchScroll(
 }
 
 /**
+ * Wait for a `key=value` pair to appear in the debug stats text.
+ */
+export async function waitForStat(
+    page: Page,
+    key: string,
+    value: string,
+    timeout = 5000
+): Promise<void> {
+    await page.waitForFunction(
+        ([sel, pair]) => (document.querySelector(sel)?.textContent ?? '').includes(pair),
+        [STATS, `${key}=${value}`] as const,
+        { timeout }
+    )
+}
+
+/**
  * Wait for the following state to reach a specific value.
  */
 export async function waitForFollowing(page: Page, expected: boolean): Promise<void> {
-    await page.waitForFunction(
-        ([sel, exp]) => {
-            const el = document.querySelector(sel)
-            const text = el?.textContent ?? ''
-            return text.includes(`following=${exp}`)
-        },
-        [STATS, String(expected)] as const,
-        { timeout: 5000 }
-    )
+    await waitForStat(page, 'following', String(expected))
 }
 
 /**
