@@ -64,6 +64,15 @@ export class ChatHeightCache {
         return id in this.#heights
     }
 
+    /**
+     * Index of a message id in the most recently synced ordering, or -1.
+     * O(1) — call after `sync()` so the ordering reflects the current
+     * messages array.
+     */
+    getIndexForId(id: string): number {
+        return this.#idToIndex[id] ?? -1
+    }
+
     /** Number of measured entries. */
     get size(): number {
         void this.#version
@@ -291,6 +300,47 @@ export class ChatHeightCache {
         this.#prefixSum.length = n + 1
         this.#dirtyFromIndex = Number.POSITIVE_INFINITY
     }
+}
+
+export type PitchChange = { id: string; pitch: number }
+
+/**
+ * Derive rendered message pitches from wrapper offsets inside the items
+ * container. `offsetTop` deltas are layout ground truth: they include bubble
+ * margins that collapse through the unstyled wrappers and escape a
+ * border-box measurement entirely (#47). The last wrapper is closed by the
+ * container's own height, which contains the trailing margin.
+ *
+ * Known bounded error: the first wrapper's leading collapsed margin
+ * (`wrappers[0].offsetTop`) belongs to no pitch, so `totalHeight` runs short
+ * by at most one collapsed margin — a constant for the whole list, absorbed
+ * by overscan, and invisible to scrolling (constant offsets cannot jump).
+ *
+ * Returns only the pitches that differ from the cache, so callers can skip
+ * downstream work entirely when a walk finds nothing new.
+ */
+export const collectPitchChanges = (
+    itemsEl: HTMLElement,
+    heightCache: ChatHeightCache
+): PitchChange[] => {
+    const wrappers = itemsEl.children
+    const count = wrappers.length
+    const changes: PitchChange[] = []
+    if (count === 0) return changes
+    const containerBottom = itemsEl.offsetHeight
+    let top = (wrappers[0] as HTMLElement).offsetTop
+    for (let i = 0; i < count; i++) {
+        const nextTop = i + 1 < count ? (wrappers[i + 1] as HTMLElement).offsetTop : containerBottom
+        const id = (wrappers[i] as HTMLElement).dataset.messageId
+        if (id) {
+            const pitch = nextTop - top
+            if (pitch > 0 && heightCache.get(id) !== pitch) {
+                changes.push({ id, pitch })
+            }
+        }
+        top = nextTop
+    }
+    return changes
 }
 
 /**

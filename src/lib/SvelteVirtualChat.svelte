@@ -5,7 +5,8 @@
         ChatHeightCache,
         calculateOffsetForIndex,
         calculateTotalHeight,
-        calculateVisibleRange
+        calculateVisibleRange,
+        collectPitchChanges
     } from './virtual-chat/chatMeasurement.svelte.js'
     import { ChatLayoutPreservation } from './virtual-chat/chatLayoutPreservation.js'
     import {
@@ -15,6 +16,8 @@
     } from './virtual-chat/chatScrollIntent.js'
     import {
         decideFollowBottomAfterScroll,
+        getMaxScroll,
+        isMovementAttributableToUser,
         isViewportAtBottom,
         type ScrollGeometry
     } from './virtual-chat/chatScrollPolicy.js'
@@ -46,6 +49,7 @@
     // ── DOM refs ────────────────────────────────────────────────────
     let viewportEl: HTMLDivElement | undefined = $state()
     let contentEl: HTMLDivElement | undefined = $state()
+    let itemsEl: HTMLDivElement | undefined = $state()
 
     // ── Core state ──────────────────────────────────────────────────
     const heightCache = new ChatHeightCache()
@@ -54,7 +58,15 @@
     const scrollIntent = new ChatScrollIntent({
         onIntentStart: () => layoutPreservation.end(),
         onIntentEnd: () => {
-            if (isFollowingBottom) scheduleSnapToBottom()
+            if (isFollowingBottom) {
+                // The gesture is over and follow survived it (displacement
+                // stayed under the threshold). Drop any directional progress
+                // preservation — left active, it keeps dragging a stale
+                // scroll ratio against growing content, ballooning the gap
+                // and blocking every snap (#40) — then catch back up.
+                scrollProgressPreserver.reset()
+                scheduleSnapToBottom()
+            }
         }
     })
     let scrollTop = $state(0)
@@ -62,10 +74,23 @@
     let headerHeight = $state(0)
     let footerHeight = $state(0)
     let isFollowingBottom = $state(true)
-    let pendingSnapToBottom = $state(false)
+    // Plain (non-reactive) on purpose: `scheduleSnapToBottom` reads this flag
+    // and is called from effects. As `$state`, the rAF resetting it to false
+    // re-triggered those effects, which re-scheduled the snap — a
+    // self-perpetuating loop that forced layout + wrote scrollTop every frame
+    // while following, even at idle (#41).
+    let pendingSnapToBottom = false
+    let pendingSmoothSnap = false
+    let scrollAnimationFrame: number | null = null
+    let isAnimatingToBottom = false
+    let hasAnchoredToBottom = false
+    // Cumulative upward scrollTop travel since the viewport was last within
+    // the follow threshold — the user's real displacement, as opposed to the
+    // bottom gap, which content growth can inflate on its own.
+    let upwardTravelPx = 0
+    let previousMessageCount = -1
     let pendingAnchor: VisualAnchor | null = null
     let pendingProgressPreservation = false
-    let explicitKeyboardFollowBottom = false
     let scrollMutationObserver: MutationObserver | null = null
 
     // ── Derived: total content height ───────────────────────────────
@@ -172,6 +197,14 @@
     const isUserScrollPreservationActive = () =>
         scrollIntent.isActive || scrollProgressPreserver.isActive(performance.now())
 
+    /**
+     * Anchor preservation applies only in the scrolled-away state, and only
+     * while no user-scroll machinery owns the position. Re-evaluated at each
+     * timing-distinct point (capture, sync restore, deferred restore) — the
+     * state can legitimately change between them.
+     */
+    const canPreserveAnchor = () => !isFollowingBottom && !isUserScrollPreservationActive()
+
     const isAtViewportBottom = (geometry: ScrollGeometry | null = captureViewportGeometry()) => {
         if (!geometry) return true
         return isViewportAtBottom(geometry, followBottomThresholdPx)
@@ -193,7 +226,6 @@
 
     const handleViewportScrollIntent = (event: ChatScrollIntentEvent) => {
         scrollIntent.mark()
-        if (event.direction === 'up') explicitKeyboardFollowBottom = false
         if (!event.direction) return
 
         const currentGeometry = captureViewportGeometry()
@@ -209,6 +241,108 @@
 
     const trackViewportScrollIntent = (node: HTMLElement) =>
         trackScrollIntent(node, handleViewportScrollIntent)
+
+    // ── Keyboard scrolling ──────────────────────────────────────────
+    // The viewport is focusable (tabindex) and scrolls on the standard keys.
+    // Every keyboard step routes through the same intent + displacement
+    // machinery as wheel/touch input, so the follow policy needs no
+    // key-specific state: End snaps and follows; upward keys accumulate
+    // travel and unfollow past the threshold; downward keys at the bottom
+    // never unfollow (travel only counts upward movement).
+    const handleViewportKeydown = (event: KeyboardEvent) => {
+        if (
+            !viewportEl ||
+            event.defaultPrevented ||
+            event.altKey ||
+            event.ctrlKey ||
+            event.metaKey
+        ) {
+            return
+        }
+
+        // Only when the viewport itself is focused — descendant inputs and
+        // interactive message content keep their native key handling.
+        if (event.target !== viewportEl) return
+
+        const isHomeKey = event.key === 'Home' || event.code === 'Home'
+        const isEndKey = event.key === 'End' || event.code === 'End'
+        const isSpaceKey =
+            event.key === ' ' ||
+            event.key === 'Space' ||
+            event.key === 'Spacebar' ||
+            event.code === 'Space'
+
+        const scrollByKeyboard = (delta: number, direction: 'up' | 'down') => {
+            const viewport = viewportEl
+            if (!viewport) return
+
+            event.preventDefault()
+            // Suppress trackScrollIntent's own keydown listener — the intent
+            // is marked below with the resolved direction.
+            event.stopImmediatePropagation()
+            handleViewportScrollIntent({ direction })
+            viewport.scrollTop += delta
+            scrollTop = viewport.scrollTop
+        }
+
+        if (event.key === 'ArrowUp' || event.code === 'ArrowUp') {
+            scrollByKeyboard(-40, 'up')
+            return
+        }
+
+        if (event.key === 'ArrowDown' || event.code === 'ArrowDown') {
+            scrollByKeyboard(40, 'down')
+            return
+        }
+
+        if (event.key === 'PageUp' || event.code === 'PageUp') {
+            scrollByKeyboard(-viewportEl.clientHeight * 0.85, 'up')
+            return
+        }
+
+        if (event.key === 'PageDown' || event.code === 'PageDown') {
+            scrollByKeyboard(viewportEl.clientHeight * 0.85, 'down')
+            return
+        }
+
+        if (isSpaceKey) {
+            scrollByKeyboard(
+                viewportEl.clientHeight * 0.85 * (event.shiftKey ? -1 : 1),
+                event.shiftKey ? 'up' : 'down'
+            )
+            return
+        }
+
+        if (isHomeKey) {
+            event.preventDefault()
+            event.stopImmediatePropagation()
+            handleViewportScrollIntent({ direction: 'up' })
+            viewportEl.scrollTop = 0
+            scrollTop = viewportEl.scrollTop
+            setFollowingBottom(false)
+            scheduleScrollProgressPreservation()
+            return
+        }
+
+        if (isEndKey) {
+            event.preventDefault()
+            event.stopImmediatePropagation()
+            layoutPreservation.begin()
+            handleViewportScrollIntent({ direction: 'down' })
+            snapToBottom()
+        }
+    }
+
+    /** Svelte action: keyboard scrolling for the focusable viewport. */
+    const handleViewportKeyboard = (node: HTMLElement) => {
+        node.addEventListener('keydown', handleViewportKeydown)
+
+        return {
+            destroy() {
+                node.removeEventListener('keydown', handleViewportKeydown)
+            }
+        }
+    }
 
     const restoreCurrentVisualAnchor = (anchor: VisualAnchor) => {
         if (!viewportEl) return
@@ -228,7 +362,7 @@
     }
 
     const scheduleAnchorRestore = (anchor: VisualAnchor | null) => {
-        if (!anchor || !viewportEl || isFollowingBottom || isUserScrollPreservationActive()) return
+        if (!anchor || !viewportEl || !canPreserveAnchor()) return
         // A rAF is in flight iff an anchor is pending; the first anchor wins.
         if (pendingAnchor) return
         pendingAnchor = anchor
@@ -237,10 +371,29 @@
             const anchorToRestore = pendingAnchor
             pendingAnchor = null
             layoutPreservation.end()
-            if (anchorToRestore && !isFollowingBottom && !isUserScrollPreservationActive()) {
+            if (anchorToRestore && canPreserveAnchor()) {
                 restoreCurrentVisualAnchor(anchorToRestore)
             }
         })
+    }
+
+    /**
+     * Pre-paint anchor restore for ResizeObserver contexts. A measurement
+     * correction shifts everything below the measured item immediately, and
+     * the height cache's prefix sums are already flushed synchronously — so
+     * restoring here keeps the anchored message visually stationary in the
+     * same frame the correction landed. The rAF-deferred restore alone
+     * painted the full estimate miss for one frame per measured message
+     * (#44). The same anchor is then re-asserted by the coalesced deferred
+     * restore as a settle net: if same-frame relayout (the deferred
+     * height-cache flush updating the spacer, shrink corrections clamping)
+     * moves the write, the retry next frame restores the intended position.
+     */
+    const restoreAnchorPrePaint = (anchor: VisualAnchor | null) => {
+        if (!anchor || !viewportEl || !canPreserveAnchor()) return
+        layoutPreservation.begin()
+        restoreCurrentVisualAnchor(anchor)
+        scheduleAnchorRestore(anchor)
     }
 
     const restoreScrollProgressIfNeeded = (now: number): ScrollGeometry | null => {
@@ -323,20 +476,9 @@
 
     /** Anchor the first visible message before a layout change, unless pinned to bottom. */
     const captureLayoutAnchor = (): VisualAnchor | null =>
-        !isFollowingBottom && !isUserScrollPreservationActive()
-            ? captureCurrentVisualAnchor()
-            : null
+        canPreserveAnchor() ? captureCurrentVisualAnchor() : null
 
     const handleLayoutHeightChange = (anchor: VisualAnchor | null) => {
-        if (explicitKeyboardFollowBottom) {
-            setFollowingBottom(true)
-            layoutPreservation.begin()
-            requestAnimationFrame(() => {
-                if (explicitKeyboardFollowBottom) snapToBottom()
-            })
-            return
-        }
-
         if (isUserScrollPreservationActive()) {
             restoreProgressAndSyncFollow(performance.now())
         }
@@ -345,22 +487,49 @@
             if (isUserScrollPreservationActive()) {
                 scheduleScrollProgressPreservation()
             } else {
-                layoutPreservation.begin()
-                scheduleSnapToBottom()
+                snapToBottomPrePaint()
             }
             return
         }
-        scheduleAnchorRestore(anchor)
+        restoreAnchorPrePaint(anchor)
         scheduleScrollProgressPreservation()
+    }
+
+    /**
+     * Shared protocol for ResizeObserver measurement callbacks: the anchor
+     * MUST be captured against pre-change offsets — the sync restore paints
+     * from it in the same frame — so the capture-mutate-handle ordering
+     * lives here, in one place.
+     */
+    const applyMeasuredHeightChange = (apply: () => void) => {
+        const anchor = captureLayoutAnchor()
+        apply()
+        handleLayoutHeightChange(anchor)
     }
 
     // ── Scroll event handler ────────────────────────────────────────
     const handleScroll = () => {
         if (!viewportEl) return
+
+        // Scroll events fired by our own smooth-scroll animation must not be
+        // read as the user leaving the bottom. A real user interaction raises
+        // scroll intent, which cancels the animation and falls through to the
+        // normal follow-bottom decision below. Bail before the full geometry
+        // capture — the ease writes scrollTop every frame and keeps the
+        // scroll signal in sync itself.
+        if (isAnimatingToBottom && !scrollIntent.isActive) {
+            scrollTop = viewportEl.scrollTop
+            return
+        }
+
         const previousScrollTop = scrollTop
         const currentGeometry = captureViewportGeometry()
         if (!currentGeometry) return
         scrollTop = currentGeometry.scrollTop
+
+        if (isAnimatingToBottom) {
+            finishSmoothScroll()
+        }
 
         const now = performance.now()
         if (scrollIntent.isActive) {
@@ -371,16 +540,25 @@
             })
         }
 
-        restoreScrollProgressIfNeeded(now)
+        const adjustedGeometry = restoreScrollProgressIfNeeded(now)
+
+        const attribution = {
+            userScrolling: scrollIntent.isActive,
+            preservingLayout: layoutPreservation.isActive
+        }
+        const atBottom = isAtViewportBottom(adjustedGeometry ?? currentGeometry)
+        if (atBottom) {
+            upwardTravelPx = 0
+        } else if (isMovementAttributableToUser(attribution) && scrollTop < previousScrollTop) {
+            upwardTravelPx += previousScrollTop - scrollTop
+        }
 
         const decision = decideFollowBottomAfterScroll({
-            atBottom: isAtViewportBottom(),
+            ...attribution,
+            atBottom,
             wasFollowingBottom: isFollowingBottom,
-            preservingLayout: layoutPreservation.isActive,
-            userScrolling: scrollIntent.isActive && !explicitKeyboardFollowBottom,
-            previousScrollTop,
-            scrollTop,
-            followBottomThresholdPx
+            followBottomThresholdPx,
+            upwardTravelPx
         })
 
         if (decision.shouldEndLayoutPreservation) {
@@ -397,160 +575,84 @@
         }
     }
 
-    const handleViewportKeydown = (event: KeyboardEvent) => {
-        if (
-            !viewportEl ||
-            event.defaultPrevented ||
-            event.altKey ||
-            event.ctrlKey ||
-            event.metaKey
-        ) {
-            return
-        }
-
-        if (event.target !== viewportEl) return
-
-        const isHomeKey = event.key === 'Home' || event.code === 'Home'
-        const isEndKey = event.key === 'End' || event.code === 'End'
-        const isSpaceKey =
-            event.key === ' ' ||
-            event.key === 'Space' ||
-            event.key === 'Spacebar' ||
-            event.code === 'Space'
-
-        const scrollByKeyboard = (delta: number, direction: 'up' | 'down') => {
-            const viewport = viewportEl
-            if (!viewport) return
-
-            event.preventDefault()
-            event.stopImmediatePropagation()
-            if (direction === 'up') explicitKeyboardFollowBottom = false
-            handleViewportScrollIntent({ direction })
-            viewport.scrollTop += delta
-            scrollTop = viewport.scrollTop
-        }
-
-        if (event.key === 'ArrowUp' || event.code === 'ArrowUp') {
-            scrollByKeyboard(-40, 'up')
-            return
-        }
-
-        if (event.key === 'ArrowDown' || event.code === 'ArrowDown') {
-            scrollByKeyboard(40, 'down')
-            return
-        }
-
-        if (event.key === 'PageUp' || event.code === 'PageUp') {
-            scrollByKeyboard(-viewportEl.clientHeight * 0.85, 'up')
-            return
-        }
-
-        if (event.key === 'PageDown' || event.code === 'PageDown') {
-            scrollByKeyboard(viewportEl.clientHeight * 0.85, 'down')
-            return
-        }
-
-        if (isSpaceKey) {
-            scrollByKeyboard(
-                viewportEl.clientHeight * 0.85 * (event.shiftKey ? -1 : 1),
-                event.shiftKey ? 'up' : 'down'
-            )
-            return
-        }
-
-        if (isHomeKey) {
-            event.preventDefault()
-            event.stopImmediatePropagation()
-            explicitKeyboardFollowBottom = false
-            handleViewportScrollIntent({ direction: 'up' })
-            viewportEl.scrollTop = 0
-            scrollTop = viewportEl.scrollTop
-            setFollowingBottom(false)
-            scheduleScrollProgressPreservation()
-            return
-        }
-
-        if (isEndKey) {
-            event.preventDefault()
-            event.stopImmediatePropagation()
-            explicitKeyboardFollowBottom = true
-            layoutPreservation.begin()
-            handleViewportScrollIntent({ direction: 'down' })
-            snapToBottom()
-        }
-    }
-
-    const handleViewportKeyboard = (node: HTMLElement) => {
-        node.addEventListener('keydown', handleViewportKeydown)
-
-        return {
-            destroy() {
-                node.removeEventListener('keydown', handleViewportKeydown)
-            }
-        }
-    }
-
     // ── Snap scheduling ─────────────────────────────────────────────
     /** Batches snap-to-bottom into a single rAF, respecting real user scroll intent. */
-    const scheduleSnapToBottom = () => {
+    const scheduleSnapToBottom = (options?: { smooth?: boolean }) => {
         if (!isFollowingBottom || !viewportEl || isUserScrollPreservationActive()) return
+        // If any caller this frame wants smooth, the coalesced snap is smooth.
+        if (options?.smooth) pendingSmoothSnap = true
         if (pendingSnapToBottom) return
         pendingSnapToBottom = true
         requestAnimationFrame(() => {
             pendingSnapToBottom = false
+            const smooth = pendingSmoothSnap
+            pendingSmoothSnap = false
             layoutPreservation.end()
             if (isFollowingBottom && !isUserScrollPreservationActive()) {
-                snapToBottom()
+                snapToBottom({ smooth })
             }
         })
     }
 
-    // ── Measurement action ──────────────────────────────────────────
-    /** Svelte action: attaches a ResizeObserver to track message height changes. */
-    const measureMessage = (node: HTMLElement, messageId: string) => {
-        const observer = new ResizeObserver((entries) => {
-            for (const entry of entries) {
-                const height = entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height
-                if (height > 0 && heightCache.get(messageId) !== height) {
-                    // Capture against pre-growth offsets, before `set` dirties the cache.
-                    const anchor = captureLayoutAnchor()
-                    heightCache.set(messageId, height)
-                    handleLayoutHeightChange(anchor)
-                }
-            }
+    // ── Measurement ─────────────────────────────────────────────────
+    /**
+     * Re-derive rendered message heights from layout via
+     * `collectPitchChanges` (offset-delta pitches — see its doc for why the
+     * entry border box is never used). Runs in ResizeObserver context, after
+     * layout, so a synchronous walk is cheap, and the anchor/snap machinery
+     * only engages when a pitch actually changed.
+     */
+    const remeasureRenderedPitches = () => {
+        if (!itemsEl) return
+        const changes = collectPitchChanges(itemsEl, heightCache)
+        if (changes.length === 0) return
+        applyMeasuredHeightChange(() => {
+            for (const { id, pitch } of changes) heightCache.set(id, pitch)
         })
-        observer.observe(node)
+    }
+
+    // One shared observer for all message wrappers: a burst of simultaneous
+    // resizes arrives as a single delivery → one callback → one walk,
+    // instead of one callback (and one redundant walk) per per-message
+    // observer instance. Created lazily — the action only runs in the
+    // browser, where ResizeObserver exists.
+    let messageResizeObserver: ResizeObserver | null = null
+
+    /** Svelte action: observe a message wrapper as a remeasure trigger. */
+    const measureMessage = (node: HTMLElement) => {
+        messageResizeObserver ??= new ResizeObserver((entries) => {
+            // Ignore all-zero-height deliveries (e.g. display:none subtrees).
+            const anyVisible = entries.some(
+                (entry) => (entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height) > 0
+            )
+            if (anyVisible) remeasureRenderedPitches()
+        })
+        messageResizeObserver.observe(node)
 
         return {
-            update(newMessageId: string) {
-                // Svelte's keyed `{#each}` block doesn't recycle DOM nodes
-                // across different keys, so this path almost never fires in
-                // practice. Defensively keep the closed-over `messageId` in
-                // sync (the ResizeObserver callback reads it) but skip the
-                // sync `getBoundingClientRect()` — the next ResizeObserver
-                // fire after layout will re-measure correctly. Sync DOM reads
-                // here would force a reflow in any edge case Svelte does
-                // recycle a node.
-                messageId = newMessageId
-            },
             destroy() {
-                observer.disconnect()
+                messageResizeObserver?.unobserve(node)
             }
         }
     }
 
     // ── Element measurement action (header/footer) ───────────────────
-    /** Svelte action: attaches a ResizeObserver to track an element's height. */
+    /**
+     * Svelte action: attaches a ResizeObserver to track an element's height.
+     * Border-box is exact here, unlike for message wrappers: header/footer
+     * wrappers are flex items, which establish independent formatting
+     * contexts — child margins cannot collapse through them.
+     */
     const measureElement = (node: HTMLElement, setter: (_h: number) => void) => {
         let prev = 0
         const observer = new ResizeObserver((entries) => {
             for (const entry of entries) {
                 const height = entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height
                 if (height !== prev) {
-                    const anchor = captureLayoutAnchor()
-                    prev = height
-                    setter(height)
-                    handleLayoutHeightChange(anchor)
+                    applyMeasuredHeightChange(() => {
+                        prev = height
+                        setter(height)
+                    })
                 }
             }
         })
@@ -563,29 +665,143 @@
         }
     }
 
-    // ── Snap to bottom helper ───────────────────────────────────────
-    /** Instantly scrolls viewport to bottom and syncs follow state. */
-    const snapToBottom = () => {
+    // ── Snap / smooth scroll to bottom ──────────────────────────────
+    // When following the bottom and the content grows by a noticeable amount,
+    // ease toward the new bottom over a few frames instead of jumping. Small
+    // growth (streaming tokens, minor reflow) still lands instantly so the
+    // viewport stays pinned without lag, and reduced-motion users always jump.
+    const SMOOTH_FACTOR = 0.25 // fraction of the remaining distance eased per frame
+    const SMOOTH_SNAP_EPSILON_PX = 6 // within this of the bottom → land exactly
+    const SMOOTH_MIN_DISTANCE_PX = 80 // ignore tiny growth (streaming tokens) — jump
+    const SMOOTH_MAX_DISTANCE_FLOOR_PX = 1200 // never ease a teleport-sized jump
+
+    // A MediaQueryList is live — create it once and read `.matches` instead
+    // of re-parsing the query on every smooth-flagged snap.
+    const reducedMotionQuery =
+        typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null
+    const prefersReducedMotion = () => reducedMotionQuery?.matches ?? false
+
+    /** Stop any in-flight smooth scroll. */
+    const finishSmoothScroll = () => {
+        isAnimatingToBottom = false
+        if (scrollAnimationFrame !== null) {
+            cancelAnimationFrame(scrollAnimationFrame)
+            scrollAnimationFrame = null
+        }
+    }
+
+    /** Instantly place the viewport at the bottom and sync the scroll signal. */
+    const jumpToBottom = () => {
         if (!viewportEl) return
-        const maxScroll = viewportEl.scrollHeight - viewportEl.clientHeight
-        if (maxScroll > 0) {
-            viewportEl.scrollTop = viewportEl.scrollHeight
+        const maxScroll = getMaxScroll(viewportEl)
+        // Skip the no-op write when already pinned (within sub-pixel): a
+        // redundant write still fires a scroll event and a handleScroll run.
+        if (maxScroll > 0 && maxScroll - viewportEl.scrollTop > 0.5) {
+            viewportEl.scrollTop = maxScroll
         }
         scrollTop = viewportEl.scrollTop
+    }
+
+    /**
+     * One eased step toward the (live) bottom. Re-reads geometry every frame so
+     * it keeps tracking content that is still growing (e.g. streaming).
+     */
+    const smoothScrollStep = () => {
+        if (!viewportEl || !isAnimatingToBottom) return
+        // Lost follow or the user took over — abandon the animation.
+        if (!isFollowingBottom || isUserScrollPreservationActive()) {
+            finishSmoothScroll()
+            return
+        }
+
+        const maxScroll = getMaxScroll(viewportEl)
+        const remaining = maxScroll - viewportEl.scrollTop
+        if (remaining <= SMOOTH_SNAP_EPSILON_PX) {
+            viewportEl.scrollTop = maxScroll
+            scrollTop = viewportEl.scrollTop
+            finishSmoothScroll()
+            return
+        }
+
+        viewportEl.scrollTop = viewportEl.scrollTop + remaining * SMOOTH_FACTOR
+        scrollTop = viewportEl.scrollTop
+        scrollAnimationFrame = requestAnimationFrame(smoothScrollStep)
+    }
+
+    /**
+     * Bring the viewport to the bottom and sync follow state. Eases for large
+     * jumps; lands instantly for small ones or when reduced motion is set.
+     */
+    const snapToBottom = (options?: { smooth?: boolean }) => {
+        if (!viewportEl) return
         setFollowingBottom(true)
+
+        // Already easing — the live-target loop will pick up the new bottom.
+        if (isAnimatingToBottom) return
+
+        // Ease only when a caller explicitly asks (new messages arriving while
+        // pinned), once we are already anchored at the bottom, and only for
+        // moderate distances. The first positioning (mount), reduced motion,
+        // height/measurement settling, tiny growth, and teleport-sized jumps
+        // (e.g. bulk-loading a huge backlog) all land instantly. The instant
+        // path is the per-measurement hot path — keep it free of the extra
+        // geometry reads the ease decision needs.
+        if (options?.smooth !== true || !hasAnchoredToBottom || prefersReducedMotion()) {
+            hasAnchoredToBottom = true
+            jumpToBottom()
+            return
+        }
+
+        const remaining = getMaxScroll(viewportEl) - viewportEl.scrollTop
+        const maxEaseDistance = Math.max(SMOOTH_MAX_DISTANCE_FLOOR_PX, viewportEl.clientHeight * 3)
+        if (remaining < SMOOTH_MIN_DISTANCE_PX || remaining > maxEaseDistance) {
+            jumpToBottom()
+            return
+        }
+
+        isAnimatingToBottom = true
+        scrollAnimationFrame = requestAnimationFrame(smoothScrollStep)
+    }
+
+    /**
+     * Pre-paint correction for ResizeObserver contexts (height changes,
+     * viewport resizes): RO callbacks run after layout and before paint, so a
+     * synchronous snap pins the bottom in the same frame the content changed —
+     * deferring to a rAF paints one frame off-bottom per growth step (#42).
+     * A running or queued smooth ease is never preempted (it tracks the live
+     * bottom every frame), and the coalesced rAF re-assert covers same-frame
+     * relayout clamping the sync write away (deferred height-cache flush, CSS
+     * transitions mid-step).
+     */
+    const snapToBottomPrePaint = () => {
+        // The scroll events these writes fire are layout-caused, not user
+        // movement — open the attribution window before writing.
+        layoutPreservation.begin()
+        if (!(isAnimatingToBottom || pendingSmoothSnap)) {
+            snapToBottom()
+        }
+        scheduleSnapToBottom()
     }
 
     // ── Follow-bottom on new messages ───────────────────────────────
     $effect(() => {
-        void messages.length
+        const count = messages.length
+        // Ease only on a real message-count increase — not on the effect's
+        // mount/settle re-fires, which would animate the initial positioning.
+        const grew = previousMessageCount >= 0 && count > previousMessageCount
+        previousMessageCount = count
         if (isFollowingBottom && viewportEl && !isUserScrollPreservationActive()) {
             layoutPreservation.begin()
-            scheduleSnapToBottom()
+            scheduleSnapToBottom({ smooth: grew })
         }
     })
 
-    // ── Follow-bottom on height changes ─────────────────────────────
-    // Height changes during scroll (e.g. newly measured items) respect user-scroll suppression
+    // ── Follow-bottom on estimate-driven height changes ─────────────
+    // Measured height changes are handled synchronously in the ResizeObserver
+    // path (handleLayoutHeightChange). This effect covers the one case with
+    // no measurement event: totalHeight moving because unmeasured estimates
+    // changed (e.g. `estimatedMessageHeight` updated, or a same-length
+    // message replacement swapping estimated slots).
     $effect(() => {
         void totalHeight
         scheduleSnapToBottom()
@@ -594,9 +810,12 @@
     // ── Cleanup scroll timers on destroy ────────────────────────────
     $effect(() => {
         return () => {
+            finishSmoothScroll()
             scrollIntent.destroy()
             layoutPreservation.destroy()
             stopScrollMutationObserver()
+            messageResizeObserver?.disconnect()
+            messageResizeObserver = null
         }
     })
 
@@ -609,7 +828,7 @@
             if (viewportEl) {
                 viewportHeight = viewportEl.clientHeight
                 if (isFollowingBottom) {
-                    requestAnimationFrame(() => snapToBottom())
+                    snapToBottomPrePaint()
                 }
             }
         })
@@ -705,7 +924,6 @@
         const index = messages.findIndex((m) => getMessageId(m) === id)
         if (index === -1) return
 
-        explicitKeyboardFollowBottom = false
         const offset =
             topGap +
             headerHeight +
@@ -797,12 +1015,13 @@
             {/if}
             <div style="height: {totalHeight}px; position: relative; flex-shrink: 0;">
                 <div
+                    bind:this={itemsEl}
                     style="position: absolute; top: 0; left: 0; right: 0; transform: translateY({startOffset}px);"
                 >
                     {#each renderedMessages as message, i (getMessageId(message))}
                         {@const globalIndex = visibleRange.start + i}
                         <div
-                            use:measureMessage={getMessageId(message)}
+                            use:measureMessage
                             data-testid={testId ? `${testId}-item-${globalIndex}` : undefined}
                             data-message-id={getMessageId(message)}
                         >

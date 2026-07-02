@@ -53,7 +53,7 @@ pnpm run check        # svelte-check (TypeScript validation)
 ### Helper Modules
 
 - `src/lib/virtual-chat/chatTypes.ts` — Internal type definitions
-- `src/lib/virtual-chat/chatMeasurement.svelte.ts` — Height measurement and caching via ResizeObserver
+- `src/lib/virtual-chat/chatMeasurement.svelte.ts` — Height cache (prefix sums) + offset-delta pitch measurement; ResizeObservers in the component only trigger the re-derive
 - `src/lib/virtual-chat/chatAnchoring.ts` — Scroll anchor preservation for history prepend
 
 ### Sibling Projects
