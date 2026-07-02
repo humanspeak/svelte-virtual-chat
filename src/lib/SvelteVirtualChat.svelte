@@ -194,6 +194,14 @@
     const isUserScrollPreservationActive = () =>
         scrollIntent.isActive || scrollProgressPreserver.isActive(performance.now())
 
+    /**
+     * Anchor preservation applies only in the scrolled-away state, and only
+     * while no user-scroll machinery owns the position. Re-evaluated at each
+     * timing-distinct point (capture, sync restore, deferred restore) — the
+     * state can legitimately change between them.
+     */
+    const canPreserveAnchor = () => !isFollowingBottom && !isUserScrollPreservationActive()
+
     const isAtViewportBottom = (geometry: ScrollGeometry | null = captureViewportGeometry()) => {
         if (!geometry) return true
         return isViewportAtBottom(geometry, followBottomThresholdPx)
@@ -249,7 +257,7 @@
     }
 
     const scheduleAnchorRestore = (anchor: VisualAnchor | null) => {
-        if (!anchor || !viewportEl || isFollowingBottom || isUserScrollPreservationActive()) return
+        if (!anchor || !viewportEl || !canPreserveAnchor()) return
         // A rAF is in flight iff an anchor is pending; the first anchor wins.
         if (pendingAnchor) return
         pendingAnchor = anchor
@@ -258,10 +266,29 @@
             const anchorToRestore = pendingAnchor
             pendingAnchor = null
             layoutPreservation.end()
-            if (anchorToRestore && !isFollowingBottom && !isUserScrollPreservationActive()) {
+            if (anchorToRestore && canPreserveAnchor()) {
                 restoreCurrentVisualAnchor(anchorToRestore)
             }
         })
+    }
+
+    /**
+     * Pre-paint anchor restore for ResizeObserver contexts. A measurement
+     * correction shifts everything below the measured item immediately, and
+     * the height cache's prefix sums are already flushed synchronously — so
+     * restoring here keeps the anchored message visually stationary in the
+     * same frame the correction landed. The rAF-deferred restore alone
+     * painted the full estimate miss for one frame per measured message
+     * (#44). The same anchor is then re-asserted by the coalesced deferred
+     * restore as a settle net: if same-frame relayout (the deferred
+     * height-cache flush updating the spacer, shrink corrections clamping)
+     * moves the write, the retry next frame restores the intended position.
+     */
+    const restoreAnchorPrePaint = (anchor: VisualAnchor | null) => {
+        if (!anchor || !viewportEl || !canPreserveAnchor()) return
+        layoutPreservation.begin()
+        restoreCurrentVisualAnchor(anchor)
+        scheduleAnchorRestore(anchor)
     }
 
     const restoreScrollProgressIfNeeded = (now: number): ScrollGeometry | null => {
@@ -344,9 +371,7 @@
 
     /** Anchor the first visible message before a layout change, unless pinned to bottom. */
     const captureLayoutAnchor = (): VisualAnchor | null =>
-        !isFollowingBottom && !isUserScrollPreservationActive()
-            ? captureCurrentVisualAnchor()
-            : null
+        canPreserveAnchor() ? captureCurrentVisualAnchor() : null
 
     const handleLayoutHeightChange = (anchor: VisualAnchor | null) => {
         if (isUserScrollPreservationActive()) {
@@ -357,13 +382,24 @@
             if (isUserScrollPreservationActive()) {
                 scheduleScrollProgressPreservation()
             } else {
-                layoutPreservation.begin()
                 snapToBottomPrePaint()
             }
             return
         }
-        scheduleAnchorRestore(anchor)
+        restoreAnchorPrePaint(anchor)
         scheduleScrollProgressPreservation()
+    }
+
+    /**
+     * Shared protocol for ResizeObserver measurement callbacks: the anchor
+     * MUST be captured against pre-change offsets — the sync restore paints
+     * from it in the same frame — so the capture-mutate-handle ordering
+     * lives here, in one place.
+     */
+    const applyMeasuredHeightChange = (apply: () => void) => {
+        const anchor = captureLayoutAnchor()
+        apply()
+        handleLayoutHeightChange(anchor)
     }
 
     // ── Scroll event handler ────────────────────────────────────────
@@ -460,10 +496,7 @@
             for (const entry of entries) {
                 const height = entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height
                 if (height > 0 && heightCache.get(messageId) !== height) {
-                    // Capture against pre-growth offsets, before `set` dirties the cache.
-                    const anchor = captureLayoutAnchor()
-                    heightCache.set(messageId, height)
-                    handleLayoutHeightChange(anchor)
+                    applyMeasuredHeightChange(() => heightCache.set(messageId, height))
                 }
             }
         })
@@ -495,10 +528,10 @@
             for (const entry of entries) {
                 const height = entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height
                 if (height !== prev) {
-                    const anchor = captureLayoutAnchor()
-                    prev = height
-                    setter(height)
-                    handleLayoutHeightChange(anchor)
+                    applyMeasuredHeightChange(() => {
+                        prev = height
+                        setter(height)
+                    })
                 }
             }
         })
@@ -620,6 +653,9 @@
      * transitions mid-step).
      */
     const snapToBottomPrePaint = () => {
+        // The scroll events these writes fire are layout-caused, not user
+        // movement — open the attribution window before writing.
+        layoutPreservation.begin()
         if (!(isAnimatingToBottom || pendingSmoothSnap)) {
             snapToBottom()
         }

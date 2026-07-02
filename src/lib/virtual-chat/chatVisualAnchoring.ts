@@ -61,7 +61,10 @@ export const captureVisualAnchor = <T>(args: CaptureVisualAnchorArgs<T>): Visual
 export const restoreVisualAnchor = <T>(args: RestoreVisualAnchorArgs<T>): number | null => {
     const { anchor, messages, getMessageId, heightCache, estimatedHeight, topGap, headerHeight } =
         args
-    const index = messages.findIndex((message) => getMessageId(message) === anchor.messageId)
+    // O(1) via the height cache's id→index map — this runs synchronously in
+    // the per-measurement path, where an O(messages) scan would compound.
+    heightCache.sync(messages, getMessageId, estimatedHeight)
+    const index = heightCache.getIndexForId(anchor.messageId)
     if (index === -1) return null
 
     const messageTop =
