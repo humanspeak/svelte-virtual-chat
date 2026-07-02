@@ -157,6 +157,76 @@ describe('accumulateUpwardTravel', () => {
     })
 })
 
+describe('accumulateUpwardTravel', () => {
+    it('accumulates upward attributable movement even inside the follow threshold', () => {
+        // The #45 quadrant: resetting at-bottom let the component's own
+        // snap-backs erase the trail of a sustained slow programmatic scroll.
+        expect(
+            accumulateUpwardTravel({
+                userScrolling: false,
+                preservingLayout: false,
+                previousScrollTop: 400,
+                scrollTop: 370,
+                atBottom: true,
+                upwardTravelPx: 10
+            })
+        ).toBe(40)
+    })
+
+    it('accumulates upward attributable movement outside the threshold', () => {
+        expect(
+            accumulateUpwardTravel({
+                userScrolling: true,
+                preservingLayout: true,
+                previousScrollTop: 400,
+                scrollTop: 398,
+                atBottom: false,
+                upwardTravelPx: 0
+            })
+        ).toBe(2)
+    })
+
+    it('ignores upward movement during layout turbulence without input', () => {
+        // Browser clamps mid-relayout look like up-scrolls; not the user.
+        expect(
+            accumulateUpwardTravel({
+                userScrolling: false,
+                preservingLayout: true,
+                previousScrollTop: 55,
+                scrollTop: 0,
+                atBottom: false,
+                upwardTravelPx: 7
+            })
+        ).toBe(7)
+    })
+
+    it('resets on a non-upward arrival at the bottom (snap-backs, downward scrolls)', () => {
+        expect(
+            accumulateUpwardTravel({
+                userScrolling: false,
+                preservingLayout: false,
+                previousScrollTop: 370,
+                scrollTop: 400,
+                atBottom: true,
+                upwardTravelPx: 30
+            })
+        ).toBe(0)
+    })
+
+    it('preserves travel on non-upward movement away from the bottom', () => {
+        expect(
+            accumulateUpwardTravel({
+                userScrolling: true,
+                preservingLayout: false,
+                previousScrollTop: 300,
+                scrollTop: 310,
+                atBottom: false,
+                upwardTravelPx: 60
+            })
+        ).toBe(60)
+    })
+})
+
 describe('decideFollowBottomAfterScroll', () => {
     it('keeps following and ends layout preservation when viewport is at bottom', () => {
         expect(
