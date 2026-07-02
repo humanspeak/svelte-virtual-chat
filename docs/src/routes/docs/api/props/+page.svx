@@ -138,6 +138,13 @@ CSS class for the outermost container element. Typically set to `"h-full"`.
 
 CSS class for the scrollable viewport element. Typically set to `"h-full"`.
 
+### `viewportLabel`
+
+- **Type:** `string`
+- **Default:** `'Chat messages'`
+
+Accessible label for the scrollable viewport region. Set this when a page has more than one chat or needs a more specific region name.
+
 ### `debug`
 
 - **Type:** `boolean`

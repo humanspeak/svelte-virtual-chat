@@ -39,21 +39,46 @@ describe('isViewportAtBottom', () => {
 
 describe('isMovementAttributableToUser', () => {
     it('attributes movement to the user while input is active', () => {
-        expect(isMovementAttributableToUser({ userScrolling: true, preservingLayout: true })).toBe(
-            true
-        )
+        expect(
+            isMovementAttributableToUser({
+                userScrolling: true,
+                preservingLayout: true,
+                landedOnClampBoundary: true
+            })
+        ).toBe(true)
     })
 
     it('attributes movement to the user when no layout change is in flight', () => {
         expect(
-            isMovementAttributableToUser({ userScrolling: false, preservingLayout: false })
+            isMovementAttributableToUser({
+                userScrolling: false,
+                preservingLayout: false,
+                landedOnClampBoundary: true
+            })
+        ).toBe(true)
+    })
+
+    it('attributes mid-list landings to the user even during turbulence', () => {
+        // Browser clamps can only land on a boundary (0 or maxScroll); a
+        // programmatic scrollTo into the middle of the list during layout
+        // turbulence is user navigation and must not be yanked back.
+        expect(
+            isMovementAttributableToUser({
+                userScrolling: false,
+                preservingLayout: true,
+                landedOnClampBoundary: false
+            })
         ).toBe(true)
     })
 
     it('attributes movement to layout during turbulence without input', () => {
-        expect(isMovementAttributableToUser({ userScrolling: false, preservingLayout: true })).toBe(
-            false
-        )
+        expect(
+            isMovementAttributableToUser({
+                userScrolling: false,
+                preservingLayout: true,
+                landedOnClampBoundary: true
+            })
+        ).toBe(false)
     })
 })
 
@@ -65,6 +90,7 @@ describe('accumulateUpwardTravel', () => {
             accumulateUpwardTravel({
                 userScrolling: false,
                 preservingLayout: false,
+                landedOnClampBoundary: true,
                 previousScrollTop: 400,
                 scrollTop: 370,
                 atBottom: true,
@@ -78,6 +104,7 @@ describe('accumulateUpwardTravel', () => {
             accumulateUpwardTravel({
                 userScrolling: true,
                 preservingLayout: true,
+                landedOnClampBoundary: true,
                 previousScrollTop: 400,
                 scrollTop: 398,
                 atBottom: false,
@@ -92,6 +119,7 @@ describe('accumulateUpwardTravel', () => {
             accumulateUpwardTravel({
                 userScrolling: false,
                 preservingLayout: true,
+                landedOnClampBoundary: true,
                 previousScrollTop: 55,
                 scrollTop: 0,
                 atBottom: false,
@@ -105,6 +133,7 @@ describe('accumulateUpwardTravel', () => {
             accumulateUpwardTravel({
                 userScrolling: false,
                 preservingLayout: false,
+                landedOnClampBoundary: true,
                 previousScrollTop: 370,
                 scrollTop: 400,
                 atBottom: true,
@@ -118,6 +147,7 @@ describe('accumulateUpwardTravel', () => {
             accumulateUpwardTravel({
                 userScrolling: true,
                 preservingLayout: false,
+                landedOnClampBoundary: true,
                 previousScrollTop: 300,
                 scrollTop: 310,
                 atBottom: false,
@@ -134,6 +164,7 @@ describe('decideFollowBottomAfterScroll', () => {
                 atBottom: true,
                 wasFollowingBottom: true,
                 preservingLayout: true,
+                landedOnClampBoundary: true,
                 userScrolling: false,
                 followBottomThresholdPx: 48,
                 upwardTravelPx: 0
@@ -151,6 +182,7 @@ describe('decideFollowBottomAfterScroll', () => {
                 atBottom: false,
                 wasFollowingBottom: true,
                 preservingLayout: true,
+                landedOnClampBoundary: true,
                 userScrolling: false,
                 followBottomThresholdPx: 48,
                 upwardTravelPx: 0
@@ -170,6 +202,7 @@ describe('decideFollowBottomAfterScroll', () => {
                 atBottom: false,
                 wasFollowingBottom: true,
                 preservingLayout: true,
+                landedOnClampBoundary: true,
                 userScrolling: true,
                 followBottomThresholdPx: 48,
                 upwardTravelPx: 2
@@ -189,6 +222,7 @@ describe('decideFollowBottomAfterScroll', () => {
                 atBottom: false,
                 wasFollowingBottom: true,
                 preservingLayout: false,
+                landedOnClampBoundary: true,
                 userScrolling: true,
                 followBottomThresholdPx: 48,
                 upwardTravelPx: 80
@@ -206,6 +240,7 @@ describe('decideFollowBottomAfterScroll', () => {
                 atBottom: false,
                 wasFollowingBottom: true,
                 preservingLayout: false,
+                landedOnClampBoundary: true,
                 userScrolling: true,
                 followBottomThresholdPx: 48,
                 upwardTravelPx: 48
@@ -227,6 +262,7 @@ describe('decideFollowBottomAfterScroll', () => {
                 atBottom: false,
                 wasFollowingBottom: true,
                 preservingLayout: true,
+                landedOnClampBoundary: true,
                 userScrolling: false,
                 followBottomThresholdPx: 48,
                 upwardTravelPx: 55
@@ -244,6 +280,7 @@ describe('decideFollowBottomAfterScroll', () => {
                 atBottom: false,
                 wasFollowingBottom: true,
                 preservingLayout: false,
+                landedOnClampBoundary: true,
                 userScrolling: false,
                 followBottomThresholdPx: 48,
                 upwardTravelPx: 80
@@ -261,6 +298,7 @@ describe('decideFollowBottomAfterScroll', () => {
                 atBottom: false,
                 wasFollowingBottom: false,
                 preservingLayout: true,
+                landedOnClampBoundary: true,
                 userScrolling: false,
                 followBottomThresholdPx: 48,
                 upwardTravelPx: 0

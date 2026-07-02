@@ -20,6 +20,7 @@ type ScrollSample = {
     gapFromBottom: number
     measured: string
     growths: string
+    following: string
 }
 
 const INPUT_SAMPLE_FRAMES = 18
@@ -44,7 +45,8 @@ async function captureScrollSample(page: Page, tick: number, phase: number) {
         scrollProgress: sample.scrollProgress,
         gapFromBottom: sample.gapFromBottom,
         measured: parsedStats['measured'] ?? '0',
-        growths: parsedStats['growths'] ?? '0'
+        growths: parsedStats['growths'] ?? '0',
+        following: parsedStats['following'] ?? 'false'
     } satisfies ScrollSample
 }
 
@@ -70,7 +72,8 @@ async function captureScrollSamplesForFrames(
             scrollProgress: sample.scrollProgress,
             gapFromBottom: sample.gapFromBottom,
             measured: parsedStats['measured'] ?? '0',
-            growths: parsedStats['growths'] ?? '0'
+            growths: parsedStats['growths'] ?? '0',
+            following: parsedStats['following'] ?? 'false'
         } satisfies ScrollSample
     })
 }
@@ -139,11 +142,17 @@ async function openWheelJumpPage(page: Page, growthMode: 'remount' | 'persist' =
 function findForwardJumps(samples: ScrollSample[]) {
     const forwardProgressJumps = samples.slice(1).flatMap((sample, index) => {
         const previous = samples[index]
+        const scrollRangeChanged = Math.abs(sample.maxScroll - previous.maxScroll)
+        if (scrollRangeChanged > STABLE_SCROLL_RANGE_PX) return []
+
         const delta = sample.scrollProgress - previous.scrollProgress
         return delta > 0.004 ? [{ previous, sample, delta }] : []
     })
     const forwardGapJumps = samples.slice(1).flatMap((sample, index) => {
         const previous = samples[index]
+        const scrollRangeChanged = Math.abs(sample.maxScroll - previous.maxScroll)
+        if (scrollRangeChanged > STABLE_SCROLL_RANGE_PX) return []
+
         const delta = sample.gapFromBottom - previous.gapFromBottom
         return delta < -12 ? [{ previous, sample, delta }] : []
     })
@@ -179,6 +188,102 @@ async function setupWheelAtBottom(page: Page) {
 
 async function setupTouchAtBottom(page: Page) {
     await setupAtBottom(page)
+}
+
+async function setupKeyboardAtBottom(page: Page) {
+    await rafWait(page, 3)
+
+    const viewport = getKeyboardViewport(page)
+    const box = await viewport.boundingBox()
+    expect(box).not.toBeNull()
+    if (!box) throw new Error(`Missing viewport ${VIEWPORT}`)
+
+    await viewport.focus()
+    await expect(viewport).toBeFocused()
+
+    const didScrollToBottom = await page.evaluate((selector) => {
+        const el = document.querySelector(selector) as HTMLElement | null
+        if (!el) return false
+        el.scrollTop = el.scrollHeight
+        return true
+    }, VIEWPORT)
+    expect(didScrollToBottom).toBe(true)
+    await rafWait(page, 2)
+}
+
+async function setupKeyboardAtProgress(page: Page, progress: number) {
+    await rafWait(page, 3)
+
+    const viewport = getKeyboardViewport(page)
+    const box = await viewport.boundingBox()
+    expect(box).not.toBeNull()
+    if (!box) throw new Error(`Missing viewport ${VIEWPORT}`)
+
+    await viewport.focus()
+    await expect(viewport).toBeFocused()
+
+    const didScrollToProgress = await page.evaluate(
+        ({ selector, progress }) => {
+            const el = document.querySelector(selector) as HTMLElement | null
+            if (!el) return false
+            el.scrollTop = (el.scrollHeight - el.clientHeight) * progress
+            return true
+        },
+        { selector: VIEWPORT, progress }
+    )
+    expect(didScrollToProgress).toBe(true)
+    await rafWait(page, 2)
+}
+
+function getKeyboardViewport(page: Page) {
+    return page.getByRole('region', { name: 'Chat messages' })
+}
+
+async function pressViewportKey(page: Page, key: string) {
+    const viewport = getKeyboardViewport(page)
+    await viewport.focus()
+    await expect(viewport).toBeFocused()
+
+    if (key.includes('+')) {
+        await page.keyboard.press(key)
+    } else {
+        await viewport.press(key)
+    }
+}
+
+async function pressKeyAndCaptureSamples(
+    page: Page,
+    key: string,
+    tick: number,
+    frames = INPUT_SAMPLE_FRAMES
+) {
+    await pressViewportKey(page, key)
+    return captureScrollSamplesForFrames(page, tick, frames)
+}
+
+async function pressKeyAndCaptureFinalSample(page: Page, key: string) {
+    await pressViewportKey(page, key)
+    await rafWait(page, 3)
+    return captureScrollSample(page, 0, 0)
+}
+
+async function waitForKeyboardBottom(page: Page) {
+    await page.waitForFunction(
+        ([viewportSelector, statsSelector, threshold]) => {
+            const viewport = document.querySelector(viewportSelector) as HTMLElement | null
+            const stats = document.querySelector(statsSelector)?.textContent ?? ''
+            if (!viewport) return false
+
+            const maxScroll = Math.max(0, viewport.scrollHeight - viewport.clientHeight)
+            const gapFromBottom = maxScroll - viewport.scrollTop
+
+            return gapFromBottom <= threshold && /(?:^|\s)following=true/.test(stats)
+        },
+        [VIEWPORT, STATS, 24] as const,
+        { timeout: 1000 }
+    )
+
+    return captureScrollSample(page, 0, 0)
 }
 
 test.describe('Wheel scroll jump', () => {
@@ -282,6 +387,165 @@ test.describe('Wheel scroll jump', () => {
         for (let tick = 0; tick < 3; tick++) {
             await page.mouse.wheel(0, -650)
             samples.push(...(await captureScrollSamplesForFrames(page, tick)))
+        }
+
+        const afterSecondPass = samples.at(-1)
+        expect(afterSecondPass?.scrollTop).toBeGreaterThan(firstPassTop.scrollTop)
+        expect(
+            samples.filter((sample) => Number(sample.growths) > growthsBeforeSecondPass)
+        ).toEqual([])
+        expect(findForwardJumps(samples)).toEqual({
+            forwardProgressJumps: [],
+            forwardGapJumps: []
+        })
+    })
+})
+
+test.describe('Keyboard scroll jump', () => {
+    test.beforeEach(({ page: _page }, testInfo) => {
+        test.skip(
+            testInfo.project.name === 'mobile-safari',
+            'Mobile Safari keyboard simulation does not represent the touch-first scroll path'
+        )
+    })
+
+    // Page-sized keys are viewport-relative; WebKit CI can report compact
+    // movement here, so this table asserts direction rather than desktop-sized deltas.
+    const keyboardScrollCases = [
+        { key: 'PageUp', progress: 0.65, direction: 'up', minDelta: 40 },
+        { key: 'PageDown', progress: 0.35, direction: 'down', minDelta: 40 },
+        { key: 'Space', progress: 0.35, direction: 'down', minDelta: 40 },
+        { key: 'Shift+Space', progress: 0.65, direction: 'up', minDelta: 40 },
+        { key: 'ArrowUp', progress: 0.65, direction: 'up', minDelta: 15 },
+        { key: 'ArrowDown', progress: 0.35, direction: 'down', minDelta: 15 }
+    ] as const
+
+    test('exposes a focusable scroll region for keyboard users', async ({ page }) => {
+        await openWheelJumpPage(page)
+
+        const viewport = page.getByRole('region', { name: 'Chat messages' })
+        await expect(viewport).toBeVisible()
+
+        await viewport.focus()
+        await expect(viewport).toBeFocused()
+    })
+
+    for (const { key, progress, direction, minDelta } of keyboardScrollCases) {
+        test(`moves ${direction} with ${key}`, async ({ page }) => {
+            await openWheelJumpPage(page)
+            await setupKeyboardAtProgress(page, progress)
+
+            const before = await captureScrollSample(page, 0, 0)
+            const after = await pressKeyAndCaptureFinalSample(page, key)
+
+            if (direction === 'up') {
+                expect(after.scrollTop).toBeLessThan(before.scrollTop - minDelta)
+            } else {
+                expect(after.scrollTop).toBeGreaterThan(before.scrollTop + minDelta)
+            }
+        })
+    }
+
+    test('restores follow-bottom state when keyboard users press End', async ({ page }) => {
+        await openWheelJumpPage(page, 'persist')
+        await setupKeyboardAtProgress(page, 0.35)
+        await waitForGrowthToSettle(page)
+
+        const awayFromBottom = await captureScrollSample(page, 0, 0)
+        expect(awayFromBottom.gapFromBottom).toBeGreaterThan(500)
+        expect(awayFromBottom.following).toBe('false')
+
+        const afterEnd = await pressKeyAndCaptureFinalSample(page, 'End')
+        expect(afterEnd.scrollTop).toBeGreaterThan(awayFromBottom.scrollTop + 1000)
+
+        const backAtBottom = await waitForKeyboardBottom(page)
+        expect(backAtBottom.gapFromBottom).toBeLessThanOrEqual(24)
+        expect(backAtBottom.following).toBe('true')
+    })
+
+    test('moves to the top when keyboard users press Home', async ({ page }) => {
+        await openWheelJumpPage(page)
+        await setupKeyboardAtProgress(page, 0.65)
+
+        const atTop = await pressKeyAndCaptureFinalSample(page, 'Home')
+
+        expect(atTop.scrollTop).toBeLessThanOrEqual(24)
+        expect(atTop.following).toBe('false')
+    })
+
+    test('does not intercept keys from focused interactive descendants', async ({ page }) => {
+        await openWheelJumpPage(page)
+        await setupKeyboardAtProgress(page, 0.5)
+        await waitForGrowthToSettle(page)
+
+        const input = page.getByRole('textbox', { name: 'Pinned chat search' })
+        await input.focus()
+        await expect(input).toBeFocused()
+        await rafWait(page, 2)
+
+        for (const key of ['Space', 'Home', 'End']) {
+            await input.focus()
+            await expect(input).toBeFocused()
+            await input.evaluate((node) => {
+                delete (node as HTMLElement).dataset.defaultPrevented
+            })
+
+            const before = await captureScrollSample(page, 0, 0)
+            await input.press(key)
+            await expect(input).toHaveAttribute('data-default-prevented', 'false')
+            await rafWait(page, 3)
+            const after = await captureScrollSample(page, 0, 0)
+
+            // End can trigger browser-level textbox scroll/caret behavior.
+            // The default-prevented assertion above covers viewport interception.
+            if (key === 'End') continue
+
+            expect(
+                Math.abs(after.scrollTop - before.scrollTop),
+                `${key} should stay owned by the focused descendant`
+            ).toBeLessThanOrEqual(4)
+        }
+    })
+
+    test('keeps moving away from bottom during first-time PageUp input', async ({ page }) => {
+        await openWheelJumpPage(page)
+        await setupKeyboardAtBottom(page)
+
+        const samples: ScrollSample[] = []
+        for (let tick = 0; tick < 6; tick++) {
+            samples.push(...(await pressKeyAndCaptureSamples(page, 'PageUp', tick)))
+        }
+
+        const first = samples[0]
+        const last = samples.at(-1)
+        expect(last?.gapFromBottom).toBeGreaterThan(first.gapFromBottom + 1000)
+        expect(last?.scrollTop).toBeLessThan(first.scrollTop - 1000)
+    })
+
+    test('does not re-grow already loaded tables when keyboard revisits an upward range', async ({
+        page
+    }) => {
+        await openWheelJumpPage(page, 'persist')
+        await setupKeyboardAtBottom(page)
+
+        for (let tick = 0; tick < 6; tick++) {
+            await pressKeyAndCaptureSamples(page, 'PageUp', tick, 8)
+        }
+        await waitForGrowthToSettle(page)
+
+        const firstPassTop = await captureScrollSample(page, 0, 0)
+
+        for (let tick = 0; tick < 4; tick++) {
+            await pressKeyAndCaptureSamples(page, 'PageDown', tick, 8)
+        }
+        await waitForGrowthToSettle(page)
+
+        const beforeSecondPass = await captureScrollSample(page, 0, 0)
+        const growthsBeforeSecondPass = Number(beforeSecondPass.growths)
+
+        const samples: ScrollSample[] = []
+        for (let tick = 0; tick < 3; tick++) {
+            samples.push(...(await pressKeyAndCaptureSamples(page, 'PageUp', tick)))
         }
 
         const afterSecondPass = samples.at(-1)

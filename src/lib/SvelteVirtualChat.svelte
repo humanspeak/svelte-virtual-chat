@@ -42,6 +42,7 @@
         onDebugInfo,
         containerClass = '',
         viewportClass = '',
+        viewportLabel = 'Chat messages',
         testId
     }: SvelteVirtualChatProps<TMessage> = $props()
 
@@ -241,6 +242,109 @@
     const trackViewportScrollIntent = (node: HTMLElement) =>
         trackScrollIntent(node, handleViewportScrollIntent)
 
+    // ── Keyboard scrolling ──────────────────────────────────────────
+    // The viewport is focusable (tabindex) and scrolls on the standard keys.
+    // Every keyboard step routes through the same intent + displacement
+    // machinery as wheel/touch input, so the follow policy needs no
+    // key-specific state: End snaps and follows; upward keys accumulate
+    // travel and unfollow past the threshold; downward keys at the bottom
+    // never unfollow (travel only counts upward movement).
+    const handleViewportKeydown = (event: KeyboardEvent) => {
+        if (
+            !viewportEl ||
+            event.defaultPrevented ||
+            event.altKey ||
+            event.ctrlKey ||
+            event.metaKey
+        ) {
+            return
+        }
+
+        // Only when the viewport itself is focused — descendant inputs and
+        // interactive message content keep their native key handling.
+        if (event.target !== viewportEl) return
+
+        const isHomeKey = event.key === 'Home' || event.code === 'Home'
+        const isEndKey = event.key === 'End' || event.code === 'End'
+        const isSpaceKey =
+            event.key === ' ' ||
+            event.key === 'Space' ||
+            event.key === 'Spacebar' ||
+            event.code === 'Space'
+
+        const scrollByKeyboard = (delta: number, direction: 'up' | 'down') => {
+            const viewport = viewportEl
+            if (!viewport) return
+
+            event.preventDefault()
+            // Suppress trackScrollIntent's own keydown listener — the intent
+            // is marked below with the resolved direction.
+            event.stopImmediatePropagation()
+            handleViewportScrollIntent({ direction })
+            // Write the DOM only — handleScroll owns the scrollTop state
+            // sync. Pre-syncing here would zero the displacement the scroll
+            // event reports, and the follow policy decides on displacement.
+            viewport.scrollTop += delta
+        }
+
+        if (event.key === 'ArrowUp' || event.code === 'ArrowUp') {
+            scrollByKeyboard(-40, 'up')
+            return
+        }
+
+        if (event.key === 'ArrowDown' || event.code === 'ArrowDown') {
+            scrollByKeyboard(40, 'down')
+            return
+        }
+
+        if (event.key === 'PageUp' || event.code === 'PageUp') {
+            scrollByKeyboard(-viewportEl.clientHeight * 0.85, 'up')
+            return
+        }
+
+        if (event.key === 'PageDown' || event.code === 'PageDown') {
+            scrollByKeyboard(viewportEl.clientHeight * 0.85, 'down')
+            return
+        }
+
+        if (isSpaceKey) {
+            scrollByKeyboard(
+                viewportEl.clientHeight * 0.85 * (event.shiftKey ? -1 : 1),
+                event.shiftKey ? 'up' : 'down'
+            )
+            return
+        }
+
+        if (isHomeKey) {
+            event.preventDefault()
+            event.stopImmediatePropagation()
+            handleViewportScrollIntent({ direction: 'up' })
+            viewportEl.scrollTop = 0
+            setFollowingBottom(false)
+            scheduleScrollProgressPreservation()
+            return
+        }
+
+        if (isEndKey) {
+            event.preventDefault()
+            event.stopImmediatePropagation()
+            layoutPreservation.begin()
+            handleViewportScrollIntent({ direction: 'down' })
+            snapToBottom()
+        }
+    }
+
+    /** Svelte action: keyboard scrolling for the focusable viewport. */
+    const handleViewportKeyboard = (node: HTMLElement) => {
+        node.addEventListener('keydown', handleViewportKeydown)
+
+        return {
+            destroy() {
+                node.removeEventListener('keydown', handleViewportKeydown)
+            }
+        }
+    }
+
     const restoreCurrentVisualAnchor = (anchor: VisualAnchor) => {
         if (!viewportEl) return
         const targetScrollTop = restoreVisualAnchor({
@@ -439,11 +543,15 @@
 
         const adjustedGeometry = restoreScrollProgressIfNeeded(now)
 
+        const settledGeometry = adjustedGeometry ?? currentGeometry
         const attribution = {
             userScrolling: scrollIntent.isActive,
-            preservingLayout: layoutPreservation.isActive
+            preservingLayout: layoutPreservation.isActive,
+            landedOnClampBoundary:
+                settledGeometry.scrollTop <= 0 ||
+                settledGeometry.scrollTop >= getMaxScroll(settledGeometry) - 1
         }
-        const atBottom = isAtViewportBottom(adjustedGeometry ?? currentGeometry)
+        const atBottom = isAtViewportBottom(settledGeometry)
         upwardTravelPx = accumulateUpwardTravel({
             ...attribution,
             previousScrollTop,
@@ -599,6 +707,11 @@
             viewportEl.scrollTop = maxScroll
         }
         scrollTop = viewportEl.scrollTop
+        // A deliberate arrival at the bottom wipes the travel slate directly.
+        // The scroll event this write fires would do the same, but content
+        // growth can race the async dispatch and deny the at-bottom reset —
+        // leaving stale travel to spuriously unfollow on the next event.
+        upwardTravelPx = 0
     }
 
     /**
@@ -618,6 +731,8 @@
         if (remaining <= SMOOTH_SNAP_EPSILON_PX) {
             viewportEl.scrollTop = maxScroll
             scrollTop = viewportEl.scrollTop
+            // Landed at the bottom — same direct travel reset as jumpToBottom.
+            upwardTravelPx = 0
             finishSmoothScroll()
             return
         }
@@ -885,13 +1000,18 @@
     data-testid={testId ? `${testId}-container` : undefined}
     style="display: flex; flex-direction: column; overflow: hidden;"
 >
+    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
     <div
         bind:this={viewportEl}
         class={viewportClass}
         onscroll={handleScroll}
+        use:handleViewportKeyboard
         use:trackViewportScrollIntent
         style="overflow-y: auto; overflow-anchor: none; flex: 1 1 0%; min-height: 0;"
         data-testid={testId ? `${testId}-viewport` : undefined}
+        role="region"
+        aria-label={viewportLabel}
+        tabindex="0"
     >
         <div
             bind:this={contentEl}
