@@ -264,6 +264,24 @@
         })
     }
 
+    /**
+     * Pre-paint anchor restore for ResizeObserver contexts. A measurement
+     * correction shifts everything below the measured item immediately, and
+     * the height cache's prefix sums are already flushed synchronously — so
+     * restoring here keeps the anchored message visually stationary in the
+     * same frame the correction landed. The rAF-deferred restore alone
+     * painted the full estimate miss for one frame per measured message
+     * (#44). A coalesced deferred restore with a fresh post-restore anchor
+     * stays on as the settle net for same-frame relayout (the deferred
+     * height-cache flush updating the spacer, shrink corrections clamping).
+     */
+    const restoreAnchorPrePaint = (anchor: VisualAnchor | null) => {
+        if (!anchor || !viewportEl || isFollowingBottom || isUserScrollPreservationActive()) return
+        layoutPreservation.begin()
+        restoreCurrentVisualAnchor(anchor)
+        scheduleAnchorRestore(captureCurrentVisualAnchor())
+    }
+
     const restoreScrollProgressIfNeeded = (now: number): ScrollGeometry | null => {
         if (!viewportEl) return null
 
@@ -362,7 +380,7 @@
             }
             return
         }
-        scheduleAnchorRestore(anchor)
+        restoreAnchorPrePaint(anchor)
         scheduleScrollProgressPreservation()
     }
 
