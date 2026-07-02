@@ -80,9 +80,16 @@ export class SweepMonitor {
         }
 
         const readTops = () => {
+            // Relative to the viewport's own rect, not the page: fixture
+            // chrome above the chat (e.g. the stats line re-wrapping on
+            // narrow screens as its numbers change width) shifts the whole
+            // scroller in page coordinates, and that must not read as
+            // scroller-internal motion.
+            const viewportTop = viewport.getBoundingClientRect().top
             const tops: Record<string, number> = {}
             for (const el of viewport.querySelectorAll('[data-message-id]')) {
-                tops[(el as HTMLElement).dataset.messageId!] = el.getBoundingClientRect().top
+                tops[(el as HTMLElement).dataset.messageId!] =
+                    el.getBoundingClientRect().top - viewportTop
             }
             return tops
         }

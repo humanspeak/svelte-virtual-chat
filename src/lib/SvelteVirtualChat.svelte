@@ -15,9 +15,9 @@
         type ChatScrollIntentEvent
     } from './virtual-chat/chatScrollIntent.js'
     import {
+        accumulateUpwardTravel,
         decideFollowBottomAfterScroll,
         getMaxScroll,
-        isMovementAttributableToUser,
         isViewportAtBottom,
         type ScrollGeometry
     } from './virtual-chat/chatScrollPolicy.js'
@@ -83,9 +83,9 @@
     let scrollAnimationFrame: number | null = null
     let isAnimatingToBottom = false
     let hasAnchoredToBottom = false
-    // Cumulative upward scrollTop travel since the viewport was last within
-    // the follow threshold — the user's real displacement, as opposed to the
-    // bottom gap, which content growth can inflate on its own.
+    // The user's real upward displacement, as opposed to the bottom gap,
+    // which content growth can inflate on its own. Transition rule lives in
+    // `accumulateUpwardTravel` (chatScrollPolicy).
     let upwardTravelPx = 0
     let previousMessageCount = -1
     let pendingAnchor: VisualAnchor | null = null
@@ -444,11 +444,13 @@
             preservingLayout: layoutPreservation.isActive
         }
         const atBottom = isAtViewportBottom(adjustedGeometry ?? currentGeometry)
-        if (atBottom) {
-            upwardTravelPx = 0
-        } else if (isMovementAttributableToUser(attribution) && scrollTop < previousScrollTop) {
-            upwardTravelPx += previousScrollTop - scrollTop
-        }
+        upwardTravelPx = accumulateUpwardTravel({
+            ...attribution,
+            previousScrollTop,
+            scrollTop,
+            atBottom,
+            upwardTravelPx
+        })
 
         const decision = decideFollowBottomAfterScroll({
             ...attribution,
