@@ -5,6 +5,8 @@ description: Keyboard navigation, screen reader support, and reduced-motion beha
 
 <script>
     import { getSeoContext } from '@humanspeak/docs-kit'
+    import InlineExample from '$lib/components/general/InlineExample.svelte'
+    import AccessibilityChat from '$lib/examples/AccessibilityChat.svelte'
 
     const seo = getSeoContext()
     if (seo) {
@@ -20,6 +22,10 @@ description: Keyboard navigation, screen reader support, and reduced-motion beha
 # Accessibility
 
 SvelteVirtualChat ships with keyboard navigation, a labeled focusable scroll region, and reduced-motion support out of the box. This guide covers what the component provides and what your app should add on top.
+
+<InlineExample file="AccessibilityChat.svelte" title="Keyboard navigation">
+  <AccessibilityChat />
+</InlineExample>
 
 ## Focusable, labeled scroll region
 
