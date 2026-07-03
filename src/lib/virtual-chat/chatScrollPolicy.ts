@@ -31,6 +31,15 @@ export type MovementAttributionArgs = {
 export type DecideFollowBottomAfterScrollArgs = MovementAttributionArgs & {
     atBottom: boolean
     wasFollowingBottom: boolean
+    /**
+     * Whether this event moved the viewport upward. Arrivals in the
+     * at-bottom zone only re-engage follow when they are not upward: you
+     * can only genuinely return to the bottom by moving down (or staying
+     * put), while an upward step that happens to land inside the threshold
+     * — e.g. a 40px ArrowUp against the 48px default — must not be
+     * re-captured after the caller deliberately disengaged (#50).
+     */
+    movedUp: boolean
     followBottomThresholdPx: number
     /**
      * Cumulative upward scrollTop travel (px) since the last non-upward
@@ -113,8 +122,13 @@ export const decideFollowBottomAfterScroll = (
     args: DecideFollowBottomAfterScrollArgs
 ): FollowBottomScrollDecision => {
     if (args.atBottom) {
+        // Non-upward arrivals re-engage follow (returning to the bottom).
+        // Upward movement inside the threshold keeps the current state:
+        // following users keep the noise-absorbing magnet (#40), while a
+        // deliberately disengaged viewport (keyboard line step, #50) is not
+        // re-captured by the zone it hasn't actually left yet.
         return {
-            nextFollowingBottom: true,
+            nextFollowingBottom: args.movedUp ? args.wasFollowingBottom : true,
             shouldEndLayoutPreservation: true,
             shouldScheduleSnapToBottom: false
         }

@@ -281,6 +281,16 @@
             // is marked below with the resolved direction.
             event.stopImmediatePropagation()
             handleViewportScrollIntent({ direction })
+            if (direction === 'up' && getMaxScroll(viewport) > 0) {
+                // A keypress is a discrete, unambiguous command — there is
+                // no "accidental" ArrowUp to absorb, unlike pointer noise.
+                // Disengage immediately instead of asking the displacement
+                // policy, whose threshold exists for jitter and can exceed a
+                // single 40px line step (#50). The at-bottom zone will not
+                // re-capture an upward arrival (see
+                // decideFollowBottomAfterScroll).
+                setFollowingBottom(false)
+            }
             // Write the DOM only — handleScroll owns the scrollTop state
             // sync. Pre-syncing here would zero the displacement the scroll
             // event reports, and the follow policy decides on displacement.
@@ -564,6 +574,7 @@
             ...attribution,
             atBottom,
             wasFollowingBottom: isFollowingBottom,
+            movedUp: scrollTop < previousScrollTop,
             followBottomThresholdPx,
             upwardTravelPx
         })

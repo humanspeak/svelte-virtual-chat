@@ -163,7 +163,70 @@ describe('decideFollowBottomAfterScroll', () => {
             decideFollowBottomAfterScroll({
                 atBottom: true,
                 wasFollowingBottom: true,
+                movedUp: false,
                 preservingLayout: true,
+                landedOnClampBoundary: true,
+                userScrolling: false,
+                followBottomThresholdPx: 48,
+                upwardTravelPx: 0
+            })
+        ).toEqual({
+            nextFollowingBottom: true,
+            shouldEndLayoutPreservation: true,
+            shouldScheduleSnapToBottom: false
+        })
+    })
+
+    it('does not re-capture an upward arrival inside the at-bottom zone (#50)', () => {
+        // A 40px keyboard line step lands inside the 48px threshold after
+        // the keydown handler deliberately disengaged follow. The zone only
+        // re-engages on non-upward arrivals.
+        expect(
+            decideFollowBottomAfterScroll({
+                atBottom: true,
+                wasFollowingBottom: false,
+                movedUp: true,
+                preservingLayout: false,
+                landedOnClampBoundary: false,
+                userScrolling: true,
+                followBottomThresholdPx: 48,
+                upwardTravelPx: 40
+            })
+        ).toEqual({
+            nextFollowingBottom: false,
+            shouldEndLayoutPreservation: true,
+            shouldScheduleSnapToBottom: false
+        })
+    })
+
+    it('keeps the magnet for upward pointer noise while following', () => {
+        // A following user's sub-threshold upward jitter stays followed —
+        // the next growth snap reabsorbs it (#40 semantics unchanged).
+        expect(
+            decideFollowBottomAfterScroll({
+                atBottom: true,
+                wasFollowingBottom: true,
+                movedUp: true,
+                preservingLayout: false,
+                landedOnClampBoundary: false,
+                userScrolling: true,
+                followBottomThresholdPx: 48,
+                upwardTravelPx: 2
+            })
+        ).toEqual({
+            nextFollowingBottom: true,
+            shouldEndLayoutPreservation: true,
+            shouldScheduleSnapToBottom: false
+        })
+    })
+
+    it('re-engages follow on a downward return to the bottom', () => {
+        expect(
+            decideFollowBottomAfterScroll({
+                atBottom: true,
+                wasFollowingBottom: false,
+                movedUp: false,
+                preservingLayout: false,
                 landedOnClampBoundary: true,
                 userScrolling: false,
                 followBottomThresholdPx: 48,
@@ -181,6 +244,7 @@ describe('decideFollowBottomAfterScroll', () => {
             decideFollowBottomAfterScroll({
                 atBottom: false,
                 wasFollowingBottom: true,
+                movedUp: false,
                 preservingLayout: true,
                 landedOnClampBoundary: true,
                 userScrolling: false,
@@ -201,6 +265,7 @@ describe('decideFollowBottomAfterScroll', () => {
             decideFollowBottomAfterScroll({
                 atBottom: false,
                 wasFollowingBottom: true,
+                movedUp: false,
                 preservingLayout: true,
                 landedOnClampBoundary: true,
                 userScrolling: true,
@@ -221,6 +286,7 @@ describe('decideFollowBottomAfterScroll', () => {
             decideFollowBottomAfterScroll({
                 atBottom: false,
                 wasFollowingBottom: true,
+                movedUp: false,
                 preservingLayout: false,
                 landedOnClampBoundary: true,
                 userScrolling: true,
@@ -239,6 +305,7 @@ describe('decideFollowBottomAfterScroll', () => {
             decideFollowBottomAfterScroll({
                 atBottom: false,
                 wasFollowingBottom: true,
+                movedUp: false,
                 preservingLayout: false,
                 landedOnClampBoundary: true,
                 userScrolling: true,
@@ -261,6 +328,7 @@ describe('decideFollowBottomAfterScroll', () => {
             decideFollowBottomAfterScroll({
                 atBottom: false,
                 wasFollowingBottom: true,
+                movedUp: false,
                 preservingLayout: true,
                 landedOnClampBoundary: true,
                 userScrolling: false,
@@ -279,6 +347,7 @@ describe('decideFollowBottomAfterScroll', () => {
             decideFollowBottomAfterScroll({
                 atBottom: false,
                 wasFollowingBottom: true,
+                movedUp: false,
                 preservingLayout: false,
                 landedOnClampBoundary: true,
                 userScrolling: false,
@@ -297,6 +366,7 @@ describe('decideFollowBottomAfterScroll', () => {
             decideFollowBottomAfterScroll({
                 atBottom: false,
                 wasFollowingBottom: false,
+                movedUp: false,
                 preservingLayout: true,
                 landedOnClampBoundary: true,
                 userScrolling: false,
