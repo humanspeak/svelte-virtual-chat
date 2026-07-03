@@ -68,6 +68,34 @@ test.describe('Programmatic scroll escape (#45)', () => {
         expect(before.scrollTop - after.scrollTop).toBeGreaterThan(500)
     })
 
+    test('a single ArrowUp from the bottom moves up and stays (#50)', async ({
+        page
+    }, testInfo) => {
+        test.skip(
+            testInfo.project.name === 'mobile-safari',
+            'Playwright does not simulate keyboard scrolling in mobile WebKit'
+        )
+        await expect
+            .poll(async () => (await getScrollState(page)).gapFromBottom, { timeout: 5000 })
+            .toBeLessThanOrEqual(2)
+
+        const region = page.getByRole('region', { name: 'Chat messages' })
+        await region.focus()
+        await region.press('ArrowUp')
+
+        // Wait past the scroll-intent window (~150ms), where onIntentEnd
+        // currently schedules the snap that undoes the keypress.
+        await page.waitForTimeout(SETTLE_MS + 250)
+
+        // A keypress is a discrete, unambiguous command — unlike trackpad
+        // noise, there is no "accidental" ArrowUp to absorb. Today the 40px
+        // line step sits inside the 48px follow magnet, follow is retained,
+        // and the intent-end snap erases the movement: the key looks broken.
+        expect(await isFollowing(page)).toBe(false)
+        const after = await getScrollState(page)
+        expect(after.gapFromBottom).toBeGreaterThanOrEqual(30)
+    })
+
     test('a programmatic jump into the list sticks during streaming growth', async ({ page }) => {
         // With growth in flight, layout preservation is hot on every frame —
         // and movement without input events used to be attributed to layout
