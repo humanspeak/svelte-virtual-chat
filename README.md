@@ -31,7 +31,7 @@ Chat UIs are not generic lists. They have specific behaviors that general-purpos
 - **Follow-bottom** — viewport stays pinned to the newest message while at bottom
 - **Scroll-away stability** — new messages don't yank you back when you've scrolled up
 - **Virtualized rendering** — only visible messages exist in the DOM (handles 10,000+ messages)
-- **Streaming-native** — height changes from LLM token streaming are batched per frame
+- **Streaming-native** — LLM token growth is corrected in the same frame it happens, before paint
 - **Header & footer** — optional snippets for persistent content above/below messages (typing indicators, banners)
 - **History prepend** — load older messages at the top without viewport jumping
 - **Keyboard accessible** — focusable, labeled scroll region with full keyboard navigation (arrows, paging, Home/End)
@@ -40,8 +40,7 @@ Chat UIs are not generic lists. They have specific behaviors that general-purpos
 - **Full TypeScript** — strict types, generics, and exported type definitions
 - **Svelte 5 runes** — built with `$state`, `$derived`, `$effect`, and snippets
 - **Debug info** — real-time stats via `onDebugInfo` callback (total, DOM count, measured, range, following state)
-- **E2E tested** — 66+ Playwright tests across 7 test suites
-- **Zero dependencies** — only `esm-env` for SSR detection
+- **Zero dependencies** — nothing but Svelte itself
 
 ## Requirements
 
@@ -60,6 +59,19 @@ npm install @humanspeak/svelte-virtual-chat
 # Using yarn
 yarn add @humanspeak/svelte-virtual-chat
 ```
+
+## Documentation & Live Examples
+
+Full documentation lives at [virtualchat.svelte.page](https://virtualchat.svelte.page), including guides for [LLM streaming](https://virtualchat.svelte.page/docs/guides/llm-streaming), [history loading](https://virtualchat.svelte.page/docs/guides/history-loading), [scroll behavior](https://virtualchat.svelte.page/docs/guides/scroll-behavior), and [accessibility](https://virtualchat.svelte.page/docs/guides/accessibility).
+
+Every example below is also a live, interactive demo:
+
+| Demo                                                                        | What it shows                                          |
+| --------------------------------------------------------------------------- | ------------------------------------------------------ |
+| [Basic Chat](https://virtualchat.svelte.page/examples/basic-chat)           | Follow-bottom, scroll-away, and message virtualization |
+| [LLM Streaming](https://virtualchat.svelte.page/examples/streaming)         | Token-by-token growth with a pinned viewport           |
+| [History Loading](https://virtualchat.svelte.page/examples/history-loading) | Prepending older messages with scroll preservation     |
+| [Header & Footer](https://virtualchat.svelte.page/examples/header-footer)   | Persistent content and typing indicators               |
 
 ## Basic Usage
 
@@ -111,7 +123,6 @@ yarn add @humanspeak/svelte-virtual-chat
 | `containerClass`          | `string`                                     | `''`              | CSS class for the outermost container                   |
 | `viewportClass`           | `string`                                     | `''`              | CSS class for the scrollable viewport                   |
 | `viewportLabel`           | `string`                                     | `'Chat messages'` | Accessible label for the scrollable viewport region     |
-| `debug`                   | `boolean`                                    | `false`           | Enable console debug logging                            |
 | `testId`                  | `string`                                     | -                 | Base test ID for `data-testid` attributes               |
 
 ## Imperative API
@@ -153,7 +164,7 @@ Pair with [@humanspeak/svelte-markdown](https://www.npmjs.com/package/@humanspea
         isStreaming?: boolean
     }
 
-    let messages: Message[] = $state([...])
+    let messages: Message[] = $state([])
 </script>
 
 <SvelteVirtualChat
@@ -275,18 +286,19 @@ The `onDebugInfo` callback provides real-time visibility into the component's in
 {/if}
 ```
 
-| Field               | Type      | Description                              |
-| ------------------- | --------- | ---------------------------------------- |
-| `totalMessages`     | `number`  | Total messages in the array              |
-| `renderedCount`     | `number`  | Messages currently in the DOM            |
-| `measuredCount`     | `number`  | Messages with measured heights           |
-| `startIndex`        | `number`  | First rendered index                     |
-| `endIndex`          | `number`  | Last rendered index                      |
-| `totalHeight`       | `number`  | Calculated total content height (px)     |
-| `scrollTop`         | `number`  | Current scroll position (px)             |
-| `viewportHeight`    | `number`  | Viewport height (px)                     |
-| `isFollowingBottom` | `boolean` | Whether the viewport is pinned to bottom |
-| `averageHeight`     | `number`  | Average measured message height (px)     |
+| Field                | Type      | Description                                |
+| -------------------- | --------- | ------------------------------------------ |
+| `totalMessages`      | `number`  | Total messages in the array                |
+| `renderedCount`      | `number`  | Messages currently in the DOM              |
+| `measuredCount`      | `number`  | Messages with measured heights             |
+| `startIndex`         | `number`  | First rendered index                       |
+| `endIndex`           | `number`  | Last rendered index                        |
+| `totalHeight`        | `number`  | Calculated total content height (px)       |
+| `scrollTop`          | `number`  | Current scroll position (px)               |
+| `viewportHeight`     | `number`  | Viewport height (px)                       |
+| `isFollowingBottom`  | `boolean` | Whether the viewport is pinned to bottom   |
+| `averageHeight`      | `number`  | Average measured message height (px)       |
+| `heightCacheVersion` | `number`  | Bumps whenever any measured height changes |
 
 ## TypeScript
 
@@ -314,23 +326,23 @@ import {
 
 The component uses standard top-to-bottom geometry (no inverted lists):
 
-1. **Height caching** — Each message's height is measured via ResizeObserver and cached by ID
+1. **Height caching** — Each rendered message's height is derived from real layout offsets (so bubble margins are counted, whatever your CSS does) and cached by ID; ResizeObservers trigger re-measurement when content changes
 2. **Visible range** — On every scroll, the component calculates which messages fall within `scrollTop` to `scrollTop + viewportHeight`, plus an overscan buffer
 3. **Absolute positioning** — Only visible messages are rendered, positioned via `transform: translateY()` inside a content div sized to the total calculated height
-4. **Follow-bottom** — When at bottom, new messages and height changes trigger an automatic snap to `scrollHeight`
+4. **Follow-bottom** — While at the bottom, streaming growth is corrected in the same frame it happens (before paint, so nothing visibly shifts), and newly arriving messages ease smoothly into view
 5. **Bottom gravity** — When messages don't fill the viewport, `flex-direction: column; justify-content: flex-end` pushes them to the bottom
 
 With 10,000 messages, the DOM contains ~15-25 elements instead of 10,000.
 
 ## Performance
 
-| Metric                         | Value                                    |
-| ------------------------------ | ---------------------------------------- |
-| DOM nodes with 1,000 messages  | ~15-25 (viewport + overscan)             |
-| DOM nodes with 10,000 messages | ~15-25 (same)                            |
-| Follow-bottom snap             | Single `requestAnimationFrame` per batch |
-| Height measurement             | ResizeObserver (no polling)              |
-| Streaming height updates       | Batched per animation frame              |
+| Metric                         | Value                                      |
+| ------------------------------ | ------------------------------------------ |
+| DOM nodes with 1,000 messages  | ~15-25 (viewport + overscan)               |
+| DOM nodes with 10,000 messages | ~15-25 (same)                              |
+| Follow-bottom correction       | Same frame as the growth, before paint     |
+| Height measurement             | Layout offsets, ResizeObserver-triggered   |
+| Streaming height updates       | Coalesced — one reactive cascade per frame |
 
 ## Companion Libraries
 
