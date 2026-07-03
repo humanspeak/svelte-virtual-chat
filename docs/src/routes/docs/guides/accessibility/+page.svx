@@ -1,0 +1,111 @@
+---
+title: Accessibility
+description: Keyboard navigation, screen reader support, and reduced-motion behavior in SvelteVirtualChat — plus guidance for building accessible chat UIs on top of it.
+---
+
+<script>
+    import { getSeoContext } from '@humanspeak/docs-kit'
+
+    const seo = getSeoContext()
+    if (seo) {
+        seo.title = 'Accessibility Guide | Svelte Virtual Chat'
+        seo.description = 'Keyboard navigation, screen reader support, and reduced-motion behavior in SvelteVirtualChat — plus guidance for building accessible chat UIs on top of it.'
+        seo.ogTitle = 'Accessibility'
+        seo.ogTagline = 'Keyboard navigation, screen readers, and reduced motion.'
+        seo.ogFeatures = ['Keyboard Navigation', 'Screen Readers', 'Reduced Motion', 'Focus']
+        seo.ogSlug = 'docs-guides-accessibility'
+    }
+</script>
+
+# Accessibility
+
+SvelteVirtualChat ships with keyboard navigation, a labeled focusable scroll region, and reduced-motion support out of the box. This guide covers what the component provides and what your app should add on top.
+
+## Focusable, labeled scroll region
+
+The scrollable viewport is a landmark that keyboard and screen reader users can reach directly:
+
+- `role="region"` with an accessible name from the `viewportLabel` prop (default: `"Chat messages"`)
+- `tabindex="0"` so it participates in the tab order
+
+```svelte
+<SvelteVirtualChat {messages} getMessageId={(m) => m.id} viewportLabel="Support conversation">
+    <!-- ... -->
+</SvelteVirtualChat>
+```
+
+Set `viewportLabel` to something meaningful for your context — "Chat messages" is a reasonable default, but "Conversation with Alex" tells a screen reader user which conversation they just landed in.
+
+## Keyboard navigation
+
+When the viewport itself is focused, the standard scrolling keys work — and they participate in the same follow-bottom logic as wheel and touch input:
+
+| Key                    | Action                                            |
+| ---------------------- | ------------------------------------------------- |
+| `ArrowUp` / `ArrowDown`| Scroll by 40px                                    |
+| `PageUp` / `PageDown`  | Scroll by 85% of the viewport height              |
+| `Space` / `Shift+Space`| Page down / page up                               |
+| `Home`                 | Jump to the oldest message (disengages follow)    |
+| `End`                  | Jump to the newest message and re-engage follow   |
+
+Follow-bottom semantics are input-agnostic:
+
+- Scrolling **up** past `followBottomThresholdPx` disengages follow — new messages stop pulling the view down, exactly as with a wheel or trackpad.
+- Scrolling **down** while at the bottom never disengages follow, so holding `ArrowDown` during a stream is safe.
+- `End` is the keyboard equivalent of a "jump to newest" button.
+
+### Interactive message content keeps its keys
+
+The component only intercepts keys when the viewport element itself has focus. Inputs, buttons, links, and any other interactive elements rendered inside messages receive their keystrokes untouched — `Space` in a textarea types a space; it does not page the chat.
+
+## Reduced motion
+
+When the user has `prefers-reduced-motion: reduce` set, the smooth-scroll easing for new messages is disabled and the viewport lands instantly. No configuration needed.
+
+## Programmatic scrolling is respected
+
+Assistive tooling and app code that scrolls programmatically (for example `scrollTo` from a "jump to message" feature) is treated as user navigation: follow-bottom disengages instead of yanking the view back to the bottom — even while messages are streaming in.
+
+## What your app should add
+
+The component deliberately stays out of two areas that need app-level context:
+
+### Announce new messages with a live region
+
+Messages are **virtualized** — only the visible slice exists in the DOM — so screen readers cannot discover off-screen messages on their own, and an `aria-live` attribute on message content would only fire for rendered nodes. Announce new messages yourself with a visually hidden polite live region, summarizing rather than duplicating:
+
+```svelte
+<script lang="ts">
+    let announcement = $state('')
+
+    function addMessage(msg: Message) {
+        messages.push(msg)
+        announcement = `${msg.author}: ${msg.content}`
+    }
+</script>
+
+<div class="sr-only" role="status" aria-live="polite">{announcement}</div>
+```
+
+Throttle announcements during token streaming — announce when a message completes, not on every token.
+
+### Pair follow state with a visible control
+
+`onFollowBottomChange` tells you when the user has scrolled away. Use it to show a focusable "jump to newest" button so the affordance exists for pointer, keyboard, and screen reader users alike:
+
+```svelte
+<SvelteVirtualChat
+    bind:this={chat}
+    {messages}
+    getMessageId={(m) => m.id}
+    onFollowBottomChange={(following) => (showJumpButton = !following)}
+>
+    <!-- ... -->
+</SvelteVirtualChat>
+
+{#if showJumpButton}
+    <button onclick={() => chat.scrollToBottom({ smooth: true })}> Jump to newest </button>
+{/if}
+```
+
+`End` already does this from the keyboard when the viewport is focused; the button covers everyone else.

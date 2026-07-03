@@ -4,7 +4,7 @@ A high-performance virtual chat viewport for Svelte 5. Purpose-built for LLM con
 
 [![NPM version](https://img.shields.io/npm/v/@humanspeak/svelte-virtual-chat.svg)](https://www.npmjs.com/package/@humanspeak/svelte-virtual-chat)
 [![Build Status](https://github.com/humanspeak/svelte-virtual-chat/actions/workflows/npm-publish.yml/badge.svg)](https://github.com/humanspeak/svelte-virtual-chat/actions/workflows/npm-publish.yml)
-[![tokenmaxing](https://tokenmaxing.app/badge/humanspeak/svelte-virtual-chat)](https://tokenmaxing.app/card/humanspeak/svelte-virtual-chat)
+[![AI tokens used building this repo — TokenMaxing](https://tokenmaxing.app/badge/humanspeak/svelte-virtual-chat)](https://tokenmaxing.app/card/humanspeak/svelte-virtual-chat)
 [![License](https://img.shields.io/npm/l/@humanspeak/svelte-virtual-chat.svg)](https://github.com/humanspeak/svelte-virtual-chat/blob/main/LICENSE)
 [![Downloads](https://img.shields.io/npm/dm/@humanspeak/svelte-virtual-chat.svg)](https://www.npmjs.com/package/@humanspeak/svelte-virtual-chat)
 [![Install size](https://packagephobia.com/badge?p=@humanspeak/svelte-virtual-chat)](https://packagephobia.com/result?p=@humanspeak/svelte-virtual-chat)
@@ -34,6 +34,8 @@ Chat UIs are not generic lists. They have specific behaviors that general-purpos
 - **Streaming-native** — height changes from LLM token streaming are batched per frame
 - **Header & footer** — optional snippets for persistent content above/below messages (typing indicators, banners)
 - **History prepend** — load older messages at the top without viewport jumping
+- **Keyboard accessible** — focusable, labeled scroll region with full keyboard navigation (arrows, paging, Home/End)
+- **Reduced-motion aware** — smooth scrolling respects `prefers-reduced-motion`
 - **Message-aware** — uses message IDs for identity, not array indices
 - **Full TypeScript** — strict types, generics, and exported type definitions
 - **Svelte 5 runes** — built with `$state`, `$derived`, `$effect`, and snippets
@@ -93,23 +95,24 @@ yarn add @humanspeak/svelte-virtual-chat
 
 ## Props
 
-| Prop                      | Type                                         | Default  | Description                                             |
-| ------------------------- | -------------------------------------------- | -------- | ------------------------------------------------------- |
-| `messages`                | `TMessage[]`                                 | Required | Array of messages in chronological order (oldest first) |
-| `getMessageId`            | `(msg: TMessage) => string`                  | Required | Extract a unique, stable ID from a message              |
-| `renderMessage`           | `Snippet<[TMessage, number]>`                | Required | Snippet that renders a single message                   |
-| `header`                  | `Snippet`                                    | -        | Persistent content above all messages (always in DOM)   |
-| `footer`                  | `Snippet`                                    | -        | Persistent content below all messages (always in DOM)   |
-| `estimatedMessageHeight`  | `number`                                     | `72`     | Height estimate in pixels for unmeasured messages       |
-| `followBottomThresholdPx` | `number`                                     | `48`     | Distance from bottom to consider "at bottom"            |
-| `overscan`                | `number`                                     | `6`      | Extra messages rendered above/below the viewport        |
-| `onNeedHistory`           | `() => void \| Promise<void>`                | -        | Called when user scrolls near top (load older messages) |
-| `onFollowBottomChange`    | `(isFollowing: boolean) => void`             | -        | Called when follow-bottom state changes                 |
-| `onDebugInfo`             | `(info: SvelteVirtualChatDebugInfo) => void` | -        | Called with live stats on every scroll/render update    |
-| `containerClass`          | `string`                                     | `''`     | CSS class for the outermost container                   |
-| `viewportClass`           | `string`                                     | `''`     | CSS class for the scrollable viewport                   |
-| `debug`                   | `boolean`                                    | `false`  | Enable console debug logging                            |
-| `testId`                  | `string`                                     | -        | Base test ID for `data-testid` attributes               |
+| Prop                      | Type                                         | Default           | Description                                             |
+| ------------------------- | -------------------------------------------- | ----------------- | ------------------------------------------------------- |
+| `messages`                | `TMessage[]`                                 | Required          | Array of messages in chronological order (oldest first) |
+| `getMessageId`            | `(msg: TMessage) => string`                  | Required          | Extract a unique, stable ID from a message              |
+| `renderMessage`           | `Snippet<[TMessage, number]>`                | Required          | Snippet that renders a single message                   |
+| `header`                  | `Snippet`                                    | -                 | Persistent content above all messages (always in DOM)   |
+| `footer`                  | `Snippet`                                    | -                 | Persistent content below all messages (always in DOM)   |
+| `estimatedMessageHeight`  | `number`                                     | `72`              | Height estimate in pixels for unmeasured messages       |
+| `followBottomThresholdPx` | `number`                                     | `48`              | Distance from bottom to consider "at bottom"            |
+| `overscan`                | `number`                                     | `6`               | Extra messages rendered above/below the viewport        |
+| `onNeedHistory`           | `() => void \| Promise<void>`                | -                 | Called when user scrolls near top (load older messages) |
+| `onFollowBottomChange`    | `(isFollowing: boolean) => void`             | -                 | Called when follow-bottom state changes                 |
+| `onDebugInfo`             | `(info: SvelteVirtualChatDebugInfo) => void` | -                 | Called with live stats on every scroll/render update    |
+| `containerClass`          | `string`                                     | `''`              | CSS class for the outermost container                   |
+| `viewportClass`           | `string`                                     | `''`              | CSS class for the scrollable viewport                   |
+| `viewportLabel`           | `string`                                     | `'Chat messages'` | Accessible label for the scrollable viewport region     |
+| `debug`                   | `boolean`                                    | `false`           | Enable console debug logging                            |
+| `testId`                  | `string`                                     | -                 | Base test ID for `data-testid` attributes               |
 
 ## Imperative API
 
@@ -233,6 +236,19 @@ Footer height changes automatically trigger follow-bottom snapping — perfect f
 </SvelteVirtualChat>
 ```
 
+## Accessibility
+
+The scrollable viewport is a keyboard-reachable landmark out of the box:
+
+- **Labeled region** — `role="region"` + `tabindex="0"`, named via the `viewportLabel` prop (default `"Chat messages"`)
+- **Keyboard navigation** — `ArrowUp`/`ArrowDown` (40px), `PageUp`/`PageDown`/`Space`/`Shift+Space` (85% of viewport), `Home` (oldest message, disengages follow), `End` (newest message, re-engages follow)
+- **Input-agnostic follow behavior** — keyboard scrolling participates in the same follow-bottom logic as wheel and touch; holding `ArrowDown` during a stream never breaks follow
+- **Interactive content untouched** — keys are only intercepted when the viewport itself is focused; inputs and buttons inside messages keep their native behavior
+- **Reduced motion** — smooth scrolling is disabled automatically under `prefers-reduced-motion: reduce`
+- **Programmatic scrolling respected** — `scrollTo` from assistive tooling or app code disengages follow instead of being yanked back to the bottom
+
+Because messages are virtualized (off-screen messages don't exist in the DOM), announce new messages yourself with a polite `aria-live` region, and pair `onFollowBottomChange` with a visible "jump to newest" button. See the [Accessibility guide](https://virtualchat.svelte.page/docs/guides/accessibility) for patterns.
+
 ## Debug Info
 
 The `onDebugInfo` callback provides real-time visibility into the component's internal state:
@@ -329,18 +345,18 @@ With 10,000 messages, the DOM contains ~15-25 elements instead of 10,000.
 
 Part of the [Humanspeak](https://humanspeak.com) family of runes-native Svelte 5 packages:
 
-| Package | Description |
-| --- | --- |
-| [@humanspeak/svelte-markdown](https://markdown.svelte.page) | Runtime markdown renderer for Svelte |
-| [@humanspeak/svelte-virtual-list](https://virtuallist.svelte.page) | Virtual scrolling for Svelte |
-| [@humanspeak/svelte-motion](https://motion.svelte.page) | Framer Motion for Svelte 5 |
-| [@humanspeak/svelte-headless-table](https://table.svelte.page) | Headless data tables for Svelte |
-| [@humanspeak/svelte-diff-match-patch](https://diff.svelte.page) | Diff comparison for Svelte |
-| [@humanspeak/svelte-purify](https://purify.svelte.page) | HTML sanitisation for Svelte |
-| **[@humanspeak/svelte-virtual-chat](https://virtualchat.svelte.page)** — _this package_ | Virtual chat viewport for Svelte 5 |
-| [@humanspeak/memory-cache](https://memory.svelte.page) | In-memory cache for TypeScript |
-| [@humanspeak/svelte-json-view-lite](https://jsonview.svelte.page) | JSON tree viewer for Svelte 5 |
-| [@humanspeak/svelte-scoped-props](https://scoped.svelte.page) | Scoped class props for Svelte |
+| Package                                                                                 | Description                          |
+| --------------------------------------------------------------------------------------- | ------------------------------------ |
+| [@humanspeak/svelte-markdown](https://markdown.svelte.page)                             | Runtime markdown renderer for Svelte |
+| [@humanspeak/svelte-virtual-list](https://virtuallist.svelte.page)                      | Virtual scrolling for Svelte         |
+| [@humanspeak/svelte-motion](https://motion.svelte.page)                                 | Framer Motion for Svelte 5           |
+| [@humanspeak/svelte-headless-table](https://table.svelte.page)                          | Headless data tables for Svelte      |
+| [@humanspeak/svelte-diff-match-patch](https://diff.svelte.page)                         | Diff comparison for Svelte           |
+| [@humanspeak/svelte-purify](https://purify.svelte.page)                                 | HTML sanitisation for Svelte         |
+| **[@humanspeak/svelte-virtual-chat](https://virtualchat.svelte.page)** — _this package_ | Virtual chat viewport for Svelte 5   |
+| [@humanspeak/memory-cache](https://memory.svelte.page)                                  | In-memory cache for TypeScript       |
+| [@humanspeak/svelte-json-view-lite](https://jsonview.svelte.page)                       | JSON tree viewer for Svelte 5        |
+| [@humanspeak/svelte-scoped-props](https://scoped.svelte.page)                           | Scoped class props for Svelte        |
 
 ## License
 

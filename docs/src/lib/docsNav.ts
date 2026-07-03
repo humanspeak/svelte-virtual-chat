@@ -1,5 +1,6 @@
 import type { Breadcrumb, NavSection } from '@humanspeak/docs-kit'
 import {
+    Accessibility,
     BookOpen,
     Code,
     Gauge,
@@ -67,7 +68,8 @@ export const docsSections: NavSection[] = [
         items: [
             { title: 'LLM Streaming', href: '/docs/guides/llm-streaming', icon: Zap },
             { title: 'History Loading', href: '/docs/guides/history-loading', icon: History },
-            { title: 'Scroll Behavior', href: '/docs/guides/scroll-behavior', icon: Gauge }
+            { title: 'Scroll Behavior', href: '/docs/guides/scroll-behavior', icon: Gauge },
+            { title: 'Accessibility', href: '/docs/guides/accessibility', icon: Accessibility }
         ]
     },
     {
