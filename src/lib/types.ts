@@ -87,12 +87,6 @@ export type SvelteVirtualChatProps<TMessage = any> = {
     viewportLabel?: string
 
     /**
-     * Enable debug logging and stats.
-     * @default false
-     */
-    debug?: boolean
-
-    /**
      * Base test ID for E2E testing attributes.
      */
     testId?: string
