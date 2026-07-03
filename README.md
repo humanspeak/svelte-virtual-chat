@@ -40,7 +40,7 @@ Chat UIs are not generic lists. They have specific behaviors that general-purpos
 - **Full TypeScript** — strict types, generics, and exported type definitions
 - **Svelte 5 runes** — built with `$state`, `$derived`, `$effect`, and snippets
 - **Debug info** — real-time stats via `onDebugInfo` callback (total, DOM count, measured, range, following state)
-- **Zero dependencies** — nothing but Svelte itself
+- **Lean by design** — one micro-dependency (`esm-env`, used by the compiled output for SSR detection)
 
 ## Requirements
 
