@@ -92,3 +92,20 @@ partly redundant. Not resolvable without instrumentation guard won't add.
 No PR opened. Close-out report written:
 `001-stream-swap-follow-bottom.guard-report.md`. Awaiting operator ruling —
 see report's "What flips this to PASS" (accept-and-amend, or pare to intent).
+
+## Checkpoint 2026-07-08 — PLAN AMENDED + PASS
+
+- **Operator ruling**: (a) accept as-is.
+- **PLAN AMENDED** (guard, operator-approved): added a dated `> Revision`
+  note to the executor-instructions block blessing the `messageShape` in-place
+  identity-invalidation strategy; superseded the "~15 changed lines in
+  `SvelteVirtualChat.svelte`" STOP condition (struck through, note added);
+  re-stamped `Planned at` `f47c3f6`→`6b7fcc8`. Batch README row updated to
+  "DONE (guard PASS, plan amended)" with a guard note. Rationale: the accepted
+  work delivers `Why this matters` with zero regressions across the full
+  chromium + firefox/webkit spec net; the boundary crossed was governance
+  (change size / authorization), which the operator has now authorized.
+- **Verdict: PASS.** All done criteria remain green (re-verified at the
+  `final` checkpoint above; no source changed since). Report overwritten to
+  PASS. Proceeding to open the PR via the `pr` skill; snapshot `5e0fb25` is the
+  work, merging stays the operator's call.
