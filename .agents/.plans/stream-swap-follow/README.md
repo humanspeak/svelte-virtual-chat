@@ -12,9 +12,16 @@ red-first, then fix.
 
 ## Execution order & status
 
-| Plan | Title                                                                               | Priority | Effort | Depends on | Status                                                                                                                         |
-| ---- | ----------------------------------------------------------------------------------- | -------- | ------ | ---------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| 001  | Keep follow-bottom locked when a streamed message is replaced by its final document | P1       | M      | —          | DONE — red pre-fix: `new-id-two-tick`; strategies: height carry-over, in-place identity invalidation, shrink→grow instant snap |
+| Plan | Title                                                                               | Priority | Effort | Depends on | Status                                                                                                                                                               |
+| ---- | ----------------------------------------------------------------------------------- | -------- | ------ | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 001  | Keep follow-bottom locked when a streamed message is replaced by its final document | P1       | M      | —          | DONE (guard PASS 2026-07-08, plan amended) — red pre-fix: `new-id-two-tick`; strategies: height carry-over, in-place identity invalidation, shrink→grow instant snap |
+
+> Guard note 2026-07-08: `final` gate initially NO-PASS — the fix exceeded the
+> ~15-line `SvelteVirtualChat.svelte` STOP budget and added an unplanned
+> `messageShape` in-place identity-invalidation strategy. Operator reviewed and
+> accepted as-is (zero regressions across full chromium + firefox/webkit); the
+> plan's line-budget STOP was superseded and `Planned at` re-stamped. See
+> `001-stream-swap-follow-bottom.guard-report.md`.
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) |
 REJECTED (with one-line rationale)

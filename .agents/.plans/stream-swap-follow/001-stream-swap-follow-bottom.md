@@ -12,6 +12,19 @@
 > If any in-scope file changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
+>
+> **Revision 2026-07-08 (guard, operator-approved)**: The executed fix
+> exceeded the original ~15-line `SvelteVirtualChat.svelte` budget (46 lines)
+> and added a third, unplanned strategy — **in-place identity invalidation**
+> (`messageShape`: a per-message `WeakMap` identity token + full-list
+> content-version `$derived` threaded into `totalHeight`, `visibleRange`,
+> `startOffset`, `renderedMessages`) — plus shrink→grow smooth _suppression_
+> and de-reactified `#heights` (`$state({})`→`{}`). The operator reviewed and
+> accepted this as-is: it delivers `Why this matters` with zero regressions
+> across the full chromium + firefox/webkit spec net. The `~15-line` STOP and
+> the "only snap-on-shrink" step-6 authorization below are hereby superseded
+> for this plan (see amended STOP conditions and Strategy list). `Planned at`
+> re-stamped so the drift check re-baselines against the amended intent.
 
 ## Status
 
@@ -21,7 +34,8 @@
   spec-guarded, which is your safety net)
 - **Depends on**: none
 - **Category**: bug
-- **Planned at**: commit `f47c3f6`, 2026-07-07
+- **Planned at**: commit `6b7fcc8`, 2026-07-08 (re-stamped by guard on
+  amendment; originally `f47c3f6`, 2026-07-07)
 
 ## Why this matters
 
@@ -442,9 +456,13 @@ Stop and report back (do not improvise) if:
   viewport in its own scroll container.
 - Fixing `new-id-regrow` or `new-id-two-tick` appears to require modifying
   `chatScrollPolicy.ts` or its tests.
-- A conditional fix (steps 5–6) exceeds ~15 changed lines in
-  `SvelteVirtualChat.svelte`, or any variant remains red after one scoped
-  attempt.
+- ~~A conditional fix (steps 5–6) exceeds ~15 changed lines in
+  `SvelteVirtualChat.svelte`~~, or any variant remains red after one scoped
+  attempt. **(Superseded 2026-07-08, operator-approved: the accepted fix is
+  46 lines in `SvelteVirtualChat.svelte`, adding the `messageShape` in-place
+  identity-invalidation strategy. The line budget no longer applies to this
+  plan; the "any variant remains red after one scoped attempt" clause still
+  stands.)**
 - Any pre-existing spec in the full chromium run turns red and the cause
   isn't the stale-server issue described in Commands notes.
 
