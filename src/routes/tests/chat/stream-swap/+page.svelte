@@ -47,6 +47,7 @@
     let currentGapPx = $state(0)
     let paintFrames = $state(0)
     let runSession = 0
+    let nextRunNumber = 1
     let monitorUntilMs = 0
 
     const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
@@ -64,10 +65,6 @@
         return document.querySelector('[data-testid="chat-viewport"]')
     }
 
-    function resetMessages() {
-        messages.splice(0, messages.length, ...makeSeedMessages())
-    }
-
     async function monitorPaintedBottomGap(session: number) {
         while (session === runSession && performance.now() < monitorUntilMs) {
             await afterPaint()
@@ -83,9 +80,9 @@
         }
     }
 
-    function appendStreamingMessage() {
+    function appendStreamingMessage(id: string) {
         messages.push({
-            id: 'streaming-1',
+            id,
             role: 'assistant',
             blocks: 1,
             kind: 'stream'
@@ -100,15 +97,17 @@
         if (scenario === 'running') return
 
         const session = ++runSession
+        const runNumber = nextRunNumber++
+        const streamingId = `streaming-${runNumber}`
+        const finalId = `convex-${runNumber}`
         scenario = 'running'
         offBottomPaints = 0
         maxGapPx = 0
         currentGapPx = 0
         paintFrames = 0
         monitorUntilMs = Number.POSITIVE_INFINITY
-        resetMessages()
 
-        appendStreamingMessage()
+        appendStreamingMessage(streamingId)
         const monitorPromise = monitorPaintedBottomGap(session)
 
         for (let blocks = 2; blocks <= STREAM_BLOCKS; blocks += 1) {
@@ -119,14 +118,14 @@
 
         if (selectedVariant === 'same-id') {
             replaceLast({
-                id: 'streaming-1',
+                id: streamingId,
                 role: 'assistant',
                 blocks: STREAM_BLOCKS,
                 kind: 'final'
             })
         } else if (selectedVariant === 'new-id') {
             replaceLast({
-                id: 'convex-1',
+                id: finalId,
                 role: 'assistant',
                 blocks: STREAM_BLOCKS,
                 kind: 'final'
@@ -136,14 +135,14 @@
             await delay(50)
             if (session !== runSession) return
             messages.push({
-                id: 'convex-1',
+                id: finalId,
                 role: 'assistant',
                 blocks: STREAM_BLOCKS,
                 kind: 'final'
             })
         } else {
             replaceLast({
-                id: 'convex-1',
+                id: finalId,
                 role: 'assistant',
                 blocks: 3,
                 kind: 'final'
