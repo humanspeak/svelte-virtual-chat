@@ -70,5 +70,38 @@ redundant. Tracked here rather than blocking the merge.
 ## Integration
 
 - Work commit: `5e0fb25` (already on the branch).
-- PR: **https://github.com/humanspeak/svelte-virtual-chat/pull/54** (base `main`,
-  opened via the `pr` skill). Merging is the operator's call; guard does not merge.
+- PR: [#54](https://github.com/humanspeak/svelte-virtual-chat/pull/54) (base
+  `main`, opened via the `pr` skill). Merging is the operator's call; guard does
+  not merge.
+
+## Post-close-out addendum 2026-07-08 — `trunk check` gap (PASS qualified)
+
+The `final` gate ran `pnpm run check` (svelte-check) but **not `trunk check`**,
+the repo's actual pre-commit/CI lint gate (flagged in the plan's Commands
+notes). Operator ran `trunk check` and it reports **3 executor-owned lint
+failures in the accepted work** — guard is read-only on source, so these return
+to the executor:
+
+1. `chatMeasurement.svelte.ts:26` — `#lastSyncedMessages` is now **dead code**
+   (5 writes, 0 reads): the fix deleted its only reader (the
+   `messages === this.#lastSyncedMessages` reference-equality early return).
+   Remove the field + its write sites, or restore a reader. **Direct artifact of
+   the fix.**
+2. `chatMeasurement.svelte.ts:305` — `new Set(newIds)` trips
+   `svelte/prefer-svelte-reactivity` (`high`). The Set is a throwaway local for
+   membership testing, so `SvelteSet` is semantically wrong here — resolve with
+   a justified `eslint-disable-next-line`, not a reactive Set.
+3. `stream-swap/+page.svelte:194` — `{#each VARIANTS as option}` missing a key
+   (`svelte/require-each-key`). Convention drift; add `(option)`.
+
+**Resolution (operator-directed):** the operator authorized fixing the 3 source
+issues directly (guard stepping out of its read-only role as Claude Code, with
+explicit approval — logged here for the record). All three fixed: dead field +
+its 5 write sites removed, `Set` given a justified `eslint-disable` with
+rationale, `{#each}` keyed. `trunk check` → **0 issues** (10 files); unit cache
+suite 51/51 and stream-swap chromium 5/5 re-confirmed green (behavior
+preserved). Guard also fixed its own bare-URL MD034 hit. **Merge-ready.**
+
+Process note for future `final` gates: add `trunk check` to the re-run set — a
+green `pnpm run check` (svelte-check) does not cover eslint/markdownlint, and
+`trunk` is this repo's real pre-commit/CI gate.
