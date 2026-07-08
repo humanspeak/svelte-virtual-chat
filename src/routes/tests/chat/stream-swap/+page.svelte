@@ -29,7 +29,7 @@
     }
 
     const variantParam = page.url.searchParams.get('variant')
-    const variant: Variant = isVariant(variantParam) ? variantParam : 'new-id'
+    const initialVariant: Variant = isVariant(variantParam) ? variantParam : 'new-id'
 
     const makeSeedMessages = (): Message[] =>
         Array.from({ length: SEED_COUNT }, (_, i) => ({
@@ -46,6 +46,7 @@
     let maxGapPx = $state(0)
     let currentGapPx = $state(0)
     let paintFrames = $state(0)
+    let selectedVariant: Variant = $state(initialVariant)
     let runSession = 0
     let nextRunNumber = 1
     let monitorUntilMs = 0
@@ -182,21 +183,38 @@
             {/if}
         </div>
         <div class="mt-2 font-mono text-sm">
-            variant={variant} currentGapPx={currentGapPx} maxGapPx={maxGapPx}
+            variant={selectedVariant} currentGapPx={currentGapPx} maxGapPx={maxGapPx}
             offBottomPaints={offBottomPaints} frames={paintFrames} tail={messages[
                 messages.length - 1
             ]?.id}:{messages[messages.length - 1]?.kind}
         </div>
     </div>
 
-    <div class="mb-3 flex gap-2">
+    <div class="mb-3 flex flex-wrap gap-2">
+        {#each VARIANTS as option}
+            <button
+                onclick={() => (selectedVariant = option)}
+                data-testid="variant-{option}"
+                class="rounded px-3 py-1 text-sm font-semibold {selectedVariant === option
+                    ? option === 'new-id-two-tick'
+                        ? 'bg-red-700 text-white'
+                        : 'bg-gray-900 text-white'
+                    : 'bg-gray-200 text-gray-700'}"
+                disabled={scenario === 'running'}
+            >
+                {option}
+            </button>
+        {/each}
         <button
-            onclick={() => runScenario(variant)}
+            onclick={() => runScenario(selectedVariant)}
             data-testid="run-scenario"
-            class="rounded bg-green-500 px-3 py-1 text-sm text-white disabled:bg-gray-300"
+            class="rounded px-3 py-1 text-sm font-bold text-white disabled:bg-gray-300 {selectedVariant ===
+            'new-id-two-tick'
+                ? 'bg-red-700'
+                : 'bg-green-600'}"
             disabled={scenario === 'running'}
         >
-            Run {variant}
+            Run {selectedVariant}
         </button>
     </div>
 
@@ -208,6 +226,7 @@
             range={debugInfo.startIndex}-{debugInfo.endIndex}
             following={debugInfo.isFollowingBottom}
             scenario={scenario}
+            variant={selectedVariant}
             offBottomPaints={offBottomPaints}
             maxGapPx={maxGapPx}
             currentGapPx={currentGapPx}
