@@ -626,6 +626,54 @@ describe('ChatHeightCache.sync (prefix sums)', () => {
         expect(calculateOffsetForIndex(b, 2, getId, cache, 40)).toBe(250)
     })
 
+    it('same-length id replacement at one position carries the measured height', () => {
+        const cache = new ChatHeightCache()
+        const original = msgs(['a', 'b', 'c'])
+        cache.sync(original, getId, 72)
+        cache.set('a', 100)
+        cache.set('b', 200)
+        cache.set('c', 700)
+        expect(cache.getTotalHeight()).toBe(1000)
+
+        cache.sync(msgs(['a', 'b', 'd']), getId, 72)
+
+        expect(cache.get('d')).toBe(700)
+        expect(cache.getTotalHeight()).toBe(1000)
+    })
+
+    it('replacement seeding does not overwrite an already-measured new id', () => {
+        const cache = new ChatHeightCache()
+        const original = msgs(['a', 'b', 'c'])
+        cache.sync(original, getId, 72)
+        cache.set('a', 100)
+        cache.set('b', 200)
+        cache.set('c', 700)
+        cache.set('d', 300)
+        expect(cache.getTotalHeight()).toBe(1000)
+
+        cache.sync(msgs(['a', 'b', 'd']), getId, 72)
+
+        expect(cache.get('d')).toBe(300)
+        expect(cache.getTotalHeight()).toBe(600)
+    })
+
+    it('multi-position reorder does not invent carry-overs', () => {
+        const cache = new ChatHeightCache()
+        const original = msgs(['a', 'b', 'c'])
+        cache.sync(original, getId, 72)
+        cache.set('a', 100)
+        cache.set('b', 200)
+        cache.set('c', 700)
+        expect(cache.getTotalHeight()).toBe(1000)
+
+        cache.sync(msgs(['c', 'a', 'b']), getId, 72)
+
+        expect(cache.get('a')).toBe(100)
+        expect(cache.get('b')).toBe(200)
+        expect(cache.get('c')).toBe(700)
+        expect(cache.getTotalHeight()).toBe(1000)
+    })
+
     it('measurement of an id absent from the current ordering is silently ignored', () => {
         const cache = new ChatHeightCache()
         const a = msgs(['1', '2', '3'])
