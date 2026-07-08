@@ -12,9 +12,9 @@ red-first, then fix.
 
 ## Execution order & status
 
-| Plan | Title                                                                               | Priority | Effort | Depends on | Status                                                            |
-| ---- | ----------------------------------------------------------------------------------- | -------- | ------ | ---------- | ----------------------------------------------------------------- |
-| 001  | Keep follow-bottom locked when a streamed message is replaced by its final document | P1       | M      | —          | IN PROGRESS — red pre-fix: `new-id-two-tick`; strategies: pending |
+| Plan | Title                                                                               | Priority | Effort | Depends on | Status                                                                                                                         |
+| ---- | ----------------------------------------------------------------------------------- | -------- | ------ | ---------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| 001  | Keep follow-bottom locked when a streamed message is replaced by its final document | P1       | M      | —          | DONE — red pre-fix: `new-id-two-tick`; strategies: height carry-over, in-place identity invalidation, shrink→grow instant snap |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) |
 REJECTED (with one-line rationale)

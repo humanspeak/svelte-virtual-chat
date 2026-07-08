@@ -12,7 +12,7 @@ import type { VisibleRange } from './chatTypes.js'
  * A version counter triggers Svelte derivations whenever heights change.
  */
 export class ChatHeightCache {
-    #heights: Record<string, number> = $state({})
+    #heights: Record<string, number> = {}
     #version = $state(0)
 
     // Position-indexed scaffolding kept in sync with the most recent
@@ -148,8 +148,6 @@ export class ChatHeightCache {
         const newN = messages.length
         const oldN = this.#orderedIds.length
 
-        if (messages === this.#lastSyncedMessages && newN === oldN) return
-
         if (newN === 0) {
             this.#orderedIds = []
             this.#idToIndex = Object.create(null) as Record<string, number>
@@ -199,17 +197,22 @@ export class ChatHeightCache {
         // and bounded: the alternative (falling through to rebuild) is also
         // O(n), so checking is never slower than rebuilding.
         if (newN === oldN) {
+            const newIds: string[] = new Array(newN)
+            const changedIndexes: number[] = []
             let allMatch = true
             for (let i = 0; i < newN; i++) {
-                if (getMessageId(messages[i]) !== this.#orderedIds[i]) {
+                const id = getMessageId(messages[i])
+                newIds[i] = id
+                if (id !== this.#orderedIds[i]) {
                     allMatch = false
-                    break
+                    changedIndexes.push(i)
                 }
             }
             if (allMatch) {
                 this.#lastSyncedMessages = messages
                 return
             }
+            this.#carrySameLengthReplacementHeights(newIds, changedIndexes)
         }
 
         // Full rebuild (splice/random reorder/length-shrink/etc).
@@ -287,6 +290,31 @@ export class ChatHeightCache {
         this.#idToIndex = idx
         this.#prefixSum = new Array(n + 1)
         this.#prefixSum[0] = 0
+    }
+
+    /**
+     * Streamed-message -> final-document replacement can swap a measured temp
+     * id for a new persisted id at the same position. Seed the new id with the
+     * displaced height so `src/routes/tests/chat/stream-swap` never re-enters
+     * the estimate for one tick and breaks follow-bottom.
+     */
+    #carrySameLengthReplacementHeights(
+        newIds: readonly string[],
+        changedIndexes: readonly number[]
+    ): void {
+        const newIdSet = new Set(newIds)
+        for (const index of changedIndexes) {
+            if (newIdSet.has(this.#orderedIds[index])) return
+        }
+
+        for (const index of changedIndexes) {
+            const oldId = this.#orderedIds[index]
+            const newId = newIds[index]
+            const oldHeight = this.#heights[oldId]
+            if (oldHeight === undefined) continue
+            if (!(newId in this.#heights)) this.#heights[newId] = oldHeight
+            delete this.#heights[oldId]
+        }
     }
 
     #flushDirty(): void {
