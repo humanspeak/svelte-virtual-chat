@@ -191,7 +191,7 @@
     </div>
 
     <div class="mb-3 flex flex-wrap gap-2">
-        {#each VARIANTS as option}
+        {#each VARIANTS as option (option)}
             <button
                 onclick={() => (selectedVariant = option)}
                 data-testid="variant-{option}"

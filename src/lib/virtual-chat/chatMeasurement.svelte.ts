@@ -23,7 +23,6 @@ export class ChatHeightCache {
     #idToIndex: Record<string, number> = Object.create(null) as Record<string, number>
     #prefixSum: number[] = [0]
     #dirtyFromIndex = Number.POSITIVE_INFINITY
-    #lastSyncedMessages: unknown = null
     #estimatedHeight = 0
     // Coalesce `set()`-driven version bumps so a batch of ResizeObserver
     // callbacks within one task triggers one downstream cascade instead of N.
@@ -91,7 +90,6 @@ export class ChatHeightCache {
         this.#idToIndex = Object.create(null) as Record<string, number>
         this.#prefixSum = [0]
         this.#dirtyFromIndex = Number.POSITIVE_INFINITY
-        this.#lastSyncedMessages = null
         this.#flushBumpSync()
     }
 
@@ -153,7 +151,6 @@ export class ChatHeightCache {
             this.#idToIndex = Object.create(null) as Record<string, number>
             this.#prefixSum = [0]
             this.#dirtyFromIndex = Number.POSITIVE_INFINITY
-            this.#lastSyncedMessages = messages
             return
         }
 
@@ -173,7 +170,6 @@ export class ChatHeightCache {
                 const h = this.#heights[id] ?? this.#estimatedHeight
                 this.#prefixSum.push(this.#prefixSum[i] + h)
             }
-            this.#lastSyncedMessages = messages
             return
         }
 
@@ -187,7 +183,6 @@ export class ChatHeightCache {
         ) {
             this.#rebuildOrdering(messages, getMessageId)
             this.#dirtyFromIndex = 0
-            this.#lastSyncedMessages = messages
             this.#flushDirty()
             return
         }
@@ -209,7 +204,6 @@ export class ChatHeightCache {
                 }
             }
             if (allMatch) {
-                this.#lastSyncedMessages = messages
                 return
             }
             this.#carrySameLengthReplacementHeights(newIds, changedIndexes)
@@ -218,7 +212,6 @@ export class ChatHeightCache {
         // Full rebuild (splice/random reorder/length-shrink/etc).
         this.#rebuildOrdering(messages, getMessageId)
         this.#dirtyFromIndex = 0
-        this.#lastSyncedMessages = messages
         this.#flushDirty()
     }
 
@@ -302,6 +295,10 @@ export class ChatHeightCache {
         newIds: readonly string[],
         changedIndexes: readonly number[]
     ): void {
+        // Throwaway local for O(1) membership tests within this synchronous
+        // method — never stored or read reactively, so a plain Set is correct;
+        // SvelteSet would add pointless reactivity overhead.
+        // eslint-disable-next-line svelte/prefer-svelte-reactivity
         const newIdSet = new Set(newIds)
         for (const index of changedIndexes) {
             if (newIdSet.has(this.#orderedIds[index])) return
