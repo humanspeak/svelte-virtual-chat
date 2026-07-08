@@ -64,6 +64,10 @@
         return document.querySelector('[data-testid="chat-viewport"]')
     }
 
+    function resetMessages() {
+        messages.splice(0, messages.length, ...makeSeedMessages())
+    }
+
     async function monitorPaintedBottomGap(session: number) {
         while (session === runSession && performance.now() < monitorUntilMs) {
             await afterPaint()
@@ -102,6 +106,7 @@
         currentGapPx = 0
         paintFrames = 0
         monitorUntilMs = Number.POSITIVE_INFINITY
+        resetMessages()
 
         appendStreamingMessage()
         const monitorPromise = monitorPaintedBottomGap(session)
@@ -179,7 +184,9 @@
         </div>
         <div class="mt-2 font-mono text-sm">
             variant={variant} currentGapPx={currentGapPx} maxGapPx={maxGapPx}
-            offBottomPaints={offBottomPaints} frames={paintFrames}
+            offBottomPaints={offBottomPaints} frames={paintFrames} tail={messages[
+                messages.length - 1
+            ]?.id}:{messages[messages.length - 1]?.kind}
         </div>
     </div>
 
@@ -206,6 +213,7 @@
             maxGapPx={maxGapPx}
             currentGapPx={currentGapPx}
             paintFrames={paintFrames}
+            tail={messages[messages.length - 1]?.id}:{messages[messages.length - 1]?.kind}
             height={Math.round(debugInfo.totalHeight)}px viewport={Math.round(
                 debugInfo.viewportHeight
             )}px
@@ -258,6 +266,14 @@
                             class="text-xs font-bold {message.role === 'user'
                                 ? 'text-blue-500'
                                 : 'text-green-500'}">{message.role}</span
+                        >
+                        <span
+                            class="rounded px-1.5 py-0.5 font-mono text-xs font-bold {message.kind ===
+                            'stream'
+                                ? 'bg-green-700 text-white'
+                                : message.kind === 'final'
+                                  ? 'bg-blue-700 text-white'
+                                  : 'bg-gray-200 text-gray-700'}">kind={message.kind}</span
                         >
                     </div>
 
