@@ -67,15 +67,15 @@
     }
 
     function paintedBottomOffsetPx(el: HTMLElement): number {
-        const anchor = document.querySelector('[data-testid="chat-anchor"]')
+        const anchor = el.querySelector('[data-testid="chat-anchor"]')
         if (anchor instanceof HTMLElement) {
             const viewportRect = el.getBoundingClientRect()
             const anchorRect = anchor.getBoundingClientRect()
             return anchorRect.bottom - viewportRect.bottom
         }
 
-        const messages = el.querySelectorAll('[data-message-id]')
-        const tail = messages.item(messages.length - 1)
+        const messageEls = el.querySelectorAll('[data-message-id]')
+        const tail = messageEls.item(messageEls.length - 1)
         if (tail instanceof HTMLElement) {
             const viewportRect = el.getBoundingClientRect()
             const tailRect = tail.getBoundingClientRect()

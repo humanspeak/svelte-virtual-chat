@@ -114,8 +114,10 @@ test('probes overflow-anchor behavior for virtualized follow-bottom geometry', a
                 })
             })
 
+        // `+ 0` normalizes -0 to 0: a sub-pixel negative gap rounds to -0, which
+        // survives page.evaluate, and expect(-0).toBe(0) fails under Object.is.
         const gap = (scroller: HTMLElement) =>
-            Math.round(scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop)
+            Math.round(scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop) + 0
 
         const measure = async (name: ProbeName) => {
             const scroller = document.getElementById(name) as HTMLElement | null
