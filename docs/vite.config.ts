@@ -1,4 +1,5 @@
 import {
+    demoManifestPlugin,
     docMirrorsPlugin,
     exampleMirrorsPlugin,
     indexNowPlugin,
@@ -17,10 +18,11 @@ const docsSourceBaseUrl = `https://github.com/${docsConfig.repo}/blob/main/docs`
 
 export default defineConfig({
     // Keep docs-kit filesystem generators together and before SvelteKit.
-    // They regenerate sitemap, Markdown mirrors, LLM discovery files, and
-    // social cards during builds without separate package.json scripts.
+    // They regenerate demo manifests, sitemap data, Markdown mirrors, LLM
+    // discovery files, and social cards without separate package.json scripts.
     plugins: [
         sitemapManifestPlugin({ blogDir: false }),
+        demoManifestPlugin({ split: true }),
         docMirrorsPlugin({ siteUrl: docsConfig.url }),
         exampleMirrorsPlugin({
             siteUrl: docsConfig.url,

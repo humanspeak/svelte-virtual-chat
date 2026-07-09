@@ -1,7 +1,8 @@
 <script lang="ts">
-    import { getSeoContext } from '@humanspeak/docs-kit'
+    import { CodeReferenceV2, getSeoContext } from '@humanspeak/docs-kit'
     import Example from '$lib/components/general/Example.svelte'
-    import BasicChat from '$lib/examples/BasicChat.svelte'
+    import { demoCodeSample } from '$lib/demo-loaders'
+    import BasicChat from '$lib/examples/basic-chat/demos/BasicChat.svelte'
 
     const seo = getSeoContext()
     if (seo) {
@@ -28,11 +29,16 @@
 
     const section = sections[0]
     const sourceUrl =
-        'https://github.com/humanspeak/svelte-virtual-chat/blob/main/docs/src/lib/examples/BasicChat.svelte'
+        'https://github.com/humanspeak/svelte-virtual-chat/blob/main/docs/src/lib/examples/basic-chat/demos/BasicChat.svelte'
 </script>
 
 {#snippet basicChatSource()}
-    <!-- demoCodeSample('BasicChat.svelte', 'basic-chat', 'BasicChat.svelte') -->
+    <CodeReferenceV2
+        samples={[
+            demoCodeSample('basic-chat/demos/BasicChat.svelte', 'basic-chat', 'BasicChat.svelte')
+        ]}
+        columns={1}
+    />
 {/snippet}
 
 <Example title={section.title.accent} {sourceUrl}>

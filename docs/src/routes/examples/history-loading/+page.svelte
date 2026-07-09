@@ -1,7 +1,8 @@
 <script lang="ts">
-    import { getSeoContext } from '@humanspeak/docs-kit'
+    import { CodeReferenceV2, getSeoContext } from '@humanspeak/docs-kit'
     import Example from '$lib/components/general/Example.svelte'
-    import HistoryLoading from '$lib/examples/HistoryLoading.svelte'
+    import { demoCodeSample } from '$lib/demo-loaders'
+    import HistoryLoading from '$lib/examples/history-loading/demos/HistoryLoading.svelte'
 
     const seo = getSeoContext()
     if (seo) {
@@ -28,11 +29,20 @@
 
     const section = sections[0]
     const sourceUrl =
-        'https://github.com/humanspeak/svelte-virtual-chat/blob/main/docs/src/lib/examples/HistoryLoading.svelte'
+        'https://github.com/humanspeak/svelte-virtual-chat/blob/main/docs/src/lib/examples/history-loading/demos/HistoryLoading.svelte'
 </script>
 
 {#snippet historyLoadingSource()}
-    <!-- demoCodeSample('HistoryLoading.svelte', 'history-loading', 'HistoryLoading.svelte') -->
+    <CodeReferenceV2
+        samples={[
+            demoCodeSample(
+                'history-loading/demos/HistoryLoading.svelte',
+                'history-loading',
+                'HistoryLoading.svelte'
+            )
+        ]}
+        columns={1}
+    />
 {/snippet}
 
 <Example title={section.title.accent} {sourceUrl}>
