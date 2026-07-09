@@ -66,13 +66,32 @@
         return document.querySelector('[data-testid="chat-viewport"]')
     }
 
+    function paintedBottomOffsetPx(el: HTMLElement): number {
+        const anchor = el.querySelector('[data-testid="chat-anchor"]')
+        if (anchor instanceof HTMLElement) {
+            const viewportRect = el.getBoundingClientRect()
+            const anchorRect = anchor.getBoundingClientRect()
+            return anchorRect.bottom - viewportRect.bottom
+        }
+
+        const messageEls = el.querySelectorAll('[data-message-id]')
+        const tail = messageEls.item(messageEls.length - 1)
+        if (tail instanceof HTMLElement) {
+            const viewportRect = el.getBoundingClientRect()
+            const tailRect = tail.getBoundingClientRect()
+            return tailRect.bottom - viewportRect.bottom
+        }
+
+        return el.scrollHeight - el.clientHeight - el.scrollTop
+    }
+
     async function monitorPaintedBottomGap(session: number) {
         while (session === runSession && performance.now() < monitorUntilMs) {
             await afterPaint()
             const el = viewport()
             if (!el) continue
 
-            const gap = Math.max(0, el.scrollHeight - el.clientHeight - el.scrollTop)
+            const gap = Math.abs(paintedBottomOffsetPx(el))
             const roundedGap = Math.round(gap)
             paintFrames += 1
             currentGapPx = roundedGap

@@ -36,6 +36,24 @@ test.describe('Stream-then-swap keeps follow-bottom', () => {
         })
     }
 
+    for (const variant of ['new-id-regrow', 'new-id-two-tick'] as const) {
+        test(`${variant}: stays bottom-locked across repeated swaps (stress)`, async ({ page }) => {
+            test.setTimeout(120000)
+
+            await page.goto(`/tests/chat/stream-swap?variant=${variant}`, {
+                waitUntil: 'domcontentloaded'
+            })
+            await waitForMount(page)
+            await waitForFollowing(page, true)
+
+            for (let run = 1; run <= 12; run += 1) {
+                await runScenario(page)
+                const stats = await getStats(page)
+                expect(Number(stats['maxGapPx']), `run ${run} maxGapPx`).toBeLessThanOrEqual(48)
+            }
+        })
+    }
+
     test('new-id reruns append distinct final messages without resetting history', async ({
         page
     }) => {

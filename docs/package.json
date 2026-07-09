@@ -10,8 +10,6 @@
         "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
         "deploy": "pnpm run build:indexnow && wrangler deploy",
         "dev": "vite dev",
-        "format": "prettier --write .",
-        "lint": "prettier --check . && eslint .",
         "preview": "vite preview"
     },
     "dependencies": {

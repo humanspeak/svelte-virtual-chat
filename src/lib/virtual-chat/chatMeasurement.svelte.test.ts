@@ -657,6 +657,24 @@ describe('ChatHeightCache.sync (prefix sums)', () => {
         expect(cache.getTotalHeight()).toBe(600)
     })
 
+    it('tail shrink does not carry deleted height into a later append', () => {
+        const cache = new ChatHeightCache()
+        const original = msgs(['a', 'b', 'streaming'])
+        cache.sync(original, getId, 72)
+        cache.set('a', 100)
+        cache.set('b', 200)
+        cache.set('streaming', 700)
+        expect(cache.getTotalHeight()).toBe(1000)
+
+        cache.sync(msgs(['a', 'b']), getId, 72)
+        expect(cache.getTotalHeight()).toBe(300)
+
+        cache.sync(msgs(['a', 'b', 'final']), getId, 72)
+
+        expect(cache.get('final')).toBeUndefined()
+        expect(cache.getTotalHeight()).toBe(372)
+    })
+
     it('multi-position reorder does not invent carry-overs', () => {
         const cache = new ChatHeightCache()
         const original = msgs(['a', 'b', 'c'])

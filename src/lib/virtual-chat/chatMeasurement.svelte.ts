@@ -298,7 +298,7 @@ export class ChatHeightCache {
         // Throwaway local for O(1) membership tests within this synchronous
         // method — never stored or read reactively, so a plain Set is correct;
         // SvelteSet would add pointless reactivity overhead.
-        // eslint-disable-next-line svelte/prefer-svelte-reactivity
+        // trunk-ignore(eslint/svelte/prefer-svelte-reactivity)
         const newIdSet = new Set(newIds)
         for (const index of changedIndexes) {
             if (newIdSet.has(this.#orderedIds[index])) return
@@ -348,15 +348,18 @@ export const collectPitchChanges = (
     itemsEl: HTMLElement,
     heightCache: ChatHeightCache
 ): PitchChange[] => {
-    const wrappers = itemsEl.children
+    const wrappers = Array.from(itemsEl.children).filter(
+        (child): child is HTMLElement =>
+            child instanceof HTMLElement && child.dataset.messageId !== undefined
+    )
     const count = wrappers.length
     const changes: PitchChange[] = []
     if (count === 0) return changes
     const containerBottom = itemsEl.offsetHeight
-    let top = (wrappers[0] as HTMLElement).offsetTop
+    let top = wrappers[0].offsetTop
     for (let i = 0; i < count; i++) {
-        const nextTop = i + 1 < count ? (wrappers[i + 1] as HTMLElement).offsetTop : containerBottom
-        const id = (wrappers[i] as HTMLElement).dataset.messageId
+        const nextTop = i + 1 < count ? wrappers[i + 1].offsetTop : containerBottom
+        const id = wrappers[i].dataset.messageId
         if (id) {
             const pitch = nextTop - top
             if (pitch > 0 && heightCache.get(id) !== pitch) {

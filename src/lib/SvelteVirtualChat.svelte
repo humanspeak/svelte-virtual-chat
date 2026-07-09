@@ -22,6 +22,7 @@
         type ScrollGeometry
     } from './virtual-chat/chatScrollPolicy.js'
     import { ChatScrollProgressPreserver } from './virtual-chat/chatScrollProgress.js'
+    import { ChatTailSwapCarry } from './virtual-chat/chatTailSwapCarry.js'
     import {
         captureVisualAnchor,
         restoreVisualAnchor,
@@ -56,6 +57,7 @@
     const messageIdentityTokens = new WeakMap<object, number>()
     const layoutPreservation = new ChatLayoutPreservation()
     const scrollProgressPreserver = new ChatScrollProgressPreserver()
+    const tailSwapCarry = new ChatTailSwapCarry()
     const scrollIntent = new ChatScrollIntent({
         onIntentStart: () => layoutPreservation.end(),
         onIntentEnd: () => {
@@ -74,6 +76,7 @@
     let viewportHeight = $state(0)
     let headerHeight = $state(0)
     let footerHeight = $state(0)
+    let anchorSentinelHeight = $state(1)
     let isFollowingBottom = $state(true)
     // Plain (non-reactive) on purpose: `scheduleSnapToBottom` reads this flag
     // and is called from effects. As `$state`, the rAF resetting it to false
@@ -95,6 +98,9 @@
     let pendingAnchor: VisualAnchor | null = null
     let pendingProgressPreservation = false
     let scrollMutationObserver: MutationObserver | null = null
+    let tailRemovalReserve = $state(0)
+    let tailRemovalReserveClearTimer: ReturnType<typeof setTimeout> | null = null
+    const TAIL_SWAP_RESERVE_MS = 250
 
     const getMessageIdentityToken = (message: TMessage): string => {
         if ((typeof message !== 'object' && typeof message !== 'function') || message === null) {
@@ -107,6 +113,16 @@
             messageIdentityTokens.set(objectMessage, token)
         }
         return String(token)
+    }
+
+    const syncAnchorSentinelHeight = () => {
+        if (!viewportEl) {
+            anchorSentinelHeight = 1
+            return
+        }
+        const borderTopWidth = Number.parseFloat(getComputedStyle(viewportEl).borderTopWidth)
+        const safeBorderTopWidth = Number.isFinite(borderTopWidth) ? borderTopWidth : 0
+        anchorSentinelHeight = Math.max(1, Math.ceil(safeBorderTopWidth + 1))
     }
 
     const messageShape = $derived.by(() => {
@@ -125,8 +141,12 @@
         return calculateTotalHeight(messages, getMessageId, heightCache, estimatedMessageHeight)
     })
 
+    const layoutTotalHeight = $derived(totalHeight + tailRemovalReserve)
+
     // ── Derived: top gap for bottom-gravity ─────────────────────────
-    const topGap = $derived(Math.max(0, viewportHeight - totalHeight - headerHeight - footerHeight))
+    const topGap = $derived(
+        Math.max(0, viewportHeight - layoutTotalHeight - headerHeight - footerHeight)
+    )
 
     // ── Derived: visible range ──────────────────────────────────────
     // Touching `heightCache.version` keeps this reactive to per-message
@@ -140,8 +160,8 @@
             getMessageId,
             heightCache,
             estimatedHeight: estimatedMessageHeight,
-            totalHeight,
-            scrollTop,
+            totalHeight: layoutTotalHeight,
+            scrollTop: Math.max(0, scrollTop - tailRemovalReserve),
             viewportHeight,
             headerHeight,
             footerHeight,
@@ -246,7 +266,7 @@
             heightCache,
             estimatedHeight: estimatedMessageHeight,
             visibleStart: visibleRange.visibleStart,
-            topGap,
+            topGap: topGap + tailRemovalReserve,
             headerHeight,
             scrollTop: viewportEl.scrollTop
         })
@@ -391,7 +411,7 @@
             getMessageId,
             heightCache,
             estimatedHeight: estimatedMessageHeight,
-            topGap,
+            topGap: topGap + tailRemovalReserve,
             headerHeight
         })
         if (targetScrollTop === null) return
@@ -640,6 +660,53 @@
         })
     }
 
+    const clearTailRemovalReserve = (options?: { snap?: boolean }) => {
+        if (tailRemovalReserveClearTimer !== null) {
+            clearTimeout(tailRemovalReserveClearTimer)
+            tailRemovalReserveClearTimer = null
+        }
+        tailSwapCarry.clear()
+        tailRemovalReserve = 0
+        if (options?.snap && isFollowingBottom && viewportEl && !isUserScrollPreservationActive()) {
+            layoutPreservation.begin()
+            scheduleSnapToBottom()
+        }
+    }
+
+    const scheduleTailRemovalReserveClear = () => {
+        if (tailRemovalReserveClearTimer !== null) {
+            clearTimeout(tailRemovalReserveClearTimer)
+        }
+        tailRemovalReserveClearTimer = setTimeout(() => {
+            clearTailRemovalReserve({ snap: true })
+        }, TAIL_SWAP_RESERVE_MS)
+    }
+
+    $effect.pre(() => {
+        void messageShape
+
+        const currentIds = messages.map(getMessageId)
+        const tailSwap = tailSwapCarry.observe({
+            currentIds,
+            getHeight: (id) => heightCache.get(id),
+            estimatedHeight: estimatedMessageHeight,
+            canCarryTailRemoval: isFollowingBottom && !isUserScrollPreservationActive()
+        })
+
+        if (tailSwap.carriedHeights.length > 0) {
+            for (const { id, height } of tailSwap.carriedHeights) heightCache.set(id, height)
+        }
+
+        if (tailSwap.shouldClearReserve) {
+            clearTailRemovalReserve({ snap: tailSwap.shouldSnapAfterClear })
+        }
+
+        if (tailSwap.reserveHeight > 0) {
+            tailRemovalReserve = tailSwap.reserveHeight
+            scheduleTailRemovalReserveClear()
+        }
+    })
+
     // ── Measurement ─────────────────────────────────────────────────
     /**
      * Re-derive rendered message heights from layout via
@@ -818,14 +885,10 @@
     }
 
     /**
-     * Pre-paint correction for ResizeObserver contexts (height changes,
-     * viewport resizes): RO callbacks run after layout and before paint, so a
-     * synchronous snap pins the bottom in the same frame the content changed —
-     * deferring to a rAF paints one frame off-bottom per growth step (#42).
-     * A running or queued smooth ease is never preempted (it tracks the live
-     * bottom every frame), and the coalesced rAF re-assert covers same-frame
-     * relayout clamping the sync write away (deferred height-cache flush, CSS
-     * transitions mid-step).
+     * ResizeObserver correction for height changes and viewport resizes.
+     * CSS scroll anchoring handles frames where content mutates too late for
+     * JS to write before paint; this path still catches the common RO-timed
+     * updates and keeps the cached geometry settled.
      */
     const snapToBottomPrePaint = () => {
         // The scroll events these writes fire are layout-caused, not user
@@ -870,6 +933,7 @@
     $effect(() => {
         return () => {
             finishSmoothScroll()
+            clearTailRemovalReserve()
             scrollIntent.destroy()
             layoutPreservation.destroy()
             stopScrollMutationObserver()
@@ -880,12 +944,15 @@
 
     // ── Viewport resize tracking ────────────────────────────────────
     $effect(() => {
+        void viewportClass
         if (!viewportEl) return
         viewportHeight = viewportEl.clientHeight
+        syncAnchorSentinelHeight()
 
         const observer = new ResizeObserver(() => {
             if (viewportEl) {
                 viewportHeight = viewportEl.clientHeight
+                syncAnchorSentinelHeight()
                 if (isFollowingBottom) {
                     snapToBottomPrePaint()
                 }
@@ -904,13 +971,13 @@
             measuredCount,
             startIndex: visibleRange.start,
             endIndex: visibleRange.end,
-            totalHeight,
+            totalHeight: layoutTotalHeight,
             scrollTop,
             viewportHeight,
             isFollowingBottom,
             averageHeight:
                 measuredCount > 0
-                    ? Math.round(totalHeight / messages.length)
+                    ? Math.round(layoutTotalHeight / messages.length)
                     : estimatedMessageHeight,
             heightCacheVersion: heightCache.version
         }
@@ -986,6 +1053,7 @@
         const offset =
             topGap +
             headerHeight +
+            tailRemovalReserve +
             calculateOffsetForIndex(
                 messages,
                 index,
@@ -1052,7 +1120,7 @@
         onscroll={handleScroll}
         use:handleViewportKeyboard
         use:trackViewportScrollIntent
-        style="overflow-y: auto; overflow-anchor: none; flex: 1 1 0%; min-height: 0;"
+        style="overflow-y: auto; overflow-anchor: auto; flex: 1 1 0%; min-height: 0;"
         data-testid={testId ? `${testId}-viewport` : undefined}
         role="region"
         aria-label={viewportLabel}
@@ -1066,33 +1134,48 @@
             {#if header}
                 <div
                     use:measureElement={(h) => (headerHeight = h)}
-                    style="flex-shrink: 0;"
+                    style="flex-shrink: 0; overflow-anchor: none;"
                     data-testid={testId ? `${testId}-header` : undefined}
                 >
                     {@render header()}
                 </div>
             {/if}
-            <div style="height: {totalHeight}px; position: relative; flex-shrink: 0;">
+            <div style="height: {layoutTotalHeight}px; position: relative; flex-shrink: 0;">
                 <div
                     bind:this={itemsEl}
                     style="position: absolute; top: 0; left: 0; right: 0; transform: translateY({startOffset}px);"
                 >
+                    {#if tailRemovalReserve > 0}
+                        <div
+                            style="height: {tailRemovalReserve}px; overflow-anchor: none; margin: 0; padding: 0; pointer-events: none;"
+                            aria-hidden="true"
+                        ></div>
+                    {/if}
                     {#each renderedMessages as message, i (getMessageId(message))}
                         {@const globalIndex = visibleRange.start + i}
                         <div
                             use:measureMessage
+                            style="overflow-anchor: none;"
                             data-testid={testId ? `${testId}-item-${globalIndex}` : undefined}
                             data-message-id={getMessageId(message)}
                         >
                             {@render renderMessage(message, globalIndex)}
                         </div>
                     {/each}
+                    {#if messages.length > 0 && visibleRange.end === messages.length - 1}
+                        <!-- Pitch measurement ignores non-message children, so the anchor can stay last in DOM order. -->
+                        <div
+                            style="position: absolute; left: 0; right: 0; bottom: 0; height: {anchorSentinelHeight}px; overflow-anchor: auto; margin: 0; padding: 0; pointer-events: none;"
+                            data-testid={testId ? `${testId}-anchor` : undefined}
+                            aria-hidden="true"
+                        ></div>
+                    {/if}
                 </div>
             </div>
             {#if footer}
                 <div
                     use:measureElement={(h) => (footerHeight = h)}
-                    style="flex-shrink: 0;"
+                    style="flex-shrink: 0; overflow-anchor: none;"
                     data-testid={testId ? `${testId}-footer` : undefined}
                 >
                     {@render footer()}

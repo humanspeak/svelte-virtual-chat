@@ -12,9 +12,18 @@ red-first, then fix.
 
 ## Execution order & status
 
-| Plan | Title                                                                               | Priority | Effort | Depends on | Status                                                                                                                                                               |
-| ---- | ----------------------------------------------------------------------------------- | -------- | ------ | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 001  | Keep follow-bottom locked when a streamed message is replaced by its final document | P1       | M      | —          | DONE (guard PASS 2026-07-08, plan amended) — red pre-fix: `new-id-two-tick`; strategies: height carry-over, in-place identity invalidation, shrink→grow instant snap |
+| Plan | Title                                                                               | Priority | Effort | Depends on | Status                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ---- | ----------------------------------------------------------------------------------- | -------- | ------ | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 001  | Keep follow-bottom locked when a streamed message is replaced by its final document | P1       | M      | —          | DONE (guard PASS 2026-07-08, plan amended) — red pre-fix: `new-id-two-tick`; strategies: height carry-over, in-place identity invalidation, shrink→grow instant snap                                                                                                                                                                                                                                                                                                                         |
+| 002  | Decide whether CSS scroll anchoring can give follow-bottom a pre-paint guarantee    | P1       | L      | 001        | DONE (guard PASS 2026-07-09) — red pre-fix: chromium `new-id-regrow` 1/25, webkit/mobile-safari/mobile-chrome `new-id-two-tick` 1/10 each. Strategies: viewport scroll anchoring + bottom sentinel, content opt-out, derived sentinel height (webkit border-top law), signed tail-distance oracle, `collectPitchChanges` child-filter, tail-swap carry with bounded reserve. Three operator-approved amendments, all strengthening. See `002-overflow-anchor-follow-bottom.guard-report.md`. |
+
+> Reopened 2026-07-09: plan 001 shipped and its spec went green, but the bug is
+> **not fixed**. `stream-swap.spec.ts` `new-id-regrow` still fails ~5% of runs
+> **in chromium** — 001's gate ran each variant once per browser, so a 1-in-20
+> race passed it. Measured, not inferred: `--repeat-each=25 -g "new-id-regrow"`
+> on chromium at `be915fa` → 1 failed / 49 passed. Plan 002 attacks the
+> structural cause (a `scrollTop` write from a ResizeObserver callback is not a
+> pre-paint guarantee) rather than the message-identity symptoms 001 addressed.
 
 > Guard note 2026-07-08: `final` gate initially NO-PASS — the fix exceeded the
 > ~15-line `SvelteVirtualChat.svelte` STOP budget and added an unplanned
@@ -29,11 +38,81 @@ REJECTED (with one-line rationale)
 Executor: when updating this row, also record (a) which spec variants were
 red before the fix, and (b) which fix strategies from the plan were applied.
 
+> Guard note 2026-07-09 (checkpoint 1, ON TRACK): plan 002 amended with operator
+> approval. `Scope` for `src/routes/tests/chat/stream-swap/+page.svelte` widened
+> from "new debug-stats key only" to permit replacing the bottom-gap oracle,
+> because enabling scroll anchoring makes the legacy
+> `scrollHeight - clientHeight - scrollTop` metric a false positive during the
+> shrink half of a swap (plan 002, Evidence item 9). Instrument correction, not
+> relaxation — the replacement must be signed, and no `Done criteria` or
+> `STOP conditions` were touched. `Planned at` re-stamped to `a544bc7`. 002's row
+> reads DONE per the executor, but the authoritative status is guard's: it is
+> not DONE until `guard 2 final` passes. See
+> `002-overflow-anchor-follow-bottom.guard.md`.
+
+> Guard note 2026-07-09b (checkpoint 4): plan 002 amended again with operator
+> approval, **narrowly**. `chatMeasurement.svelte.ts` is opened for exactly one
+> change — `collectPitchChanges` filtering `itemsEl.children` to elements with
+> `data-message-id`, restoring the invariant the anchor sentinel broke. **No new
+> cache state, fields, or public getters**; any other edit to that file is still
+> a STOP. The `tailRemovalReserve` mechanism added to the cache is therefore
+> still out of scope and is under operator investigation — guard measured that
+> it never clears after a permanent tail deletion (the reserve stays at the
+> removed message's height, so the component renders that much phantom space
+> forever). `Planned at` re-stamped to `6b1634d`.
+
+> Guard note 2026-07-09c (checkpoint 6): plan 002 amended a third time with
+> operator approval. After checkpoint 5's NO-PASS, the executor moved the
+> removed-tail height reserve out of the fenced height cache into a new
+> `chatTailSwapCarry.ts` and gave it a bounded 250ms clear timer, closing the
+> permanent-tail-deletion leak. `Scope` now names that module, its test, the
+> `chatMeasurement.svelte.test.ts` characterization test that enforces the
+> fence, and the `header-footer.spec.ts` wait-hardening. Every amendment on this
+> plan strengthened a guard; none relaxed a `Done criterion` or a `STOP
+condition`. `chatMeasurement.svelte.ts` is back to base plus the authorized
+> `collectPitchChanges` filter. `Planned at` re-stamped to `f01a166`.
+
 ## Dependency notes
 
-- Single-plan batch; no inter-plan dependencies.
+- 002 depends on 001 only in the sense that 001 has landed and its height
+  carry-over + `messageShape` invalidation are assumed present in the code 002
+  reads. 002 does not modify `chatMeasurement.svelte.ts`; it aims to make that
+  module's _timing_ irrelevant rather than change it.
 
 ## Findings considered and rejected
+
+- **A rAF re-pin window opened on any measured shrink** (attempted 2026-07-09,
+  reverted, not committed): rAF runs before the ResizeObserver step, so it
+  looked like the missing pre-paint hook. It cut the `new-id-regrow` failure
+  rate from ~1-in-4 to ~1-in-22 but did not eliminate it — the trace showed the
+  rAF write landing a frame late too, because the mutation can land after the
+  rAF phase _and_ after the observer step, with the browser still painting the
+  new layout that frame. **Conclusion: no JS-side hook (rAF, RO, MutationObserver,
+  microtask) is a guarantee.** Do not re-attempt; plan 002 makes this a STOP
+  condition. A partial fix here is worse than none — it makes the residual race
+  much harder to find.
+- **Fractional/subpixel geometry as the cause** (investigated 2026-07-09,
+  rejected): message heights are measured fractionally (`borderBoxSize.blockSize`)
+  while `scrollHeight`/`clientHeight` are integers, so subpixel drift was a
+  plausible culprit and the committed fixture uses only integer 24px blocks.
+  Swept block heights of 24 / 24.5 / 23.7 / 21.333 / 19.5 across chromium and
+  firefox: `block=24` — the exact committed geometry — fails at the same rate as
+  the fractional ones. Subpixel geometry is **not** implicated. Don't re-sweep it.
+- **"It's a Firefox bug"** (rejected): the failure reproduces in chromium at
+  ~5%. Firefox is not special; it loses the same race more often under heavier
+  layout. Any fix must be validated with repeat-sampling in chromium, where it
+  is easiest to trace.
+- **"WebKit does not implement scroll anchoring"** (asserted, then disproved
+  twice): first claimed from memory while drafting 002 — wrong. Then a first
+  execution attempt of 002's step 2 measured webkit failing even the known-good
+  control, which looked like confirmation — also wrong. The real cause is that
+  the probe's scroller carried a decorative `border: 1px` and webkit offsets its
+  anchor-visibility test by `border-top` width, so a 1px sentinel behind a 1px
+  border is never selected. **WebKit anchors correctly** when the sentinel is
+  taller than the viewport's top border. See plan 002, finding 7. Do not
+  reintroduce a webkit fallback path on the strength of a bordered probe.
+
+## Prior findings considered and rejected (from plan 001)
 
 - Modifying `chatScrollPolicy.ts` to special-case replacement turbulence:
   rejected up front — the policy was hardened across recent releases with a
