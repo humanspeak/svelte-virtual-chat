@@ -24,6 +24,8 @@ export class ChatHeightCache {
     #prefixSum: number[] = [0]
     #dirtyFromIndex = Number.POSITIVE_INFINITY
     #estimatedHeight = 0
+    #pendingTailCarryHeights: number[] = []
+    #tailRemovalReserve = 0
     // Coalesce `set()`-driven version bumps so a batch of ResizeObserver
     // callbacks within one task triggers one downstream cascade instead of N.
     #pendingBump = false
@@ -83,6 +85,16 @@ export class ChatHeightCache {
         return this.#version
     }
 
+    /**
+     * Temporary visual reserve for a measured tail suffix that was removed and
+     * may be re-appended under a new id. The component adds this before the
+     * rendered message flow so the bottom stays visually stable without a
+     * later scrollTop write.
+     */
+    get tailRemovalReserve(): number {
+        return this.#tailRemovalReserve
+    }
+
     /** Clear all cached heights. */
     clear(): void {
         this.#heights = {}
@@ -90,6 +102,8 @@ export class ChatHeightCache {
         this.#idToIndex = Object.create(null) as Record<string, number>
         this.#prefixSum = [0]
         this.#dirtyFromIndex = Number.POSITIVE_INFINITY
+        this.#pendingTailCarryHeights = []
+        this.#tailRemovalReserve = 0
         this.#flushBumpSync()
     }
 
@@ -151,6 +165,8 @@ export class ChatHeightCache {
             this.#idToIndex = Object.create(null) as Record<string, number>
             this.#prefixSum = [0]
             this.#dirtyFromIndex = Number.POSITIVE_INFINITY
+            this.#pendingTailCarryHeights = []
+            this.#tailRemovalReserve = 0
             return
         }
 
@@ -165,11 +181,17 @@ export class ChatHeightCache {
         ) {
             for (let i = oldN; i < newN; i++) {
                 const id = getMessageId(messages[i])
+                if (!(id in this.#heights)) {
+                    const carriedHeight = this.#pendingTailCarryHeights.shift()
+                    if (carriedHeight !== undefined) this.#heights[id] = carriedHeight
+                }
                 this.#orderedIds.push(id)
                 this.#idToIndex[id] = i
                 const h = this.#heights[id] ?? this.#estimatedHeight
                 this.#prefixSum.push(this.#prefixSum[i] + h)
             }
+            this.#pendingTailCarryHeights = []
+            this.#tailRemovalReserve = 0
             return
         }
 
@@ -181,6 +203,35 @@ export class ChatHeightCache {
             getMessageId(messages[newN - oldN]) === this.#orderedIds[0] &&
             getMessageId(messages[newN - 1]) === this.#orderedIds[oldN - 1]
         ) {
+            this.#rebuildOrdering(messages, getMessageId)
+            this.#dirtyFromIndex = 0
+            this.#flushDirty()
+            this.#pendingTailCarryHeights = []
+            this.#tailRemovalReserve = 0
+            return
+        }
+
+        // Tail remove-then-add is a common streamed-placeholder swap shape:
+        // `[...prefix, temp] -> [...prefix] -> [...prefix, final]`. Remember
+        // the removed measured tail so the next append does not paint the new
+        // id at the low estimate for one frame before ResizeObserver catches up.
+        if (
+            oldN > 0 &&
+            newN < oldN &&
+            getMessageId(messages[0]) === this.#orderedIds[0] &&
+            getMessageId(messages[newN - 1]) === this.#orderedIds[newN - 1]
+        ) {
+            this.#pendingTailCarryHeights = []
+            this.#tailRemovalReserve = 0
+            for (let i = newN; i < oldN; i++) {
+                const id = this.#orderedIds[i]
+                const height = this.#heights[id]
+                if (height !== undefined) {
+                    this.#pendingTailCarryHeights.push(height)
+                    this.#tailRemovalReserve += height
+                }
+                delete this.#heights[id]
+            }
             this.#rebuildOrdering(messages, getMessageId)
             this.#dirtyFromIndex = 0
             this.#flushDirty()
@@ -206,10 +257,14 @@ export class ChatHeightCache {
             if (allMatch) {
                 return
             }
+            this.#pendingTailCarryHeights = []
+            this.#tailRemovalReserve = 0
             this.#carrySameLengthReplacementHeights(newIds, changedIndexes)
         }
 
         // Full rebuild (splice/random reorder/length-shrink/etc).
+        this.#pendingTailCarryHeights = []
+        this.#tailRemovalReserve = 0
         this.#rebuildOrdering(messages, getMessageId)
         this.#dirtyFromIndex = 0
         this.#flushDirty()
@@ -298,7 +353,7 @@ export class ChatHeightCache {
         // Throwaway local for O(1) membership tests within this synchronous
         // method — never stored or read reactively, so a plain Set is correct;
         // SvelteSet would add pointless reactivity overhead.
-        // eslint-disable-next-line svelte/prefer-svelte-reactivity
+        // trunk-ignore(eslint/svelte/prefer-svelte-reactivity)
         const newIdSet = new Set(newIds)
         for (const index of changedIndexes) {
             if (newIdSet.has(this.#orderedIds[index])) return
@@ -348,15 +403,18 @@ export const collectPitchChanges = (
     itemsEl: HTMLElement,
     heightCache: ChatHeightCache
 ): PitchChange[] => {
-    const wrappers = itemsEl.children
+    const wrappers = Array.from(itemsEl.children).filter(
+        (child): child is HTMLElement =>
+            child instanceof HTMLElement && child.dataset.messageId !== undefined
+    )
     const count = wrappers.length
     const changes: PitchChange[] = []
     if (count === 0) return changes
     const containerBottom = itemsEl.offsetHeight
-    let top = (wrappers[0] as HTMLElement).offsetTop
+    let top = wrappers[0].offsetTop
     for (let i = 0; i < count; i++) {
-        const nextTop = i + 1 < count ? (wrappers[i + 1] as HTMLElement).offsetTop : containerBottom
-        const id = (wrappers[i] as HTMLElement).dataset.messageId
+        const nextTop = i + 1 < count ? wrappers[i + 1].offsetTop : containerBottom
+        const id = wrappers[i].dataset.messageId
         if (id) {
             const pitch = nextTop - top
             if (pitch > 0 && heightCache.get(id) !== pitch) {

@@ -136,8 +136,19 @@
         return calculateTotalHeight(messages, getMessageId, heightCache, estimatedMessageHeight)
     })
 
+    const tailRemovalReserve = $derived.by(() => {
+        void totalHeight
+        void messageShape
+        void heightCache.version
+        return heightCache.tailRemovalReserve
+    })
+
+    const layoutTotalHeight = $derived(totalHeight + tailRemovalReserve)
+
     // ── Derived: top gap for bottom-gravity ─────────────────────────
-    const topGap = $derived(Math.max(0, viewportHeight - totalHeight - headerHeight - footerHeight))
+    const topGap = $derived(
+        Math.max(0, viewportHeight - layoutTotalHeight - headerHeight - footerHeight)
+    )
 
     // ── Derived: visible range ──────────────────────────────────────
     // Touching `heightCache.version` keeps this reactive to per-message
@@ -151,8 +162,8 @@
             getMessageId,
             heightCache,
             estimatedHeight: estimatedMessageHeight,
-            totalHeight,
-            scrollTop,
+            totalHeight: layoutTotalHeight,
+            scrollTop: Math.max(0, scrollTop - tailRemovalReserve),
             viewportHeight,
             headerHeight,
             footerHeight,
@@ -257,7 +268,7 @@
             heightCache,
             estimatedHeight: estimatedMessageHeight,
             visibleStart: visibleRange.visibleStart,
-            topGap,
+            topGap: topGap + tailRemovalReserve,
             headerHeight,
             scrollTop: viewportEl.scrollTop
         })
@@ -402,7 +413,7 @@
             getMessageId,
             heightCache,
             estimatedHeight: estimatedMessageHeight,
-            topGap,
+            topGap: topGap + tailRemovalReserve,
             headerHeight
         })
         if (targetScrollTop === null) return
@@ -858,11 +869,7 @@
         previousMessageCount = count
         if (isFollowingBottom && viewportEl && !isUserScrollPreservationActive()) {
             layoutPreservation.begin()
-            if (shrank) {
-                snapToBottomPrePaint()
-            } else {
-                scheduleSnapToBottom({ smooth: shouldSmooth })
-            }
+            scheduleSnapToBottom({ smooth: shouldSmooth })
         }
     })
 
@@ -918,13 +925,13 @@
             measuredCount,
             startIndex: visibleRange.start,
             endIndex: visibleRange.end,
-            totalHeight,
+            totalHeight: layoutTotalHeight,
             scrollTop,
             viewportHeight,
             isFollowingBottom,
             averageHeight:
                 measuredCount > 0
-                    ? Math.round(totalHeight / messages.length)
+                    ? Math.round(layoutTotalHeight / messages.length)
                     : estimatedMessageHeight,
             heightCacheVersion: heightCache.version
         }
@@ -1000,6 +1007,7 @@
         const offset =
             topGap +
             headerHeight +
+            tailRemovalReserve +
             calculateOffsetForIndex(
                 messages,
                 index,
@@ -1086,16 +1094,14 @@
                     {@render header()}
                 </div>
             {/if}
-            <div style="height: {totalHeight}px; position: relative; flex-shrink: 0;">
+            <div style="height: {layoutTotalHeight}px; position: relative; flex-shrink: 0;">
                 <div
                     bind:this={itemsEl}
                     style="position: absolute; top: 0; left: 0; right: 0; transform: translateY({startOffset}px);"
                 >
-                    {#if messages.length > 0 && visibleRange.end === messages.length - 1}
-                        <!-- Keep before message wrappers: pitch measurement treats itemsEl.children order as message boundaries. -->
+                    {#if tailRemovalReserve > 0}
                         <div
-                            style="position: absolute; left: 0; right: 0; bottom: 0; height: {anchorSentinelHeight}px; overflow-anchor: auto; margin: 0; padding: 0; pointer-events: none;"
-                            data-testid={testId ? `${testId}-anchor` : undefined}
+                            style="height: {tailRemovalReserve}px; overflow-anchor: none; margin: 0; padding: 0; pointer-events: none;"
                             aria-hidden="true"
                         ></div>
                     {/if}
@@ -1110,6 +1116,14 @@
                             {@render renderMessage(message, globalIndex)}
                         </div>
                     {/each}
+                    {#if messages.length > 0 && visibleRange.end === messages.length - 1}
+                        <!-- Pitch measurement ignores non-message children, so the anchor can stay last in DOM order. -->
+                        <div
+                            style="position: absolute; left: 0; right: 0; bottom: 0; height: {anchorSentinelHeight}px; overflow-anchor: auto; margin: 0; padding: 0; pointer-events: none;"
+                            data-testid={testId ? `${testId}-anchor` : undefined}
+                            aria-hidden="true"
+                        ></div>
+                    {/if}
                 </div>
             </div>
             {#if footer}

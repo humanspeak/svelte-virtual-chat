@@ -93,8 +93,8 @@ test('probes overflow-anchor behavior for virtualized follow-bottom geometry', a
                 <div id="C" class="scroller">
                     <div class="spacer">
                         <div class="items">
-                            <div class="sentinel sentinel-inside"></div>
                             <div id="C-grow" class="grow"></div>
+                            <div class="sentinel sentinel-inside"></div>
                         </div>
                     </div>
                 </div>

@@ -82,8 +82,7 @@ test.describe('Header & Footer', () => {
     })
 
     test('toggling header off and on preserves behavior', async ({ page }) => {
-        const count = await domMessageCount(page)
-        expect(count).toBe(3)
+        await expect.poll(async () => domMessageCount(page)).toBe(3)
 
         // Hide header
         await page.locator('[data-testid="toggle-header"]').click()
@@ -122,6 +121,7 @@ test.describe('Header & Footer', () => {
     test('header is visible when scrolled to top', async ({ page }) => {
         // Add many messages
         await page.locator('[data-testid="add-many"]').click()
+        await expect.poll(async () => getStat(page, 'total')).toBe(53)
         await rafWait(page, 3)
         await page.waitForTimeout(SETTLE_MS)
 
@@ -138,6 +138,7 @@ test.describe('Header & Footer', () => {
         // from scrollTop before walking the message offsets — every message would
         // mount at once when scrolled to the bottom.
         await page.locator('[data-testid="add-many"]').click()
+        await expect.poll(async () => getStat(page, 'total')).toBe(53)
         await rafWait(page, 3)
         await page.waitForTimeout(SETTLE_MS)
 
@@ -158,6 +159,7 @@ test.describe('Header & Footer', () => {
     test('scrollToMessage works correctly with header', async ({ page }) => {
         // Add many messages so message 2 is scrollable
         await page.locator('[data-testid="add-many"]').click()
+        await expect.poll(async () => getStat(page, 'total')).toBe(53)
         await rafWait(page, 3)
         await page.waitForTimeout(SETTLE_MS)
 
