@@ -12,10 +12,10 @@ red-first, then fix.
 
 ## Execution order & status
 
-| Plan | Title                                                                               | Priority | Effort | Depends on | Status                                                                                                                                                                                                                                                                                                                                         |
-| ---- | ----------------------------------------------------------------------------------- | -------- | ------ | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 001  | Keep follow-bottom locked when a streamed message is replaced by its final document | P1       | M      | —          | DONE (guard PASS 2026-07-08, plan amended) — red pre-fix: `new-id-two-tick`; strategies: height carry-over, in-place identity invalidation, shrink→grow instant snap                                                                                                                                                                           |
-| 002  | Decide whether CSS scroll anchoring can give follow-bottom a pre-paint guarantee    | P1       | L      | 001        | IN PROGRESS (after guard NO-PASS 2026-07-09) — anchoring fix verified sound (3/25 -> 0/25 real off-bottom paints), but `new-id-two-tick` leaves 521px blank below the tail on repeat samples in webkit/mobile-safari/mobile-chrome; investigating a reliable removal/tail-shrink fix. See `002-overflow-anchor-follow-bottom.guard-report.md`. |
+| Plan | Title                                                                               | Priority | Effort | Depends on | Status                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ---- | ----------------------------------------------------------------------------------- | -------- | ------ | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 001  | Keep follow-bottom locked when a streamed message is replaced by its final document | P1       | M      | —          | DONE (guard PASS 2026-07-08, plan amended) — red pre-fix: `new-id-two-tick`; strategies: height carry-over, in-place identity invalidation, shrink→grow instant snap                                                                                                                                                                                                                                                                                                                         |
+| 002  | Decide whether CSS scroll anchoring can give follow-bottom a pre-paint guarantee    | P1       | L      | 001        | DONE (guard PASS 2026-07-09) — red pre-fix: chromium `new-id-regrow` 1/25, webkit/mobile-safari/mobile-chrome `new-id-two-tick` 1/10 each. Strategies: viewport scroll anchoring + bottom sentinel, content opt-out, derived sentinel height (webkit border-top law), signed tail-distance oracle, `collectPitchChanges` child-filter, tail-swap carry with bounded reserve. Three operator-approved amendments, all strengthening. See `002-overflow-anchor-follow-bottom.guard-report.md`. |
 
 > Reopened 2026-07-09: plan 001 shipped and its spec went green, but the bug is
 > **not fixed**. `stream-swap.spec.ts` `new-id-regrow` still fails ~5% of runs
@@ -60,6 +60,17 @@ red before the fix, and (b) which fix strategies from the plan were applied.
 > it never clears after a permanent tail deletion (the reserve stays at the
 > removed message's height, so the component renders that much phantom space
 > forever). `Planned at` re-stamped to `6b1634d`.
+
+> Guard note 2026-07-09c (checkpoint 6): plan 002 amended a third time with
+> operator approval. After checkpoint 5's NO-PASS, the executor moved the
+> removed-tail height reserve out of the fenced height cache into a new
+> `chatTailSwapCarry.ts` and gave it a bounded 250ms clear timer, closing the
+> permanent-tail-deletion leak. `Scope` now names that module, its test, the
+> `chatMeasurement.svelte.test.ts` characterization test that enforces the
+> fence, and the `header-footer.spec.ts` wait-hardening. Every amendment on this
+> plan strengthened a guard; none relaxed a `Done criterion` or a `STOP
+condition`. `chatMeasurement.svelte.ts` is back to base plus the authorized
+> `collectPitchChanges` filter. `Planned at` re-stamped to `f01a166`.
 
 ## Dependency notes
 

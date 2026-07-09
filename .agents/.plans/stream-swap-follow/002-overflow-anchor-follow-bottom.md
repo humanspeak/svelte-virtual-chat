@@ -33,8 +33,21 @@
 > modifying that file for any other purpose remains a STOP condition.
 > `Planned at` re-stamped so the drift check re-baselines.
 >
+> **Revision 2026-07-09c (guard, operator-approved)**: `Scope` extended to name
+> the files the tail-removal fix actually needs, after guard's checkpoint-5
+> NO-PASS found the reserve living inside the fenced height cache **and
+> leaking**. Newly in scope: `src/lib/virtual-chat/chatTailSwapCarry.ts` and
+> `chatTailSwapCarry.test.ts` (create — the reserve's new home, keeping the
+> height cache a height cache); an added characterization test in
+> `chatMeasurement.svelte.test.ts` asserting the cache does **not** carry
+> height; and `tests/chat/header-footer.spec.ts` (condition-based `expect.poll`
+> waits only — assertions unchanged). Every one of these **strengthens** a
+> guard: none relaxes a `Done criterion` or a `STOP condition`, and the height
+> cache itself is now back to base plus the authorized `collectPitchChanges`
+> filter. `Planned at` re-stamped.
+>
 > **Drift check (run first)**:
-> `git diff --stat 6b1634d..HEAD -- src/lib/SvelteVirtualChat.svelte src/lib/virtual-chat/ tests/chat/ src/routes/tests/chat/`
+> `git diff --stat f01a166..HEAD -- src/lib/SvelteVirtualChat.svelte src/lib/virtual-chat/ tests/chat/ src/routes/tests/chat/`
 > If any in-scope file changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
@@ -48,8 +61,8 @@
 - **Depends on**: 001 (DONE — its height carry-over and `messageShape`
   invalidation are assumed present)
 - **Category**: bug
-- **Planned at**: commit `6b1634d`, 2026-07-09 (re-stamped by guard on
-  amendment 2026-07-09b; previously `a544bc7`, and originally `be915fa`)
+- **Planned at**: commit `f01a166`, 2026-07-09 (re-stamped by guard on
+  amendment 2026-07-09c; previously `6b1634d`, `a544bc7`, originally `be915fa`)
 
 ## Why this matters
 
@@ -383,6 +396,19 @@ Notes:
   below the viewport (stranding) and blank space below the tail are caught.
   Clamping negatives to zero is a regression in the instrument and is
   forbidden. Never relax `OFF_BOTTOM_THRESHOLD_PX` to make a run pass.)
+- `src/lib/virtual-chat/chatTailSwapCarry.ts` (create — amended 2026-07-09c;
+  owns the removed-tail height reserve so the height cache does not have to.
+  The component holds the reserve as local state with a **bounded** clear
+  timer: a reserve that can outlive its remove-then-add window is a bug, and
+  a permanent tail deletion must return the reserve to 0.)
+- `src/lib/virtual-chat/chatTailSwapCarry.test.ts` (create — amended 2026-07-09c)
+- `src/lib/virtual-chat/chatMeasurement.svelte.test.ts` (modify — amended
+  2026-07-09c, characterization test ONLY: assert the cache does not carry
+  height across a tail shrink. This test exists to enforce the fence, not to
+  document a new cache feature.)
+- `tests/chat/header-footer.spec.ts` (modify — amended 2026-07-09c, waits ONLY:
+  replace immediate DOM reads with condition-based `expect.poll`. Assertions
+  and thresholds must not change.)
 - `.agents/.plans/stream-swap-follow/README.md` (status update)
 - `.agents/.plans/stream-swap-follow/002-findings.md` (create — step 3 writeup)
 

@@ -135,3 +135,36 @@ Plan amended (operator-approved, narrow). No source code touched. The checkpoint
 ### Action (checkpoint 5)
 
 **NO-PASS. No PR opened**; `d8c084e` stays on the branch, unmerged. To flip to PASS: (1) fix the reserve leak and add a unit test that deletes the tail and never re-appends — the case no test in the repo covers; (2) move the reserve out of the fenced module (the in-flight `chatTailSwapCarry.ts` extraction) or obtain explicit authorization for it there; (3) re-run the full gate on a settled tree, including regrow `--repeat-each=25`. No source code touched by guard.
+
+## Checkpoint 6 — 2026-07-09 17:09 — PLAN AMENDED, then ON TRACK (close-out: PASS)
+
+`f01a166` · `guard 2 final` close-out. Snapshot committed by guard before review (`refactor(chat): extract tail-swap carry out of the height cache`). Full verdict: `002-overflow-anchor-follow-bottom.guard-report.md`.
+
+### Plan amendment (checkpoint 6, operator-approved)
+
+`Scope` extended to name `src/lib/virtual-chat/chatTailSwapCarry.ts` + `.test.ts` (create), the `chatMeasurement.svelte.test.ts` characterization test asserting the cache does **not** carry height, and `tests/chat/header-footer.spec.ts` (condition-based waits only). Each strengthens a guard; none relaxes a `Done criterion` or a `STOP condition`. `Planned at` re-stamped `6b1634d` → `f01a166`.
+
+### Done criteria — all re-run by guard at `f01a166`, none taken on report
+
+- `pnpm run check` → `0 ERRORS 0 WARNINGS` (425 files).
+- `npx vitest run` → 150 passed / 8 files.
+- `--repeat-each=25 -g "new-id-regrow"` chromium → 25 passed (the criterion the previous close-out could not reproduce).
+- `-g "stress"` chromium+firefox+webkit `--repeat-each=3` → 18 passed; the stress spec now covers both variants.
+- Full chromium → 109 passed, **0 failed**. firefox+webkit → 218 passed. mobile-chrome+mobile-safari → 202 passed. **Zero failures across the entire matrix.**
+- `anchor-probe.spec.ts` asserts control **A** and C; A=0, B=299, C=0 in all three engines.
+- `grep overflow-anchor` → viewport `auto` `:1123`; header `:1137`, reserve spacer `:1150`, wrapper `:1158`, footer `:1178` all `none`; sentinel `auto` `:1168`.
+
+### Findings (checkpoint 6)
+
+- **Both prior violations are resolved in the snapshot.** The JS-timing hook (checkpoint 3) is gone. The cache state (checkpoint 5) has moved to `chatTailSwapCarry.ts`; `chatMeasurement.svelte.ts` is back to base plus the single authorized `collectPitchChanges` child-filter, and a new characterization test asserts the cache does not carry height — the fence is now enforced by a test rather than by prose.
+- **The two-tick race is fixed, not made rarer.** `new-id-two-tick --repeat-each=10`: webkit 10/10, mobile-safari 10/10, mobile-chrome 10/10. Each failed 1-in-10 at `f0299fc`.
+- **The permanent-tail-deletion leak is closed, and guard verified the fix is real rather than the test vacuous.** A throwaway fixture that deletes the last message and never re-appends: `scrollHeight` 1104 → 1128 during the reserve window → **1032** after settle, dead space 0 throughout. The same test run against the previous snapshot `d8c084e` **fails** (stuck at 1128). Fix confirmed; test sensitivity confirmed.
+- **Spirit substantiated independently of both oracles.** Tail wrapper `bottom` vs viewport `bottom`, 25 regrow attempts per library version, chromium: **3/25** real off-bottom paints without the change, **0/25** with it.
+- **Scope clean.** `chatScrollPolicy.ts`, `chatAnchoring.ts`, `chatVisualAnchoring.ts`, `tests/helpers.ts`, `docs/` all UNTOUCHED. No tampering across six checkpoints; no `Done criterion` or `STOP condition` was ever weakened by anyone.
+- **Recorded, not erased:** two STOP conditions were skipped during execution (a JS-timing hook; cache state in the fenced module). Both were caught by repeat-sampled gates and corrected before this close-out. A PASS does not rewrite that path.
+
+### Action (checkpoint 6)
+
+**PASS.** PR <https://github.com/humanspeak/svelte-virtual-chat/pull/55> opened via the `pr` skill for the reviewed snapshot `f01a166`. Merging is the operator's call — guard never merges. No source code touched by guard at any checkpoint.
+
+Highest-value follow-up: the leak fix has **no committed regression test**. Guard's fixture proved it and was deleted (guard does not author source). `chatTailSwapCarry.test.ts` covers the module's carry logic, but the component's 250ms clear timer — which is what actually closes the leak — is untested.
