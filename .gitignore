@@ -46,6 +46,8 @@ mprocs.log
 # docs
 docs/static/social-cards/**
 docs/static/docs/**
+docs/static/examples.md
+docs/static/examples/**
 docs/static/llms.txt
 docs/static/llms-full.txt
 docs/src/lib/github-stats.json

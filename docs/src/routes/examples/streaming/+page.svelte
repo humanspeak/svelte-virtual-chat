@@ -13,11 +13,28 @@
         seo.ogFeatures = ['Token Streaming', 'Markdown', 'Height Stability', 'Live Metrics']
         seo.ogSlug = 'examples-streaming'
     }
+
+    const sections = [
+        {
+            figId: 'FIG-001',
+            tag: 'STREAMING',
+            title: { accent: 'LLM Streaming' },
+            description:
+                'Simulated token-by-token streaming with markdown rendering and a virtualized viewport that stays pinned as message content grows.',
+            codeSnippet: streamingChatSource,
+            barCells: [{ k: 'file', v: 'StreamingChat.svelte' }]
+        }
+    ] as const
+
+    const section = sections[0]
+    const sourceUrl =
+        'https://github.com/humanspeak/svelte-virtual-chat/blob/main/docs/src/lib/examples/StreamingChat.svelte'
 </script>
 
-<Example
-    title="LLM Streaming"
-    sourceUrl="https://github.com/humanspeak/svelte-virtual-chat/blob/main/docs/src/lib/examples/StreamingChat.svelte"
->
+{#snippet streamingChatSource()}
+    <!-- demoCodeSample('StreamingChat.svelte', 'streaming-chat', 'StreamingChat.svelte') -->
+{/snippet}
+
+<Example title={section.title.accent} {sourceUrl}>
     <StreamingChat />
 </Example>

@@ -13,11 +13,28 @@
         seo.ogFeatures = ['Header Snippet', 'Footer Snippet', 'Typing Indicator', 'Always in DOM']
         seo.ogSlug = 'examples-header-footer'
     }
+
+    const sections = [
+        {
+            figId: 'FIG-001',
+            tag: 'LAYOUT',
+            title: { accent: 'Header & Footer' },
+            description:
+                'Persistent header and footer snippets render above and below all messages without injecting fake chat rows.',
+            codeSnippet: headerFooterSource,
+            barCells: [{ k: 'file', v: 'HeaderFooterChat.svelte' }]
+        }
+    ] as const
+
+    const section = sections[0]
+    const sourceUrl =
+        'https://github.com/humanspeak/svelte-virtual-chat/blob/main/docs/src/lib/examples/HeaderFooterChat.svelte'
 </script>
 
-<Example
-    title="Header & Footer"
-    sourceUrl="https://github.com/humanspeak/svelte-virtual-chat/blob/main/docs/src/lib/examples/HeaderFooterChat.svelte"
->
+{#snippet headerFooterSource()}
+    <!-- demoCodeSample('HeaderFooterChat.svelte', 'header-footer', 'HeaderFooterChat.svelte') -->
+{/snippet}
+
+<Example title={section.title.accent} {sourceUrl}>
     <HeaderFooterChat />
 </Example>

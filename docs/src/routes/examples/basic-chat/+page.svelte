@@ -13,11 +13,28 @@
         seo.ogFeatures = ['Follow-Bottom', 'Scroll-Away', 'Virtualized', 'Debug Stats']
         seo.ogSlug = 'examples-basic-chat'
     }
+
+    const sections = [
+        {
+            figId: 'FIG-001',
+            tag: 'BASIC',
+            title: { accent: 'Basic Chat' },
+            description:
+                'Send and receive messages with follow-bottom behavior, scroll-away detection, bulk loading, and live virtualization stats.',
+            codeSnippet: basicChatSource,
+            barCells: [{ k: 'file', v: 'BasicChat.svelte' }]
+        }
+    ] as const
+
+    const section = sections[0]
+    const sourceUrl =
+        'https://github.com/humanspeak/svelte-virtual-chat/blob/main/docs/src/lib/examples/BasicChat.svelte'
 </script>
 
-<Example
-    title="Basic Chat"
-    sourceUrl="https://github.com/humanspeak/svelte-virtual-chat/blob/main/docs/src/lib/examples/BasicChat.svelte"
->
+{#snippet basicChatSource()}
+    <!-- demoCodeSample('BasicChat.svelte', 'basic-chat', 'BasicChat.svelte') -->
+{/snippet}
+
+<Example title={section.title.accent} {sourceUrl}>
     <BasicChat />
 </Example>

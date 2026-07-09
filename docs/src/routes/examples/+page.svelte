@@ -15,29 +15,33 @@
 
     const examples = [
         {
+            slug: 'basic-chat',
             title: 'Basic Chat',
-            href: '/examples/basic-chat',
+            tag: 'BASIC',
             description:
                 'Send and receive messages with follow-bottom behavior, scroll-away detection, bulk message loading, and live virtualization stats.',
             icon: MessageSquare
         },
         {
+            slug: 'streaming',
             title: 'LLM Streaming',
-            href: '/examples/streaming',
+            tag: 'STREAMING',
             description:
                 'Simulated token-by-token streaming with markdown rendering. Watch the viewport stay pinned as content grows with live performance metrics.',
             icon: Zap
         },
         {
+            slug: 'history-loading',
             title: 'History Loading',
-            href: '/examples/history-loading',
+            tag: 'HISTORY',
             description:
                 'Scroll up to trigger older message loading. The viewport preserves your scroll position as messages are prepended above.',
             icon: History
         },
         {
+            slug: 'header-footer',
             title: 'Header & Footer',
-            href: '/examples/header-footer',
+            tag: 'LAYOUT',
             description:
                 'Persistent header and footer snippets that render above and below all messages. Includes a typing indicator that triggers follow-bottom.',
             icon: LayoutTemplate
@@ -57,7 +61,7 @@
     <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {#each examples as example (example.title)}
             <a
-                href={example.href}
+                href={`/examples/${example.slug}`}
                 class="border-border bg-card hover:border-brand-500/50 group rounded-xl border p-6 transition-all hover:shadow-md"
             >
                 <div
