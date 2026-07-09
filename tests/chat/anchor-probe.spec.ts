@@ -150,7 +150,12 @@ test('probes overflow-anchor behavior for virtualized follow-bottom geometry', a
         )
     }
 
-    const transformedSubtree = (results as ProbeResult[]).find((result) => result.name === 'C')
+    const resultByName = new Map((results as ProbeResult[]).map((result) => [result.name, result]))
+    const plainFlow = resultByName.get('A')
+    expect(plainFlow?.firstFrameGap).toBe(0)
+    expect(plainFlow?.settledGap).toBe(0)
+
+    const transformedSubtree = resultByName.get('C')
     expect(transformedSubtree?.firstFrameGap).toBe(0)
     expect(transformedSubtree?.settledGap).toBe(0)
 })
