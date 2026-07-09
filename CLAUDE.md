@@ -35,7 +35,38 @@ pnpm build            # Build library (vite build + svelte-package + publint)
 pnpm test             # Run vitest with coverage
 pnpm run test:e2e     # Run Playwright tests
 pnpm run check        # svelte-check (TypeScript validation)
+
+# Code quality — use Trunk, not raw prettier/eslint
+trunk fmt             # Format changed files
+trunk check           # Lint changed files
+trunk check --fix     # Lint changed files and auto-fix
+trunk check --all     # Full-repo lint (CI parity)
 ```
+
+## Code Style & Linting
+
+**Always use `trunk fmt` and `trunk check` to format and lint. Do not run
+`npx prettier` or `npx eslint` directly.**
+
+Trunk is the source of truth (see `.trunk/trunk.yaml`); it orchestrates
+Prettier and ESLint with the repo's config and, critically, **only operates on
+files changed relative to the upstream branch**. The raw tools check the whole
+repo (including uncommitted working files the pre-commit hook would format
+anyway) and will mislead you with reds that aren't about your change.
+
+There are deliberately **no `lint`/`format` scripts in `package.json`** — they
+were removed so the raw path can't be reached by habit. If you find yourself
+wanting `pnpm lint`, run `trunk check`; for `pnpm format`, run `trunk fmt`.
+
+- **Husky** pre-commit hooks run `trunk fmt`, then `trunk check --fix`, then
+  `pnpm run check` (svelte-check) — you cannot commit with lint red.
+- **Never use `eslint-disable` comments** (e.g. `eslint-disable-line`,
+  `eslint-disable-next-line`). Always use Trunk's inline ignore syntax
+  instead: `// trunk-ignore(eslint/rule-name)`, with a one-line rationale
+  comment. This applies to all files including tests.
+    - Note: raw `npx eslint` still reports these lines as violations because
+      `trunk-ignore` is a Trunk-level suppression — another reason to check
+      via `trunk check`.
 
 ## Architecture
 
