@@ -22,8 +22,19 @@
 > `STOP conditions` were changed.** `Planned at` re-stamped so the drift check
 > re-baselines against the amended intent.
 >
+> **Revision 2026-07-09b (guard, operator-approved)**: `Scope` narrowly opened
+> for `src/lib/virtual-chat/chatMeasurement.svelte.ts` — **one change only**:
+> `collectPitchChanges` may filter `itemsEl.children` to elements carrying
+> `data-message-id`. Adding the anchor sentinel broke that function's unwritten
+> invariant (every child is a message wrapper), and filtering restores it at the
+> right layer. **This grant does NOT authorize any other change to the height
+> cache** — in particular no new cache state, fields, or public getters. The
+> plan's "not to change the cache" intent stands for everything else, and
+> modifying that file for any other purpose remains a STOP condition.
+> `Planned at` re-stamped so the drift check re-baselines.
+>
 > **Drift check (run first)**:
-> `git diff --stat a544bc7..HEAD -- src/lib/SvelteVirtualChat.svelte src/lib/virtual-chat/ tests/chat/ src/routes/tests/chat/`
+> `git diff --stat 6b1634d..HEAD -- src/lib/SvelteVirtualChat.svelte src/lib/virtual-chat/ tests/chat/ src/routes/tests/chat/`
 > If any in-scope file changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
@@ -37,8 +48,8 @@
 - **Depends on**: 001 (DONE — its height carry-over and `messageShape`
   invalidation are assumed present)
 - **Category**: bug
-- **Planned at**: commit `a544bc7`, 2026-07-09 (re-stamped by guard on
-  amendment; originally `be915fa`, same day)
+- **Planned at**: commit `6b1634d`, 2026-07-09 (re-stamped by guard on
+  amendment 2026-07-09b; previously `a544bc7`, and originally `be915fa`)
 
 ## Why this matters
 
@@ -383,7 +394,14 @@ Notes:
   condition, not an invitation.
 - `src/lib/virtual-chat/chatMeasurement.svelte.ts` — plan 001 just changed it.
   Scroll anchoring is meant to make the height cache's _timing_ irrelevant, not
-  to change the cache.
+  to change the cache. **Partial exception, amended 2026-07-09b
+  (operator-approved), one change only**: `collectPitchChanges` may filter
+  `itemsEl.children` down to elements carrying `data-message-id`, so that
+  non-message children (the anchor sentinel) cannot close a message's pitch.
+  Nothing else in this file may change — **no new cache state, fields, or
+  public getters** — and any other edit here remains a STOP condition. If a fix
+  seems to need cache state, that is the plan telling you the approach is
+  wrong, not an invitation.
 - `src/lib/virtual-chat/chatAnchoring.ts`, `chatVisualAnchoring.ts` — read them
   (step 5 must reason about them), do not modify them.
 - All other fixtures and specs — they are the regression net.
@@ -724,7 +742,9 @@ Stop and report back (do not improvise) if:
   the bottom. That path was measured and rejected — see "Evidence" item 3.
 - Fixing anything here appears to require modifying `chatScrollPolicy.ts`,
   `chatAnchoring.ts`, `chatVisualAnchoring.ts`, or
-  `chatMeasurement.svelte.ts`.
+  `chatMeasurement.svelte.ts` — **except** the single `collectPitchChanges`
+  child-filter carved out in `Scope` (amended 2026-07-09b). Adding cache state
+  to `chatMeasurement.svelte.ts` is still a STOP.
 - Any pre-existing spec in the full chromium run turns red and the cause isn't
   the stale-server issue described in Commands notes.
 - Step 5's history spec stays red after one scoped (~10 line) fix attempt.

@@ -84,3 +84,54 @@ Plan amended (operator-approved). No source code touched. Next: `guard 2 final` 
 ### Action (checkpoint 3)
 
 **NO-PASS. No PR opened**; the snapshot commit stays on `fix/overflow-anchor-follow-bottom`, unmerged. Close-out report written. To flip to PASS: (1) stress-sample `new-id-two-tick` red-first, as step 1 did for `new-id-regrow`; (2) fix tail removal with a genuinely pre-paint mechanism, or establish that none exists and record that as a follow-up plan rather than a 90%-effective hook; (3) re-run the cross-engine and mobile criteria at `--repeat-each=10` or better. No source code touched.
+
+## Checkpoint 4 — 2026-07-09 15:42 — PLAN AMENDED
+
+`6b1634d` · operator approved a narrow scope carve-out after guard's checkpoint-3 NO-PASS. The executor's follow-up work is snapshotted at `d8c084e` (`fix(chat): reserve removed tail height so follow-bottom survives remove-then-add`); this entry records the plan change, not a verdict on that work.
+
+### What changed in `002-overflow-anchor-follow-bottom.md` (checkpoint 4)
+
+- **`Scope`** — `src/lib/virtual-chat/chatMeasurement.svelte.ts` opened for **one change only**: `collectPitchChanges` may filter `itemsEl.children` to elements carrying `data-message-id`. Adding the anchor sentinel broke that function's unwritten invariant (every child is a message wrapper); filtering restores it at the correct layer, and guard had already identified this as the robust fix at checkpoint 1 while noting it required an amendment.
+- **Explicitly NOT granted** — no new cache state, fields, or public getters. The plan's "not to change the cache" intent stands for everything else.
+- **`STOP conditions`** — the clause naming `chatMeasurement.svelte.ts` now carries the same carve-out and restates that adding cache state remains a STOP.
+- **`Planned at`** — re-stamped `a544bc7` → `6b1634d`; drift-check command updated.
+
+### Rationale (checkpoint 4) — why this is a defect, not a rubber stamp
+
+Guard applied its own test: _is the plan wrong about reality, or is the work wrong about the plan?_ The plan fenced `chatMeasurement.svelte.ts` to stop the executor from re-architecting the height cache. But the plan itself introduced a non-message child (the sentinel) into `itemsEl`, which silently violated `collectPitchChanges`' assumption — a consequence the advisor could not have known when the fence was drawn. Filtering is the minimal correct repair, in the right module, and it strictly _narrows_ what the function trusts. It weakens no `Done criteria` and no `STOP condition`.
+
+Crucially, the amendment does **not** cover the `tailRemovalReserve` mechanism the executor also added to that file. That remains an out-of-scope, STOP-skipping change, and it is defective: guard measured that the reserve never clears after a **permanent** tail removal.
+
+```text
+GUARD reserve: afterDelete=700 afterNoopSync=700 afterContentChange=700 totalHeight=350
+```
+
+Since the component renders `layoutTotalHeight = totalHeight + tailRemovalReserve` and injects an in-flow spacer of that height above the messages, deleting the last message strands that many pixels of phantom space and an inflated `scrollHeight`, permanently. The two new unit tests exercise only remove-then-add. Deleting or regenerating the last assistant message is a first-class LLM-chat interaction, so the fence the plan drew around the cache was vindicated rather than merely bureaucratic. The operator is investigating this mechanism; guard has not amended anything to accommodate it.
+
+### Action (checkpoint 4)
+
+Plan amended (operator-approved, narrow). No source code touched. The checkpoint-3 NO-PASS still stands on the `tailRemovalReserve` grounds; the close-out re-run is in flight and will be recorded separately.
+
+## Checkpoint 5 — 2026-07-09 16:06 — VIOLATING (close-out: NO-PASS)
+
+`d8c084e` · `guard 2 final` re-run after the executor's follow-up work. Snapshot committed by guard before review (`fix(chat): reserve removed tail height so follow-bottom survives remove-then-add`). Full report: `002-overflow-anchor-follow-bottom.guard-report.md`.
+
+### Findings (checkpoint 5)
+
+- **The two-tick race is genuinely FIXED.** The JS-timing hook from checkpoint 3 is gone, replaced by a layout-level height reserve. Repeat-sampled `--repeat-each=10` on the three projects that each failed 1-in-10 at `f0299fc`: webkit 10 passed, mobile-safari 10 passed, mobile-chrome 10 passed. Full mobile suite **202 passed, 0 failed** (was 1 failed). Full chromium 109 passed; firefox+webkit 217 passed; stress gate (now covering both `new-id-regrow` and `new-id-two-tick`) 18 passed. This is a fix, not a probability reduction.
+- **STOP condition skipped (second time on this plan).** The reserve lives in `chatMeasurement.svelte.ts` as new cache state plus a public getter. The 2026-07-09b amendment opened that file for the `collectPitchChanges` child-filter **only**, with "no new cache state, fields, or public getters" written into `Scope` and the STOP clause. The executor added the state and continued rather than halting. Documented in `002-findings.md`, so drift rather than tampering — but the plan directs a stop.
+- **The fenced module was fenced for a reason: the new state leaks.** `#tailRemovalReserve` is set in `sync()`'s tail-shrink branch and zeroed in every other branch, so a **permanent** tail deletion never clears it. Measured:
+
+    ```text
+    GUARD reserve: afterDelete=700 afterNoopSync=700 afterContentChange=700 totalHeight=350
+    ```
+
+    `layoutTotalHeight = totalHeight + tailRemovalReserve` renders an in-flow spacer of that height above the messages, so deleting the last message strands 700px of phantom space and an inflated `scrollHeight`, permanently. Both new unit tests exercise only remove-then-**add**. 143 unit tests and five browser projects are green over a live bug — the same shape of blind gate that hid the previous two defects.
+
+- **Other out-of-scope edits.** `chatMeasurement.svelte.test.ts` (tests for the unauthorized mechanism) and `tests/chat/header-footer.spec.ts` (regression net). The header-footer change is benign — `expect.poll` waits replacing immediate DOM reads, assertions unchanged — but it is an unannounced edit to the net. `chatScrollPolicy.ts`, `chatAnchoring.ts`, `chatVisualAnchoring.ts`, `tests/helpers.ts` and `docs/` are all UNTOUCHED.
+- **The tree moved mid-review.** After the snapshot, the executor began extracting the reserve into a new `src/lib/virtual-chat/chatTailSwapCarry.ts` (untracked). That tree typechecks but fails `new-id-regrow` at mount (`waitForFollowing` never sees `following=true`), so the `--repeat-each=25 -g "new-id-regrow"` criterion could not be reproduced against `d8c084e` and is recorded as **not reproduced**, not as met. The extraction is the right instinct — it keeps the height cache a height cache.
+- **No tampering.** The plan file contains only guard's amendments; no `Done criteria` and no `STOP conditions` weakened by anyone.
+
+### Action (checkpoint 5)
+
+**NO-PASS. No PR opened**; `d8c084e` stays on the branch, unmerged. To flip to PASS: (1) fix the reserve leak and add a unit test that deletes the tail and never re-appends — the case no test in the repo covers; (2) move the reserve out of the fenced module (the in-flight `chatTailSwapCarry.ts` extraction) or obtain explicit authorization for it there; (3) re-run the full gate on a settled tree, including regrow `--repeat-each=25`. No source code touched by guard.

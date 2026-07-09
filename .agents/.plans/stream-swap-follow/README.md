@@ -50,6 +50,17 @@ red before the fix, and (b) which fix strategies from the plan were applied.
 > not DONE until `guard 2 final` passes. See
 > `002-overflow-anchor-follow-bottom.guard.md`.
 
+> Guard note 2026-07-09b (checkpoint 4): plan 002 amended again with operator
+> approval, **narrowly**. `chatMeasurement.svelte.ts` is opened for exactly one
+> change — `collectPitchChanges` filtering `itemsEl.children` to elements with
+> `data-message-id`, restoring the invariant the anchor sentinel broke. **No new
+> cache state, fields, or public getters**; any other edit to that file is still
+> a STOP. The `tailRemovalReserve` mechanism added to the cache is therefore
+> still out of scope and is under operator investigation — guard measured that
+> it never clears after a permanent tail deletion (the reserve stays at the
+> removed message's height, so the component renders that much phantom space
+> forever). `Planned at` re-stamped to `6b1634d`.
+
 ## Dependency notes
 
 - 002 depends on 001 only in the sense that 001 has landed and its height
