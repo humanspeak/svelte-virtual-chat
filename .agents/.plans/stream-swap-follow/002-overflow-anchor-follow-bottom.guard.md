@@ -47,3 +47,22 @@ is not a pre-paint guarantee; CSS scroll anchoring is) is substantiated.
 ### Action
 
 Reported to operator. **Plan amendment recommended and awaiting explicit agreement**: widen `Scope` for `src/routes/tests/chat/stream-swap/+page.svelte` from "new debug-stats key only" to permit replacing the bottom-gap oracle, and record in `Evidence` that enabling scroll anchoring invalidates the legacy `scrollHeight - clientHeight - scrollTop` metric during the shrink half of a swap. Guard has **not** amended the plan. No source code touched.
+
+## Checkpoint 2 — 2026-07-09 13:19 — PLAN AMENDED
+
+`a544bc7` · operator granted the amendment recommended in checkpoint 1. No new executor work reviewed; this entry records the plan change only.
+
+### What changed in `002-overflow-anchor-follow-bottom.md`
+
+- **`Scope`** — `src/routes/tests/chat/stream-swap/+page.svelte` may now replace the fixture's bottom-gap oracle, not merely add a debug-stats key. The grant is **constrained, not open**: any replacement must measure a **signed** offset between the content tail and the viewport bottom and assert on its magnitude, so stranding _and_ blank-space-below-tail are both caught. Clamping negatives to zero is explicitly forbidden, as is relaxing `OFF_BOTTOM_THRESHOLD_PX`.
+- **`Evidence` item 9 (new)** — records the measured reason: anchoring corrects `scrollTop` a frame before the JS-driven spacer resizes, so `scrollHeight - clientHeight - scrollTop` reads a stale-inflated `scrollHeight` and reports a gap the user cannot see (`legacyGap=383` while `lastMsgGap=0`, `deadSpace=383`, `sh=3141` → `2758` next frame). Includes guard's independent 25-attempt table (3/25 → 0/25 real off-bottom paints) and the pre-fix `worst blankBelow = 384px` that proves a clamped oracle is blind to a failure mode this code produces.
+- **Revision note + `Planned at`** — dated revision line added under the executor-instructions block; `Planned at` re-stamped `be915fa` → `a544bc7` so the drift check re-baselines. Drift-check command updated to match.
+- **Batch `README.md`** — guard note recording the amendment and that 002's `DONE` row is the executor's, not guard's; authoritative status awaits `guard 2 final`.
+
+### Rationale (checkpoint 2) — why this is a defect, not a rubber stamp
+
+The test guard applied: _is the plan wrong about reality, or is the work wrong about the plan?_ The plan asserted an instrument that the fix itself invalidates. Guard confirmed this against a third metric neither the plan nor the executor used, so the conclusion does not depend on the executor's own oracle. The replacement is **strictly stronger** than what it replaces — signed rather than clamped — and it caught a real webkit regression (`new-id-two-tick`, `Received: 521`) that the original metric could not see. No `Done criteria` and no `STOP conditions` were altered. Nothing was widened to accommodate weak work.
+
+### Action (checkpoint 2)
+
+Plan amended (operator-approved). No source code touched. Next: `guard 2 final` for the close-out gate and, on PASS, the PR.

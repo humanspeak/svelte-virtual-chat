@@ -38,6 +38,18 @@ REJECTED (with one-line rationale)
 Executor: when updating this row, also record (a) which spec variants were
 red before the fix, and (b) which fix strategies from the plan were applied.
 
+> Guard note 2026-07-09 (checkpoint 1, ON TRACK): plan 002 amended with operator
+> approval. `Scope` for `src/routes/tests/chat/stream-swap/+page.svelte` widened
+> from "new debug-stats key only" to permit replacing the bottom-gap oracle,
+> because enabling scroll anchoring makes the legacy
+> `scrollHeight - clientHeight - scrollTop` metric a false positive during the
+> shrink half of a swap (plan 002, Evidence item 9). Instrument correction, not
+> relaxation — the replacement must be signed, and no `Done criteria` or
+> `STOP conditions` were touched. `Planned at` re-stamped to `a544bc7`. 002's row
+> reads DONE per the executor, but the authoritative status is guard's: it is
+> not DONE until `guard 2 final` passes. See
+> `002-overflow-anchor-follow-bottom.guard.md`.
+
 ## Dependency notes
 
 - 002 depends on 001 only in the sense that 001 has landed and its height

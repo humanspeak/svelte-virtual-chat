@@ -12,8 +12,18 @@
 > gate passes. If the gate fails, you write up the result and stop — that is a
 > successful outcome for this plan, not a failure.
 >
+> **Revision 2026-07-09 (guard, operator-approved)**: `Scope` widened for
+> `src/routes/tests/chat/stream-swap/+page.svelte` — it may now replace the
+> fixture's bottom-gap oracle, not merely add a debug-stats key. Reason: the
+> plan assumed the legacy `scrollHeight - clientHeight - scrollTop` metric
+> stays valid once anchoring is on. It does not — see new Evidence item 9.
+> This is an instrument correction, not a relaxation: the replacement oracle is
+> **strictly stronger** (signed, not clamped). **No `Done criteria` and no
+> `STOP conditions` were changed.** `Planned at` re-stamped so the drift check
+> re-baselines against the amended intent.
+>
 > **Drift check (run first)**:
-> `git diff --stat be915fa..HEAD -- src/lib/SvelteVirtualChat.svelte src/lib/virtual-chat/ tests/chat/ src/routes/tests/chat/`
+> `git diff --stat a544bc7..HEAD -- src/lib/SvelteVirtualChat.svelte src/lib/virtual-chat/ tests/chat/ src/routes/tests/chat/`
 > If any in-scope file changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
@@ -27,7 +37,8 @@
 - **Depends on**: 001 (DONE — its height carry-over and `messageShape`
   invalidation are assumed present)
 - **Category**: bug
-- **Planned at**: commit `be915fa`, 2026-07-09
+- **Planned at**: commit `a544bc7`, 2026-07-09 (re-stamped by guard on
+  amendment; originally `be915fa`, same day)
 
 ## Why this matters
 
@@ -169,6 +180,38 @@ do re-run anything you want to confirm.
     webkit. Scroller **B** (sentinel after the spacer, in flow) does not pin
     anywhere — confirming finding 6's prediction that the sentinel must live
     inside `itemsEl`. Re-run the probe yourself to confirm, then proceed.
+
+9. **Enabling scroll anchoring invalidates the fixture's legacy bottom-gap
+   oracle** (measured 2026-07-09 by guard; the reason `Scope` was amended).
+   The fixture historically measured
+   `gap = scrollHeight - clientHeight - scrollTop`. Once anchoring is on, the
+   browser corrects `scrollTop` to the true content bottom **one frame before**
+   the JS-driven spacer (`totalHeight`) resizes. During that frame `scrollHeight`
+   is stale-inflated, so the legacy formula reports a large gap the user cannot
+   see. On a real post-fix frame:
+
+    ```text
+    legacyGap=383  lastMsgGap=0  blankBelow=0  deadSpace=383  sh=3141  st=2286
+    ```
+
+    The last message's bottom is flush with the viewport bottom; the 383px is
+    unreachable scroll extent below the content, gone the next frame
+    (`sh` 3141 → 2758). **The legacy oracle is a false positive created by the
+    fix itself.** Verified with a third metric that neither oracle uses — the
+    tail message wrapper's `bottom` vs the viewport's `bottom`, 25 regrow
+    attempts per library version, chromium:
+
+    | library change | real off-bottom paints | worst `lastMsgGap` | worst `blankBelow` |
+    | -------------- | ---------------------- | ------------------ | ------------------ |
+    | stashed        | 3 / 25                 | 408px              | 384px              |
+    | applied        | 0 / 25                 | 0                  | 0                  |
+
+    Note `worst blankBelow = 384px` pre-fix: an oracle that clamps negative
+    offsets to zero is **blind to a failure mode this code demonstrably
+    produces**. The replacement must be signed — hence the constraint written
+    into `Scope`. (A signed oracle immediately proved its worth: it caught a
+    webkit `new-id-two-tick` blank-space regression, `Received: 521`, that the
+    clamped one could not see.)
 
 ## Current state
 
@@ -321,8 +364,14 @@ Notes:
 - `tests/chat/stream-swap.spec.ts` (modify — stress sampling, step 1)
 - `src/lib/SvelteVirtualChat.svelte` (modify — steps 4–5, ONLY if the step 3
   gate passes)
-- `src/routes/tests/chat/stream-swap/+page.svelte` (modify — ONLY if step 6
-  requires a new debug-stats key)
+- `src/routes/tests/chat/stream-swap/+page.svelte` (modify — a new debug-stats
+  key, and/or replacing the bottom-gap oracle per Evidence item 9. **Amended
+  2026-07-09.** Any replacement oracle must be at least as strict as the one it
+  replaces: it must measure a **signed** offset between the tail of the content
+  and the viewport bottom, and assert on its magnitude, so that BOTH content
+  below the viewport (stranding) and blank space below the tail are caught.
+  Clamping negatives to zero is a regression in the instrument and is
+  forbidden. Never relax `OFF_BOTTOM_THRESHOLD_PX` to make a run pass.)
 - `.agents/.plans/stream-swap-follow/README.md` (status update)
 - `.agents/.plans/stream-swap-follow/002-findings.md` (create — step 3 writeup)
 
