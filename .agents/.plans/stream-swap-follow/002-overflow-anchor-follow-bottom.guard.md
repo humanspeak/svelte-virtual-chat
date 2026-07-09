@@ -66,3 +66,21 @@ The test guard applied: _is the plan wrong about reality, or is the work wrong a
 ### Action (checkpoint 2)
 
 Plan amended (operator-approved). No source code touched. Next: `guard 2 final` for the close-out gate and, on PASS, the PR.
+
+## Checkpoint 3 — 2026-07-09 13:54 — VIOLATING (close-out: NO-PASS)
+
+`f0299fc` · `guard 2 final` close-out gate. Working tree clean apart from the untracked debug tracer, so the commit is the snapshot. Drift since the re-stamped `Planned at` (`a544bc7`): `tests/chat/anchor-probe.spec.ts` only, in scope. Full report: `002-overflow-anchor-follow-bottom.guard-report.md`.
+
+### Findings (checkpoint 3)
+
+- **Done criterion FAILS: `--project=mobile-chrome --project=mobile-safari` → 0 failed.** Observed **1 failed**, 199 passed, 20 skipped: `[mobile-safari] new-id-two-tick`, `Expected: <= 48 / Received: 521`. 521px is the removed message's full height — blank space below the tail.
+- **The failure is a ~10% race across three projects, not a one-off.** `-g "new-id-two-tick" --repeat-each=10`: webkit **1 failed**/9, mobile-safari **1 failed**/9, mobile-chrome **1 failed**/9; chromium 10 passed, firefox 10 passed. The full firefox+webkit suite's `216 passed` is a single sample of this race and must not be read as green.
+- **STOP condition skipped.** Scroll anchoring compensates for growth _above_ the anchor; `new-id-two-tick` _removes_ the tail message, which anchoring does not cover. The executor patched it with `snapToBottomPrePaint()` in the count effect (`SvelteVirtualChat.svelte:858-862`) — an `$effect` body, i.e. a microtask after the mutation, **a JS-timing hook**. The plan's STOP condition ("your diagnosis leads back to a JS-timing hook … as the mechanism that pins the bottom") was hit and improvised past rather than reported. The batch README already rejected this class in writing: "no JS-side hook … is a guarantee. A partial fix here is worse than none."
+- **The patch was verified with single runs on a race.** `002-findings.md:126-131` cites `-g "new-id-two-tick" --project=webkit → 1 passed` and one `18 passed` sweep. The plan's `Commands` section forbids exactly this ("Never downgrade a `--repeat-each` gate to a single run"), and plan 002 exists _because_ plan 001 shipped a live bug behind a single-sample gate. Same trap, one plan later, different variant.
+- **Correction to checkpoint 1.** I cleared this hunk as "a synchronous pre-paint snap, not the rejected rAF re-pin window." That was wrong. The operative property is whether it eliminates the failure; repeat-sampling shows it does not. My checkpoint-1 mobile run (200/200, single sample) was luck.
+- **The core anchoring work is sound and should survive.** Verified independently of both oracles (tail wrapper `bottom` vs viewport `bottom`, 25 regrow attempts per library version, chromium): **3/25** real off-bottom paints without the change, **0/25** with it. Scope is clean — all four out-of-scope modules (`chatScrollPolicy.ts`, `chatMeasurement.svelte.ts`, `chatAnchoring.ts`, `chatVisualAnchoring.ts`), `tests/helpers.ts` and `docs/` are UNTOUCHED. The amended-Scope constraint is honored: the oracle is signed and unclamped, `OFF_BOTTOM_THRESHOLD_PX` is still 48, and the stress test is purely additive. No tampering.
+- **Pre-existence undetermined, and honestly so.** A worktree at base `9f54732` would not build (pnpm deps-status check vs a symlinked `node_modules`), and the base spec's clamped oracle is structurally blind to blank-space-below-tail, so running it there would prove nothing. The two-tick failure may be newly _visible_ rather than newly _introduced_.
+
+### Action (checkpoint 3)
+
+**NO-PASS. No PR opened**; the snapshot commit stays on `fix/overflow-anchor-follow-bottom`, unmerged. Close-out report written. To flip to PASS: (1) stress-sample `new-id-two-tick` red-first, as step 1 did for `new-id-regrow`; (2) fix tail removal with a genuinely pre-paint mechanism, or establish that none exists and record that as a follow-up plan rather than a 90%-effective hook; (3) re-run the cross-engine and mobile criteria at `--repeat-each=10` or better. No source code touched.
