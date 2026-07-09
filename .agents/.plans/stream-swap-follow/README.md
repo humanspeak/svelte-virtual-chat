@@ -12,10 +12,10 @@ red-first, then fix.
 
 ## Execution order & status
 
-| Plan | Title                                                                               | Priority | Effort | Depends on | Status                                                                                                                                                               |
-| ---- | ----------------------------------------------------------------------------------- | -------- | ------ | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 001  | Keep follow-bottom locked when a streamed message is replaced by its final document | P1       | M      | —          | DONE (guard PASS 2026-07-08, plan amended) — red pre-fix: `new-id-two-tick`; strategies: height carry-over, in-place identity invalidation, shrink→grow instant snap |
-| 002  | Decide whether CSS scroll anchoring can give follow-bottom a pre-paint guarantee    | P1       | L      | 001        | TODO — has a decision gate at step 3; a "not viable" verdict is a complete outcome                                                                                   |
+| Plan | Title                                                                               | Priority | Effort | Depends on | Status                                                                                                                                                                                                         |
+| ---- | ----------------------------------------------------------------------------------- | -------- | ------ | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 001  | Keep follow-bottom locked when a streamed message is replaced by its final document | P1       | M      | —          | DONE (guard PASS 2026-07-08, plan amended) — red pre-fix: `new-id-two-tick`; strategies: height carry-over, in-place identity invalidation, shrink→grow instant snap                                           |
+| 002  | Decide whether CSS scroll anchoring can give follow-bottom a pre-paint guarantee    | P1       | L      | 001        | IN PROGRESS — step 1 done (`bb54342`, red gate confirmed: 2/3 failed, maxGapPx=408). Step 2 probe corrected + re-run; **step 3 gate PASSES** (C pins in all 3 engines). Resume at step 3 writeup, then step 4. |
 
 > Reopened 2026-07-09: plan 001 shipped and its spec went green, but the bug is
 > **not fixed**. `stream-swap.spec.ts` `new-id-regrow` still fails ~5% of runs
@@ -68,6 +68,15 @@ red before the fix, and (b) which fix strategies from the plan were applied.
   ~5%. Firefox is not special; it loses the same race more often under heavier
   layout. Any fix must be validated with repeat-sampling in chromium, where it
   is easiest to trace.
+- **"WebKit does not implement scroll anchoring"** (asserted, then disproved
+  twice): first claimed from memory while drafting 002 — wrong. Then a first
+  execution attempt of 002's step 2 measured webkit failing even the known-good
+  control, which looked like confirmation — also wrong. The real cause is that
+  the probe's scroller carried a decorative `border: 1px` and webkit offsets its
+  anchor-visibility test by `border-top` width, so a 1px sentinel behind a 1px
+  border is never selected. **WebKit anchors correctly** when the sentinel is
+  taller than the viewport's top border. See plan 002, finding 7. Do not
+  reintroduce a webkit fallback path on the strength of a bordered probe.
 
 ## Prior findings considered and rejected (from plan 001)
 

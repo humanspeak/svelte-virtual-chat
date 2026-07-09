@@ -130,6 +130,46 @@ do re-run anything you want to confirm.
     `max(spacer height, absolutely-positioned overflow)`. That is why the trace
     at `+416ms` shows `sh=3166` while the spacer was still `2758`.)
 
+7. **WebKit's anchor-visibility test is offset by the scroller's `border-top`
+   width** (measured 2026-07-09, after a first execution attempt tripped a STOP
+   on this). WebKit selects a bottom sentinel as the anchor **only if the
+   sentinel is taller than the scroller's top border**:
+
+    | scroller `border` | sentinel height | webkit  |
+    | ----------------- | --------------- | ------- |
+    | 0                 | 1px             | anchors |
+    | 1px               | 1px             | **no**  |
+    | 1px               | 2px             | anchors |
+    | 2px               | 2px             | **no**  |
+    | 2px               | 4px             | anchors |
+    | 4px               | 4px             | **no**  |
+    | 4px               | 8px             | anchors |
+
+    Isolated to the edge: `border-top` breaks it; `border-bottom`,
+    `border-left`, `padding-top`, `padding-bottom` and `outline` do not.
+    Chromium and firefox anchor regardless of border. **Consequences:**
+    - A probe or fixture that puts a border on the scroller for looks will make
+      the known-good control fail **in webkit only** and look exactly like "the
+      engine doesn't support anchoring." Use `outline` for visual framing.
+    - The real viewport's classes come from the consumer-supplied
+      `viewportClass` prop, so a consumer **can** put a border on it. Step 4
+      must size the sentinel defensively rather than hardcode 1px.
+
+8. **Step 2's probe has been run (by the advisor, on the corrected instrument)
+   and the step-3 gate PASSES.** Corrected results, all three engines:
+
+    ```text
+    chromium A firstFrameGap=0    B firstFrameGap=298   C firstFrameGap=0
+    firefox  A firstFrameGap=0    B firstFrameGap=298   C firstFrameGap=0
+    webkit   A firstFrameGap=0    B firstFrameGap=298   C firstFrameGap=0
+    ```
+
+    Scroller **C** (sentinel inside the absolutely-positioned,
+    `translateY`-transformed subtree) pins pre-paint in chromium, firefox and
+    webkit. Scroller **B** (sentinel after the spacer, in flow) does not pin
+    anywhere — confirming finding 6's prediction that the sentinel must live
+    inside `itemsEl`. Re-run the probe yourself to confirm, then proceed.
+
 ## Current state
 
 Files that matter, and their role:
@@ -356,6 +396,12 @@ Create `tests/chat/anchor-probe.spec.ts`. It must **not** load the component —
 it builds the geometry by hand with `page.setContent`, so a negative result
 indicts the geometry rather than the library.
 
+**Instrument hygiene — read finding 7 first.** The scrollers in this probe must
+have **no `border-top`**. Use `outline` if you want a visible frame. A 1px
+border plus a 1px sentinel silently disables anchoring in webkit and will make
+your control fail. This already happened once; a corrected
+`tests/chat/anchor-probe.spec.ts` may already exist in your working tree.
+
 Build **three** scrollers and measure each in chromium, firefox and webkit:
 
 - **A — control (known good)**: in-flow growing block, then a 1px sentinel.
@@ -420,9 +466,28 @@ In `src/lib/SvelteVirtualChat.svelte`:
    `use:measureMessage`). This excludes messages and their subtrees from anchor
    selection, so the browser cannot pick a message as the anchor.
 3. Add a sentinel as the **last child of `itemsEl`**, after the `{#each}`:
-   a zero-or-1px element with `overflow-anchor: auto`, `aria-hidden="true"`,
-   and the same `data-testid` pattern used elsewhere, ending in `-anchor`. It
-   must not affect layout: no margin, no min-height beyond 1px.
+   an element with `overflow-anchor: auto`, `aria-hidden="true"`, and the same
+   `data-testid` pattern used elsewhere, ending in `-anchor`. It must not
+   affect layout: no margin, no min-height beyond its height.
+
+    **Sizing it is not free — see finding 7.** WebKit ignores a sentinel that is
+    not taller than the scroller's `border-top`, and `viewportClass` is
+    consumer-supplied, so a 1px sentinel is a latent webkit-only bug in any app
+    that puts a border on the viewport. Pick ONE and say which in the PR:
+
+    - **Static (simplest)**: a fixed height (e.g. `8px`) exceeding any plausible
+      viewport border. Costs 8px of scrollable content below the last message in
+      every chat — you must re-check that `getScrollState(page).gapFromBottom <= 2`
+      still holds in `stream-swap.spec.ts`, because the sentinel inflates
+      `scrollHeight`.
+    - **Derived (correct, more code)**: read
+      `getComputedStyle(viewportEl).borderTopWidth` once per viewport resize and
+      set the sentinel height to `borderTop + 1`. No dead space in the common
+      no-border case.
+
+    If the static option pushes `gapFromBottom` over the spec's tolerance, take
+    the derived option — do NOT loosen the spec.
+
 4. Leave the header/footer wrappers alone, but give them `overflow-anchor: none`
    too — a visible header must never win anchor selection.
 
@@ -598,9 +663,11 @@ Stop and report back (do not improvise) if:
 - **Step 1's stress test passes** at an in-page repeat count of 25 in chromium.
   The race is not visible in your environment; building a fix against a blind
   gate is worse than not fixing it.
-- **Step 2's scroller A** shows a nonzero `firstFrameGap` in any engine. A is
-  the known-good control; a red A means the probe itself is wrong, not the
-  browser.
+- **Step 2's scroller A** shows a nonzero `firstFrameGap` in any engine, **and
+  you have already confirmed the probe's scrollers carry no `border-top`**
+  (finding 7). A is the known-good control; a red A means the probe itself is
+  wrong, not the browser. A red A in webkit alone, with a bordered scroller, is
+  an instrument fault — fix the probe and re-run rather than stopping.
 - **Step 3's gate is anything other than "C pins in all three engines"** —
   including the partial case. Report which engines pinned.
 - Your diagnosis leads back to a JS-timing hook (rAF, ResizeObserver,
@@ -632,6 +699,13 @@ Stop and report back (do not improvise) if:
 - `CSS.supports('overflow-anchor', 'auto')` is `true` even where anchoring may
   not behave as expected. Never use it as a feature detect; use
   `anchor-probe.spec.ts`-style behavioral verification.
+- **A `border-top` on the viewport silently breaks anchoring in webkit** unless
+  the sentinel is taller than it (finding 7). `viewportClass` is a public prop,
+  so this is a supported-configuration hazard, not a theoretical one. It
+  deserves a line in the README/docs for the `viewportClass` prop, and it is the
+  first thing to check if a consumer reports "follow-bottom is broken in Safari
+  only." Reviewers: any change to the sentinel's height, or to the viewport's
+  border, must be re-validated against `anchor-probe.spec.ts` in webkit.
 - Playwright's `webkit` is not Safari. If the operator ships to Safari, the
   probe's webkit result is suggestive, not conclusive — worth one manual check
   on a real Safari before release.
