@@ -1,4 +1,4 @@
-import { test } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 
 type ProbeName = 'A' | 'B' | 'C'
 
@@ -53,8 +53,16 @@ test('probes overflow-anchor behavior for virtualized follow-bottom geometry', a
                         overflow-anchor: auto;
                     }
 
+                    .sentinel-inside {
+                        position: absolute;
+                        left: 0;
+                        right: 0;
+                        bottom: 0;
+                        pointer-events: none;
+                    }
+
                     .spacer {
-                        height: 501px;
+                        height: 3500px;
                         position: relative;
                     }
 
@@ -63,7 +71,7 @@ test('probes overflow-anchor behavior for virtualized follow-bottom geometry', a
                         top: 0;
                         left: 0;
                         right: 0;
-                        transform: translateY(0);
+                        transform: translateY(3000px);
                     }
                 </style>
             </head>
@@ -85,8 +93,8 @@ test('probes overflow-anchor behavior for virtualized follow-bottom geometry', a
                 <div id="C" class="scroller">
                     <div class="spacer">
                         <div class="items">
+                            <div class="sentinel sentinel-inside"></div>
                             <div id="C-grow" class="grow"></div>
-                            <div class="sentinel"></div>
                         </div>
                     </div>
                 </div>
@@ -141,4 +149,8 @@ test('probes overflow-anchor behavior for virtualized follow-bottom geometry', a
             `PROBE ${testInfo.project.name} ${result.name} firstFrameGap=${result.firstFrameGap} settledGap=${result.settledGap}`
         )
     }
+
+    const transformedSubtree = (results as ProbeResult[]).find((result) => result.name === 'C')
+    expect(transformedSubtree?.firstFrameGap).toBe(0)
+    expect(transformedSubtree?.settledGap).toBe(0)
 })

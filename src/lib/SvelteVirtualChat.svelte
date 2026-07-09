@@ -74,6 +74,7 @@
     let viewportHeight = $state(0)
     let headerHeight = $state(0)
     let footerHeight = $state(0)
+    let anchorSentinelHeight = $state(1)
     let isFollowingBottom = $state(true)
     // Plain (non-reactive) on purpose: `scheduleSnapToBottom` reads this flag
     // and is called from effects. As `$state`, the rAF resetting it to false
@@ -107,6 +108,16 @@
             messageIdentityTokens.set(objectMessage, token)
         }
         return String(token)
+    }
+
+    const syncAnchorSentinelHeight = () => {
+        if (!viewportEl) {
+            anchorSentinelHeight = 1
+            return
+        }
+        const borderTopWidth = Number.parseFloat(getComputedStyle(viewportEl).borderTopWidth)
+        const safeBorderTopWidth = Number.isFinite(borderTopWidth) ? borderTopWidth : 0
+        anchorSentinelHeight = Math.max(1, Math.ceil(safeBorderTopWidth + 1))
     }
 
     const messageShape = $derived.by(() => {
@@ -818,14 +829,10 @@
     }
 
     /**
-     * Pre-paint correction for ResizeObserver contexts (height changes,
-     * viewport resizes): RO callbacks run after layout and before paint, so a
-     * synchronous snap pins the bottom in the same frame the content changed —
-     * deferring to a rAF paints one frame off-bottom per growth step (#42).
-     * A running or queued smooth ease is never preempted (it tracks the live
-     * bottom every frame), and the coalesced rAF re-assert covers same-frame
-     * relayout clamping the sync write away (deferred height-cache flush, CSS
-     * transitions mid-step).
+     * ResizeObserver correction for height changes and viewport resizes.
+     * CSS scroll anchoring handles frames where content mutates too late for
+     * JS to write before paint; this path still catches the common RO-timed
+     * updates and keeps the cached geometry settled.
      */
     const snapToBottomPrePaint = () => {
         // The scroll events these writes fire are layout-caused, not user
@@ -851,7 +858,11 @@
         previousMessageCount = count
         if (isFollowingBottom && viewportEl && !isUserScrollPreservationActive()) {
             layoutPreservation.begin()
-            scheduleSnapToBottom({ smooth: shouldSmooth })
+            if (shrank) {
+                snapToBottomPrePaint()
+            } else {
+                scheduleSnapToBottom({ smooth: shouldSmooth })
+            }
         }
     })
 
@@ -880,12 +891,15 @@
 
     // ── Viewport resize tracking ────────────────────────────────────
     $effect(() => {
+        void viewportClass
         if (!viewportEl) return
         viewportHeight = viewportEl.clientHeight
+        syncAnchorSentinelHeight()
 
         const observer = new ResizeObserver(() => {
             if (viewportEl) {
                 viewportHeight = viewportEl.clientHeight
+                syncAnchorSentinelHeight()
                 if (isFollowingBottom) {
                     snapToBottomPrePaint()
                 }
@@ -1052,7 +1066,7 @@
         onscroll={handleScroll}
         use:handleViewportKeyboard
         use:trackViewportScrollIntent
-        style="overflow-y: auto; overflow-anchor: none; flex: 1 1 0%; min-height: 0;"
+        style="overflow-y: auto; overflow-anchor: auto; flex: 1 1 0%; min-height: 0;"
         data-testid={testId ? `${testId}-viewport` : undefined}
         role="region"
         aria-label={viewportLabel}
@@ -1066,7 +1080,7 @@
             {#if header}
                 <div
                     use:measureElement={(h) => (headerHeight = h)}
-                    style="flex-shrink: 0;"
+                    style="flex-shrink: 0; overflow-anchor: none;"
                     data-testid={testId ? `${testId}-header` : undefined}
                 >
                     {@render header()}
@@ -1077,10 +1091,19 @@
                     bind:this={itemsEl}
                     style="position: absolute; top: 0; left: 0; right: 0; transform: translateY({startOffset}px);"
                 >
+                    {#if messages.length > 0 && visibleRange.end === messages.length - 1}
+                        <!-- Keep before message wrappers: pitch measurement treats itemsEl.children order as message boundaries. -->
+                        <div
+                            style="position: absolute; left: 0; right: 0; bottom: 0; height: {anchorSentinelHeight}px; overflow-anchor: auto; margin: 0; padding: 0; pointer-events: none;"
+                            data-testid={testId ? `${testId}-anchor` : undefined}
+                            aria-hidden="true"
+                        ></div>
+                    {/if}
                     {#each renderedMessages as message, i (getMessageId(message))}
                         {@const globalIndex = visibleRange.start + i}
                         <div
                             use:measureMessage
+                            style="overflow-anchor: none;"
                             data-testid={testId ? `${testId}-item-${globalIndex}` : undefined}
                             data-message-id={getMessageId(message)}
                         >
@@ -1092,7 +1115,7 @@
             {#if footer}
                 <div
                     use:measureElement={(h) => (footerHeight = h)}
-                    style="flex-shrink: 0;"
+                    style="flex-shrink: 0; overflow-anchor: none;"
                     data-testid={testId ? `${testId}-footer` : undefined}
                 >
                     {@render footer()}
