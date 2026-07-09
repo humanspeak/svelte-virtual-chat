@@ -54,9 +54,10 @@ files changed relative to the upstream branch**. The raw tools check the whole
 repo (including uncommitted working files the pre-commit hook would format
 anyway) and will mislead you with reds that aren't about your change.
 
-There are deliberately **no `lint`/`format` scripts in `package.json`** — they
-were removed so the raw path can't be reached by habit. If you find yourself
-wanting `pnpm lint`, run `trunk check`; for `pnpm format`, run `trunk fmt`.
+There are deliberately **no `lint`/`format` scripts in either manifest** — they
+were removed from both the root `package.json` and `docs/package.json` so the
+raw path can't be reached by habit. If you find yourself wanting `pnpm lint`,
+run `trunk check`; for `pnpm format`, run `trunk fmt`.
 
 - **Husky** pre-commit hooks run `trunk fmt`, then `trunk check --fix`, then
   `pnpm run check` (svelte-check) — you cannot commit with lint red.
