@@ -15,6 +15,15 @@ red-first, then fix.
 | Plan | Title                                                                               | Priority | Effort | Depends on | Status                                                                                                                                                               |
 | ---- | ----------------------------------------------------------------------------------- | -------- | ------ | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 001  | Keep follow-bottom locked when a streamed message is replaced by its final document | P1       | M      | —          | DONE (guard PASS 2026-07-08, plan amended) — red pre-fix: `new-id-two-tick`; strategies: height carry-over, in-place identity invalidation, shrink→grow instant snap |
+| 002  | Decide whether CSS scroll anchoring can give follow-bottom a pre-paint guarantee    | P1       | L      | 001        | TODO — has a decision gate at step 3; a "not viable" verdict is a complete outcome                                                                                   |
+
+> Reopened 2026-07-09: plan 001 shipped and its spec went green, but the bug is
+> **not fixed**. `stream-swap.spec.ts` `new-id-regrow` still fails ~5% of runs
+> **in chromium** — 001's gate ran each variant once per browser, so a 1-in-20
+> race passed it. Measured, not inferred: `--repeat-each=25 -g "new-id-regrow"`
+> on chromium at `be915fa` → 1 failed / 49 passed. Plan 002 attacks the
+> structural cause (a `scrollTop` write from a ResizeObserver callback is not a
+> pre-paint guarantee) rather than the message-identity symptoms 001 addressed.
 
 > Guard note 2026-07-08: `final` gate initially NO-PASS — the fix exceeded the
 > ~15-line `SvelteVirtualChat.svelte` STOP budget and added an unplanned
@@ -31,9 +40,36 @@ red before the fix, and (b) which fix strategies from the plan were applied.
 
 ## Dependency notes
 
-- Single-plan batch; no inter-plan dependencies.
+- 002 depends on 001 only in the sense that 001 has landed and its height
+  carry-over + `messageShape` invalidation are assumed present in the code 002
+  reads. 002 does not modify `chatMeasurement.svelte.ts`; it aims to make that
+  module's _timing_ irrelevant rather than change it.
 
 ## Findings considered and rejected
+
+- **A rAF re-pin window opened on any measured shrink** (attempted 2026-07-09,
+  reverted, not committed): rAF runs before the ResizeObserver step, so it
+  looked like the missing pre-paint hook. It cut the `new-id-regrow` failure
+  rate from ~1-in-4 to ~1-in-22 but did not eliminate it — the trace showed the
+  rAF write landing a frame late too, because the mutation can land after the
+  rAF phase _and_ after the observer step, with the browser still painting the
+  new layout that frame. **Conclusion: no JS-side hook (rAF, RO, MutationObserver,
+  microtask) is a guarantee.** Do not re-attempt; plan 002 makes this a STOP
+  condition. A partial fix here is worse than none — it makes the residual race
+  much harder to find.
+- **Fractional/subpixel geometry as the cause** (investigated 2026-07-09,
+  rejected): message heights are measured fractionally (`borderBoxSize.blockSize`)
+  while `scrollHeight`/`clientHeight` are integers, so subpixel drift was a
+  plausible culprit and the committed fixture uses only integer 24px blocks.
+  Swept block heights of 24 / 24.5 / 23.7 / 21.333 / 19.5 across chromium and
+  firefox: `block=24` — the exact committed geometry — fails at the same rate as
+  the fractional ones. Subpixel geometry is **not** implicated. Don't re-sweep it.
+- **"It's a Firefox bug"** (rejected): the failure reproduces in chromium at
+  ~5%. Firefox is not special; it loses the same race more often under heavier
+  layout. Any fix must be validated with repeat-sampling in chromium, where it
+  is easiest to trace.
+
+## Prior findings considered and rejected (from plan 001)
 
 - Modifying `chatScrollPolicy.ts` to special-case replacement turbulence:
   rejected up front — the policy was hardened across recent releases with a
