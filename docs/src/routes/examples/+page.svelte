@@ -1,10 +1,12 @@
 <script lang="ts">
-    import { getSeoContext } from '@humanspeak/docs-kit'
-    import { MessageSquare, Zap, History, LayoutTemplate } from '@lucide/svelte'
+    import { BrutIndexV2, getSeoContext } from '@humanspeak/docs-kit'
+    import rootPkg from '../../../../package.json'
+
+    const PKG_NAME = rootPkg.name
 
     const seo = getSeoContext()
     if (seo) {
-        seo.title = 'Examples | Svelte Virtual Chat'
+        seo.title = 'Interactive Examples | Svelte Virtual Chat'
         seo.description =
             'Interactive examples demonstrating @humanspeak/svelte-virtual-chat features: basic chat, LLM streaming, history loading, and header/footer snippets.'
         seo.ogTitle = 'Interactive Examples'
@@ -13,63 +15,93 @@
         seo.ogSlug = 'examples'
     }
 
-    const examples = [
+    type ExampleTag = 'DEMO' | 'STREAMING' | 'HISTORY' | 'LAYOUT'
+
+    type Example = {
+        slug: string
+        title: string
+        tag: ExampleTag
+        description: string
+    }
+
+    const examples: Example[] = [
         {
+            slug: 'basic-chat',
             title: 'Basic Chat',
-            href: '/examples/basic-chat',
+            tag: 'DEMO',
             description:
-                'Send and receive messages with follow-bottom behavior, scroll-away detection, bulk message loading, and live virtualization stats.',
-            icon: MessageSquare
+                'Send and receive messages with follow-bottom behavior, scroll-away detection, bulk message loading, and live virtualization stats.'
         },
         {
+            slug: 'streaming',
             title: 'LLM Streaming',
-            href: '/examples/streaming',
+            tag: 'STREAMING',
             description:
-                'Simulated token-by-token streaming with markdown rendering. Watch the viewport stay pinned as content grows with live performance metrics.',
-            icon: Zap
+                'Simulated token-by-token streaming with markdown rendering. Watch the viewport stay pinned as content grows with live performance metrics.'
         },
         {
+            slug: 'history-loading',
             title: 'History Loading',
-            href: '/examples/history-loading',
+            tag: 'HISTORY',
             description:
-                'Scroll up to trigger older message loading. The viewport preserves your scroll position as messages are prepended above.',
-            icon: History
+                'Scroll up to trigger older message loading. The viewport preserves your scroll position as messages are prepended above.'
         },
         {
+            slug: 'header-footer',
             title: 'Header & Footer',
-            href: '/examples/header-footer',
+            tag: 'LAYOUT',
             description:
-                'Persistent header and footer snippets that render above and below all messages. Includes a typing indicator that triggers follow-bottom.',
-            icon: LayoutTemplate
+                'Persistent header and footer snippets that render above and below all messages. Includes a typing indicator that triggers follow-bottom.'
         }
     ]
+
+    const pad2 = (n: number) => String(n).padStart(2, '0')
+
+    const items = examples.map((e, i) => ({
+        href: `/examples/${e.slug}`,
+        id: `№ ${pad2(i + 1)} / ${pad2(examples.length)}`,
+        title: `${e.title.toLowerCase()}.`,
+        tag: e.tag,
+        line: e.description
+    }))
 </script>
 
-<div class="mx-auto max-w-5xl px-6 py-12">
-    <div class="mb-10">
-        <h1 class="text-foreground text-3xl font-bold">Examples</h1>
-        <p class="text-muted-foreground mt-2 text-lg">
-            Interactive demos showcasing SvelteVirtualChat's core behaviors. Each example is a live
-            component you can interact with.
-        </p>
-    </div>
-
-    <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {#each examples as example (example.title)}
-            <a
-                href={example.href}
-                class="border-border bg-card hover:border-brand-500/50 group rounded-xl border p-6 transition-all hover:shadow-md"
-            >
-                <div
-                    class="bg-brand-500/10 text-brand-600 dark:text-brand-400 mb-4 inline-flex rounded-lg p-3"
-                >
-                    <example.icon class="size-6" />
-                </div>
-                <h2 class="text-foreground group-hover:text-brand-500 mb-2 text-lg font-semibold">
-                    {example.title}
-                </h2>
-                <p class="text-muted-foreground text-sm leading-relaxed">{example.description}</p>
-            </a>
-        {/each}
-    </div>
-</div>
+<BrutIndexV2
+    hero={{
+        figLabel: 'FIG-001 · EXAMPLES INDEX',
+        figId: 'FIG-001',
+        sheetLabel: 'SHEET 01 / 02',
+        meta: [
+            { k: 'demos', v: String(examples.length) },
+            { k: 'format', v: 'live chat' },
+            { k: 'tone', v: 'interactive' },
+            { rule: 'dashed' },
+            { k: 'library', v: PKG_NAME },
+            { k: 'framework', v: 'svelte 5', accent: true }
+        ],
+        metaFooter: '// scroll for demos',
+        kicker: '// examples / live demos',
+        title: { accent: 'examples', end: '.' },
+        subHtml:
+            'Hands-on demos of <b>@humanspeak/svelte-virtual-chat</b> — follow-bottom behavior, LLM streaming stability, history prepend anchoring, and persistent header / footer snippets. Run it, inspect it, ship it.',
+        ctas: [
+            { label: 'open basic chat ↗', href: '/examples/basic-chat', primary: true },
+            { label: 'get started', href: '/docs/getting-started' },
+            { label: 'api reference', href: '/docs/api/svelte-virtual-chat' }
+        ]
+    }}
+    lede={{
+        kicker: 'FIG-002 / DEMOS',
+        title: { prefix: 'pick a ', accent: 'demo', suffix: '.' },
+        body: 'Each page is a self-contained live example with the source you need to copy into your own project.'
+    }}
+    {items}
+    footer={{
+        big: {
+            prefix: 'try ',
+            accent: 'basic chat',
+            href: '/examples/basic-chat',
+            hint: 'send messages live'
+        }
+    }}
+/>

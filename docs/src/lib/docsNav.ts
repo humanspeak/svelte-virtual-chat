@@ -13,6 +13,11 @@ import {
     Zap
 } from '@lucide/svelte'
 
+export const headerNav: { label: string; href: string }[] = [
+    { label: 'docs', href: '/docs' },
+    { label: 'examples', href: '/examples' }
+]
+
 export function buildBreadcrumbs(pathname: string): Breadcrumb[] {
     if (pathname === '/docs') return [{ title: 'Docs' }]
     if (pathname === '/examples') return [{ title: 'Examples' }]

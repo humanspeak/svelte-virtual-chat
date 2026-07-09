@@ -1,7 +1,8 @@
 <script lang="ts">
-    import { getSeoContext } from '@humanspeak/docs-kit'
+    import { CodeReferenceV2, getSeoContext } from '@humanspeak/docs-kit'
     import Example from '$lib/components/general/Example.svelte'
-    import HistoryLoading from '$lib/examples/HistoryLoading.svelte'
+    import { demoCodeSample } from '$lib/demo-loaders'
+    import HistoryLoading from '$lib/examples/history-loading/demos/HistoryLoading.svelte'
 
     const seo = getSeoContext()
     if (seo) {
@@ -13,11 +14,37 @@
         seo.ogFeatures = ['History Prepend', 'Anchor Preservation', 'Infinite Scroll', 'No Jump']
         seo.ogSlug = 'examples-history-loading'
     }
+
+    const sections = [
+        {
+            figId: 'FIG-001',
+            tag: 'HISTORY',
+            title: { accent: 'History Loading' },
+            description:
+                'Scroll up to trigger older message loading while the viewport preserves its visible anchor as messages are prepended above.',
+            codeSnippet: historyLoadingSource,
+            barCells: [{ k: 'file', v: 'HistoryLoading.svelte' }]
+        }
+    ] as const
+
+    const section = sections[0]
+    const sourceUrl =
+        'https://github.com/humanspeak/svelte-virtual-chat/blob/main/docs/src/lib/examples/history-loading/demos/HistoryLoading.svelte'
 </script>
 
-<Example
-    title="History Loading"
-    sourceUrl="https://github.com/humanspeak/svelte-virtual-chat/blob/main/docs/src/lib/examples/HistoryLoading.svelte"
->
+{#snippet historyLoadingSource()}
+    <CodeReferenceV2
+        samples={[
+            demoCodeSample(
+                'history-loading/demos/HistoryLoading.svelte',
+                'history-loading',
+                'HistoryLoading.svelte'
+            )
+        ]}
+        columns={1}
+    />
+{/snippet}
+
+<Example title={section.title.accent} {sourceUrl}>
     <HistoryLoading />
 </Example>

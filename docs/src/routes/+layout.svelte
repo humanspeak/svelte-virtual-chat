@@ -1,5 +1,7 @@
 <script lang="ts">
     import '../app.css'
+    import '@fontsource-variable/inter/index.css'
+    import '@fontsource-variable/jetbrains-mono/index.css'
     import { RootLayout } from '@humanspeak/docs-kit'
     import { docsConfig } from '$lib/docs-config'
     import favicon from '$lib/assets/logo.svg'

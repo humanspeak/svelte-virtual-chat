@@ -6,7 +6,7 @@ description: Keyboard navigation, screen reader support, and reduced-motion beha
 <script>
     import { getSeoContext } from '@humanspeak/docs-kit'
     import InlineExample from '$lib/components/general/InlineExample.svelte'
-    import AccessibilityChat from '$lib/examples/AccessibilityChat.svelte'
+    import AccessibilityChat from '$lib/examples/accessibility/demos/AccessibilityChat.svelte'
 
     const seo = getSeoContext()
     if (seo) {

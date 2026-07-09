@@ -1,7 +1,8 @@
 <script lang="ts">
-    import { Header, Footer, getBreadcrumbContext } from '@humanspeak/docs-kit'
+    import { FooterV2, HeaderV2, getBreadcrumbContext } from '@humanspeak/docs-kit'
     import { docsConfig } from '$lib/docs-config'
     import favicon from '$lib/assets/logo.svg'
+    import { headerNav } from '$lib/docsNav'
     import SvelteVirtualChat, {
         type SvelteVirtualChatDebugInfo
     } from '@humanspeak/svelte-virtual-chat'
@@ -19,6 +20,9 @@
         BookOpen,
         Rocket
     } from '@lucide/svelte'
+    import rootPkg from '../../../package.json'
+
+    const PKG_VERSION = rootPkg.version
 
     const breadcrumbContext = getBreadcrumbContext()
     if (breadcrumbContext) {
@@ -227,7 +231,7 @@
 </script>
 
 <div class="flex min-h-svh flex-col">
-    <Header config={docsConfig} {favicon} />
+    <HeaderV2 config={docsConfig} {favicon} version={PKG_VERSION} nav={headerNav} />
 
     <div class="relative flex flex-1 flex-col overflow-hidden">
         <!-- Background layers -->
@@ -535,5 +539,5 @@
         </section>
     </div>
 
-    <Footer />
+    <FooterV2 version={PKG_VERSION} />
 </div>

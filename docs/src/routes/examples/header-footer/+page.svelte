@@ -1,7 +1,8 @@
 <script lang="ts">
-    import { getSeoContext } from '@humanspeak/docs-kit'
+    import { CodeReferenceV2, getSeoContext } from '@humanspeak/docs-kit'
     import Example from '$lib/components/general/Example.svelte'
-    import HeaderFooterChat from '$lib/examples/HeaderFooterChat.svelte'
+    import { demoCodeSample } from '$lib/demo-loaders'
+    import HeaderFooterChat from '$lib/examples/header-footer/demos/HeaderFooterChat.svelte'
 
     const seo = getSeoContext()
     if (seo) {
@@ -13,11 +14,37 @@
         seo.ogFeatures = ['Header Snippet', 'Footer Snippet', 'Typing Indicator', 'Always in DOM']
         seo.ogSlug = 'examples-header-footer'
     }
+
+    const sections = [
+        {
+            figId: 'FIG-001',
+            tag: 'LAYOUT',
+            title: { accent: 'Header & Footer' },
+            description:
+                'Persistent header and footer snippets render above and below all messages without injecting fake chat rows.',
+            codeSnippet: headerFooterSource,
+            barCells: [{ k: 'file', v: 'HeaderFooterChat.svelte' }]
+        }
+    ] as const
+
+    const section = sections[0]
+    const sourceUrl =
+        'https://github.com/humanspeak/svelte-virtual-chat/blob/main/docs/src/lib/examples/header-footer/demos/HeaderFooterChat.svelte'
 </script>
 
-<Example
-    title="Header & Footer"
-    sourceUrl="https://github.com/humanspeak/svelte-virtual-chat/blob/main/docs/src/lib/examples/HeaderFooterChat.svelte"
->
+{#snippet headerFooterSource()}
+    <CodeReferenceV2
+        samples={[
+            demoCodeSample(
+                'header-footer/demos/HeaderFooterChat.svelte',
+                'header-footer',
+                'HeaderFooterChat.svelte'
+            )
+        ]}
+        columns={1}
+    />
+{/snippet}
+
+<Example title={section.title.accent} {sourceUrl}>
     <HeaderFooterChat />
 </Example>

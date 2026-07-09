@@ -1,7 +1,8 @@
 <script lang="ts">
-    import { getSeoContext } from '@humanspeak/docs-kit'
+    import { CodeReferenceV2, getSeoContext } from '@humanspeak/docs-kit'
     import Example from '$lib/components/general/Example.svelte'
-    import BasicChat from '$lib/examples/BasicChat.svelte'
+    import { demoCodeSample } from '$lib/demo-loaders'
+    import BasicChat from '$lib/examples/basic-chat/demos/BasicChat.svelte'
 
     const seo = getSeoContext()
     if (seo) {
@@ -13,11 +14,33 @@
         seo.ogFeatures = ['Follow-Bottom', 'Scroll-Away', 'Virtualized', 'Debug Stats']
         seo.ogSlug = 'examples-basic-chat'
     }
+
+    const sections = [
+        {
+            figId: 'FIG-001',
+            tag: 'BASIC',
+            title: { accent: 'Basic Chat' },
+            description:
+                'Send and receive messages with follow-bottom behavior, scroll-away detection, bulk loading, and live virtualization stats.',
+            codeSnippet: basicChatSource,
+            barCells: [{ k: 'file', v: 'BasicChat.svelte' }]
+        }
+    ] as const
+
+    const section = sections[0]
+    const sourceUrl =
+        'https://github.com/humanspeak/svelte-virtual-chat/blob/main/docs/src/lib/examples/basic-chat/demos/BasicChat.svelte'
 </script>
 
-<Example
-    title="Basic Chat"
-    sourceUrl="https://github.com/humanspeak/svelte-virtual-chat/blob/main/docs/src/lib/examples/BasicChat.svelte"
->
+{#snippet basicChatSource()}
+    <CodeReferenceV2
+        samples={[
+            demoCodeSample('basic-chat/demos/BasicChat.svelte', 'basic-chat', 'BasicChat.svelte')
+        ]}
+        columns={1}
+    />
+{/snippet}
+
+<Example title={section.title.accent} {sourceUrl}>
     <BasicChat />
 </Example>
