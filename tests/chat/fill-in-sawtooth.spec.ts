@@ -54,12 +54,11 @@ type PaintedFrame = {
 async function recordFillFrames(page: Page, frames: number): Promise<PaintedFrame[]> {
     return page.evaluate(
         ([viewportSel, frameCount]) => {
-            const viewport = document.querySelector(viewportSel) as HTMLElement | null
-            const trigger = document.querySelector(
-                '[data-testid="grow-once"]'
-            ) as HTMLElement | null
+            const viewport = document.querySelector(viewportSel)
+            const trigger = document.querySelector('[data-testid="grow-once"]')
             if (!viewport) throw new Error(`Missing viewport ${viewportSel}`)
             if (!trigger) throw new Error('Missing trigger [data-testid="grow-once"]')
+            if (!(trigger instanceof HTMLElement)) throw new Error('Grow trigger is not a button')
 
             const read = (frame: number): PaintedFrame => {
                 const maxScroll = Math.max(0, viewport.scrollHeight - viewport.clientHeight)

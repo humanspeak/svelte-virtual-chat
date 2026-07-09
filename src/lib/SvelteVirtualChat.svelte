@@ -106,7 +106,7 @@
         if ((typeof message !== 'object' && typeof message !== 'function') || message === null) {
             return `${typeof message}:${String(message)}`
         }
-        const objectMessage = message as object
+        const objectMessage = message
         let token = messageIdentityTokens.get(objectMessage)
         if (token === undefined) {
             token = nextMessageIdentityToken++
@@ -637,7 +637,7 @@
         scheduleScrollProgressPreservation()
 
         if (onNeedHistory && scrollTop - topGap < viewportHeight * 0.5) {
-            onNeedHistory()
+            void onNeedHistory()
         }
     }
 

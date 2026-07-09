@@ -3,6 +3,9 @@
     import type { SvelteVirtualChatDebugInfo } from '$lib/types.js'
 
     type Message = { id: string; content: string }
+    type ChatApi = {
+        scrollToBottom: (_options?: { smooth?: boolean }) => void
+    }
 
     let messages: Message[] = $state(
         Array.from({ length: 50 }, (_, i) => ({
@@ -14,7 +17,7 @@
     let nextId = $state(51)
     let debugInfo: SvelteVirtualChatDebugInfo | null = $state(null)
     let newMessageCount = $state(0)
-    let chat: ReturnType<typeof SvelteVirtualChat> | undefined = $state()
+    let chat: ChatApi | undefined = $state()
 
     function appendMessage() {
         messages.push({

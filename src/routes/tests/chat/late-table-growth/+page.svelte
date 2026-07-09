@@ -56,9 +56,7 @@
     ]
 
     function updateBottomGap() {
-        const viewport = document.querySelector(
-            '[data-testid="chat-viewport"]'
-        ) as HTMLElement | null
+        const viewport = document.querySelector('[data-testid="chat-viewport"]')
         if (!viewport) return
         bottomGap = Math.round(viewport.scrollHeight - viewport.clientHeight - viewport.scrollTop)
     }

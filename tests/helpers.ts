@@ -134,7 +134,7 @@ export async function captureScrollSample(
 
     return page.evaluate(
         ([selector, samplePhase, sampleTextSelector]) => {
-            const viewport = document.querySelector(selector) as HTMLElement | null
+            const viewport = document.querySelector(selector)
             if (!viewport) throw new Error(`Missing viewport ${selector}`)
 
             const maxScroll = viewport.scrollHeight - viewport.clientHeight
@@ -174,7 +174,7 @@ export async function sampleViewportFrames(
     return page.evaluate(
         ([selector, frameCount, sampleTextSelector]) => {
             const readSample = (phase: number) => {
-                const viewport = document.querySelector(selector) as HTMLElement | null
+                const viewport = document.querySelector(selector)
                 if (!viewport) throw new Error(`Missing viewport ${selector}`)
 
                 const maxScroll = viewport.scrollHeight - viewport.clientHeight
@@ -285,7 +285,7 @@ export async function touchScroll(
 ): Promise<void> {
     await page.evaluate(
         ([selector, dy]) => {
-            const el = document.querySelector(selector) as HTMLElement | null
+            const el = document.querySelector(selector)
             if (!el) throw new Error(`Missing viewport ${selector}`)
 
             const rect = el.getBoundingClientRect()

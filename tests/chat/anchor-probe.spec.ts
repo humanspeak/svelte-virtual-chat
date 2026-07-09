@@ -120,8 +120,8 @@ test('probes overflow-anchor behavior for virtualized follow-bottom geometry', a
             Math.round(scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop) + 0
 
         const measure = async (name: ProbeName) => {
-            const scroller = document.getElementById(name) as HTMLElement | null
-            const grow = document.getElementById(`${name}-grow`) as HTMLElement | null
+            const scroller = document.getElementById(name)
+            const grow = document.getElementById(`${name}-grow`)
             if (!scroller || !grow) throw new Error(`Missing probe ${name}`)
 
             scroller.scrollTop = scroller.scrollHeight

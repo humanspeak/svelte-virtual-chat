@@ -15,7 +15,7 @@ exactly-once-awaited fixtures.
 
 | Plan | Title                                                                         | Priority | Effort | Depends on           | Status |
 | ---- | ----------------------------------------------------------------------------- | -------- | ------ | -------------------- | ------ |
-| 001  | Lint the unit-test files and enable type-aware lint rules (floating promises) | P2       | M      | — (see precondition) | TODO   |
+| 001  | Lint the unit-test files and enable type-aware lint rules (floating promises) | P2       | M      | — (see precondition) | DONE   |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) |
 REJECTED (with one-line rationale)

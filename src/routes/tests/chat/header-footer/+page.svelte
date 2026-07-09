@@ -7,6 +7,9 @@
         role: 'user' | 'assistant'
         content: string
     }
+    type ChatApi = {
+        scrollToMessage: (_id: string) => void
+    }
 
     let messages: Message[] = $state([
         { id: '1', role: 'assistant', content: 'Hello! How can I help you today?' },
@@ -21,7 +24,7 @@
 
     let nextId = $state(4)
     let debugInfo: SvelteVirtualChatDebugInfo | null = $state(null)
-    let chat: ReturnType<typeof SvelteVirtualChat> | undefined = $state()
+    let chat: ChatApi | undefined = $state()
     let showHeader = $state(true)
     let showFooter = $state(true)
     let showTypingIndicator = $state(false)
