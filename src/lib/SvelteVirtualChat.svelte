@@ -53,6 +53,7 @@
 
     // ── Core state ──────────────────────────────────────────────────
     const heightCache = new ChatHeightCache()
+    const messageIdentityTokens = new WeakMap<object, number>()
     const layoutPreservation = new ChatLayoutPreservation()
     const scrollProgressPreserver = new ChatScrollProgressPreserver()
     const scrollIntent = new ChatScrollIntent({
@@ -89,12 +90,37 @@
     // `accumulateUpwardTravel` (chatScrollPolicy).
     let upwardTravelPx = 0
     let previousMessageCount = -1
+    let lastMessageCountDecreaseAt = Number.NEGATIVE_INFINITY
+    let nextMessageIdentityToken = 1
     let pendingAnchor: VisualAnchor | null = null
     let pendingProgressPreservation = false
     let scrollMutationObserver: MutationObserver | null = null
 
+    const getMessageIdentityToken = (message: TMessage): string => {
+        if ((typeof message !== 'object' && typeof message !== 'function') || message === null) {
+            return `${typeof message}:${String(message)}`
+        }
+        const objectMessage = message as object
+        let token = messageIdentityTokens.get(objectMessage)
+        if (token === undefined) {
+            token = nextMessageIdentityToken++
+            messageIdentityTokens.set(objectMessage, token)
+        }
+        return String(token)
+    }
+
+    const messageShape = $derived.by(() => {
+        let shape = ''
+        for (let i = 0; i < messages.length; i++) {
+            const message = messages[i]
+            shape += `${getMessageIdentityToken(message)}:${getMessageId(message)}|`
+        }
+        return shape
+    })
+
     // ── Derived: total content height ───────────────────────────────
     const totalHeight = $derived.by(() => {
+        void messageShape
         void heightCache.version
         return calculateTotalHeight(messages, getMessageId, heightCache, estimatedMessageHeight)
     })
@@ -107,6 +133,7 @@
     // height changes. `totalHeight` is reused from the derivation above so
     // we don't walk the message list twice per update.
     const visibleRange = $derived.by(() => {
+        void messageShape
         void heightCache.version
         return calculateVisibleRange({
             messages,
@@ -124,6 +151,7 @@
 
     // ── Derived: offset for the first rendered item ─────────────────
     const startOffset = $derived.by(() => {
+        void messageShape
         void heightCache.version
         return calculateOffsetForIndex(
             messages,
@@ -142,16 +170,16 @@
     // point at the same message instances — that catches append, prepend,
     // whole-array-replace, and consumer-side immutable mid-replace
     // (`messages = [...slice(0,i), newMsg, ...slice(i+1)]` invalidates via
-    // the reference check). The remaining gap is in-place mid-replace via
-    // `$state` proxy (`messages[i] = newObj` without array reassignment) —
-    // catching that would require a per-index walk or a content version,
-    // both of which would defeat the optimization on the scroll hot path.
+    // the reference check). `messageShape` covers the `$state` proxy case
+    // where a consumer replaces `messages[i]` in place without changing the
+    // array reference or length.
     const EMPTY_SLICE: TMessage[] = []
     let cachedSlice: TMessage[] = []
     let cachedStart = -1
     let cachedEnd = -1
     let cachedMessagesRef: TMessage[] | null = null
     const renderedMessages = $derived.by(() => {
+        void messageShape
         if (messages.length === 0) return EMPTY_SLICE
         const { start, end } = visibleRange
         const length = end - start + 1
@@ -692,6 +720,7 @@
     const SMOOTH_SNAP_EPSILON_PX = 6 // within this of the bottom → land exactly
     const SMOOTH_MIN_DISTANCE_PX = 80 // ignore tiny growth (streaming tokens) — jump
     const SMOOTH_MAX_DISTANCE_FLOOR_PX = 1200 // never ease a teleport-sized jump
+    const SHRINK_GROW_SMOOTH_SUPPRESSION_MS = 250
 
     // A MediaQueryList is live — create it once and read `.matches` instead
     // of re-parsing the query on every smooth-flagged snap.
@@ -814,10 +843,15 @@
         // Ease only on a real message-count increase — not on the effect's
         // mount/settle re-fires, which would animate the initial positioning.
         const grew = previousMessageCount >= 0 && count > previousMessageCount
+        const shrank = previousMessageCount >= 0 && count < previousMessageCount
+        const now = performance.now()
+        if (shrank) lastMessageCountDecreaseAt = now
+        const shouldSmooth =
+            grew && now - lastMessageCountDecreaseAt > SHRINK_GROW_SMOOTH_SUPPRESSION_MS
         previousMessageCount = count
         if (isFollowingBottom && viewportEl && !isUserScrollPreservationActive()) {
             layoutPreservation.begin()
-            scheduleSnapToBottom({ smooth: grew })
+            scheduleSnapToBottom({ smooth: shouldSmooth })
         }
     })
 
@@ -899,7 +933,7 @@
     // return the same slice across an append, leaving `renderedMessages.length`
     // and `visibleRange` unchanged.
     const debugShape = $derived(
-        `${messages.length}|${renderedMessages.length}|${visibleRange.start}|${visibleRange.end}|${isFollowingBottom}|${heightCache.version}`
+        `${messageShape}|${messages.length}|${renderedMessages.length}|${visibleRange.start}|${visibleRange.end}|${isFollowingBottom}|${heightCache.version}`
     )
     $effect(() => {
         void debugShape
