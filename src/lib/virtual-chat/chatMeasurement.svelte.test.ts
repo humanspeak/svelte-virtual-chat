@@ -657,7 +657,7 @@ describe('ChatHeightCache.sync (prefix sums)', () => {
         expect(cache.getTotalHeight()).toBe(600)
     })
 
-    it('tail remove-then-append carries the removed measured height to the new tail id', () => {
+    it('tail shrink does not carry deleted height into a later append', () => {
         const cache = new ChatHeightCache()
         const original = msgs(['a', 'b', 'streaming'])
         cache.sync(original, getId, 72)
@@ -668,29 +668,11 @@ describe('ChatHeightCache.sync (prefix sums)', () => {
 
         cache.sync(msgs(['a', 'b']), getId, 72)
         expect(cache.getTotalHeight()).toBe(300)
-        expect(cache.tailRemovalReserve).toBe(700)
 
         cache.sync(msgs(['a', 'b', 'final']), getId, 72)
 
-        expect(cache.get('final')).toBe(700)
-        expect(cache.tailRemovalReserve).toBe(0)
-        expect(cache.getTotalHeight()).toBe(1000)
-    })
-
-    it('tail carry does not overwrite an already-measured appended id', () => {
-        const cache = new ChatHeightCache()
-        cache.sync(msgs(['a', 'streaming']), getId, 72)
-        cache.set('a', 100)
-        cache.set('streaming', 700)
-        cache.set('final', 300)
-
-        cache.sync(msgs(['a']), getId, 72)
-        expect(cache.tailRemovalReserve).toBe(700)
-        cache.sync(msgs(['a', 'final']), getId, 72)
-
-        expect(cache.get('final')).toBe(300)
-        expect(cache.tailRemovalReserve).toBe(0)
-        expect(cache.getTotalHeight()).toBe(400)
+        expect(cache.get('final')).toBeUndefined()
+        expect(cache.getTotalHeight()).toBe(372)
     })
 
     it('multi-position reorder does not invent carry-overs', () => {

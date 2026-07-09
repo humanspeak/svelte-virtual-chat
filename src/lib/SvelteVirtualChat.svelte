@@ -22,6 +22,7 @@
         type ScrollGeometry
     } from './virtual-chat/chatScrollPolicy.js'
     import { ChatScrollProgressPreserver } from './virtual-chat/chatScrollProgress.js'
+    import { ChatTailSwapCarry } from './virtual-chat/chatTailSwapCarry.js'
     import {
         captureVisualAnchor,
         restoreVisualAnchor,
@@ -56,6 +57,7 @@
     const messageIdentityTokens = new WeakMap<object, number>()
     const layoutPreservation = new ChatLayoutPreservation()
     const scrollProgressPreserver = new ChatScrollProgressPreserver()
+    const tailSwapCarry = new ChatTailSwapCarry()
     const scrollIntent = new ChatScrollIntent({
         onIntentStart: () => layoutPreservation.end(),
         onIntentEnd: () => {
@@ -96,6 +98,9 @@
     let pendingAnchor: VisualAnchor | null = null
     let pendingProgressPreservation = false
     let scrollMutationObserver: MutationObserver | null = null
+    let tailRemovalReserve = $state(0)
+    let tailRemovalReserveClearTimer: ReturnType<typeof setTimeout> | null = null
+    const TAIL_SWAP_RESERVE_MS = 250
 
     const getMessageIdentityToken = (message: TMessage): string => {
         if ((typeof message !== 'object' && typeof message !== 'function') || message === null) {
@@ -134,13 +139,6 @@
         void messageShape
         void heightCache.version
         return calculateTotalHeight(messages, getMessageId, heightCache, estimatedMessageHeight)
-    })
-
-    const tailRemovalReserve = $derived.by(() => {
-        void totalHeight
-        void messageShape
-        void heightCache.version
-        return heightCache.tailRemovalReserve
     })
 
     const layoutTotalHeight = $derived(totalHeight + tailRemovalReserve)
@@ -662,6 +660,53 @@
         })
     }
 
+    const clearTailRemovalReserve = (options?: { snap?: boolean }) => {
+        if (tailRemovalReserveClearTimer !== null) {
+            clearTimeout(tailRemovalReserveClearTimer)
+            tailRemovalReserveClearTimer = null
+        }
+        tailSwapCarry.clear()
+        tailRemovalReserve = 0
+        if (options?.snap && isFollowingBottom && viewportEl && !isUserScrollPreservationActive()) {
+            layoutPreservation.begin()
+            scheduleSnapToBottom()
+        }
+    }
+
+    const scheduleTailRemovalReserveClear = () => {
+        if (tailRemovalReserveClearTimer !== null) {
+            clearTimeout(tailRemovalReserveClearTimer)
+        }
+        tailRemovalReserveClearTimer = setTimeout(() => {
+            clearTailRemovalReserve({ snap: true })
+        }, TAIL_SWAP_RESERVE_MS)
+    }
+
+    $effect.pre(() => {
+        void messageShape
+
+        const currentIds = messages.map(getMessageId)
+        const tailSwap = tailSwapCarry.observe({
+            currentIds,
+            getHeight: (id) => heightCache.get(id),
+            estimatedHeight: estimatedMessageHeight,
+            canCarryTailRemoval: isFollowingBottom && !isUserScrollPreservationActive()
+        })
+
+        if (tailSwap.carriedHeights.length > 0) {
+            for (const { id, height } of tailSwap.carriedHeights) heightCache.set(id, height)
+        }
+
+        if (tailSwap.shouldClearReserve) {
+            clearTailRemovalReserve({ snap: tailSwap.shouldSnapAfterClear })
+        }
+
+        if (tailSwap.reserveHeight > 0) {
+            tailRemovalReserve = tailSwap.reserveHeight
+            scheduleTailRemovalReserveClear()
+        }
+    })
+
     // ── Measurement ─────────────────────────────────────────────────
     /**
      * Re-derive rendered message heights from layout via
@@ -888,6 +933,7 @@
     $effect(() => {
         return () => {
             finishSmoothScroll()
+            clearTailRemovalReserve()
             scrollIntent.destroy()
             layoutPreservation.destroy()
             stopScrollMutationObserver()
