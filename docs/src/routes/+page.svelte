@@ -545,9 +545,26 @@
                 </p>
             </div>
             <div class="panel">
-                <div class="head">
-                    <span class="tab on">playground.svelte</span>
-                    <span class="grow"></span>
+                <div class="bar">
+                    <span
+                        ><span class="lbl">file</span> ·
+                        <span class="v">playground.svelte</span></span
+                    >
+                    <span>
+                        <span class="lbl">messages</span>
+                        <span class="v">{playMessages.length}</span>
+                    </span>
+                    <span>
+                        <span class="lbl">dom</span>
+                        <span class="v"
+                            >{playDebug ? playDebug.renderedCount : '—'}/{playDebug
+                                ? playDebug.totalMessages
+                                : 0}</span
+                        >
+                    </span>
+                    <span class="live">
+                        {#if playFollowing}● FOLLOWING{:else}○ SCROLLED{/if}
+                    </span>
                     <button class="ctrl" type="button" onclick={resetPlayground}>⟲ reset</button>
                 </div>
                 <div class="play-body">
@@ -1121,7 +1138,8 @@
         border: 1px solid var(--brut-rule);
         background: var(--brut-bg);
     }
-    .brut-stream .panel .bar {
+    .brut-stream .panel .bar,
+    .brut-play .panel .bar {
         display: flex;
         align-items: center;
         gap: 18px;
@@ -1132,17 +1150,21 @@
         background: var(--brut-bg-2);
         flex-wrap: wrap;
     }
-    .brut-stream .panel .bar .lbl {
+    .brut-stream .panel .bar .lbl,
+    .brut-play .panel .bar .lbl {
         color: var(--brut-ink-3);
     }
-    .brut-stream .panel .bar .v {
+    .brut-stream .panel .bar .v,
+    .brut-play .panel .bar .v {
         color: var(--brut-ink);
     }
-    .brut-stream .panel .bar .live {
+    .brut-stream .panel .bar .live,
+    .brut-play .panel .bar .live {
         margin-left: auto;
         color: var(--brut-accent);
     }
-    .brut-stream .panel .ctrl {
+    .brut-stream .panel .ctrl,
+    .brut-play .panel .ctrl {
         background: transparent;
         border: 1px solid var(--brut-rule);
         padding: 4px 10px;
@@ -1151,7 +1173,8 @@
         color: var(--brut-ink-2);
         cursor: pointer;
     }
-    .brut-stream .panel .ctrl:hover {
+    .brut-stream .panel .ctrl:hover,
+    .brut-play .panel .ctrl:hover {
         background: var(--brut-bg);
         color: var(--brut-ink);
     }
@@ -1266,37 +1289,6 @@
         gap: 24px;
         border-bottom: 1px solid var(--brut-rule);
         scroll-margin-top: 80px;
-    }
-    .brut-play .panel .head {
-        display: flex;
-        padding: 8px 14px;
-        border-bottom: 1px solid var(--brut-rule);
-        font-size: 11px;
-        color: var(--brut-ink-3);
-        background: var(--brut-bg-2);
-        align-items: center;
-        gap: 12px;
-    }
-    .brut-play .panel .head .tab {
-        padding: 0 12px;
-        border-right: 1px solid var(--brut-rule);
-        margin-right: -1px;
-    }
-    .brut-play .panel .head .tab.on {
-        color: var(--brut-ink);
-        background: var(--brut-bg);
-    }
-    .brut-play .panel .head .grow {
-        flex: 1;
-    }
-    .brut-play .panel .head .ctrl {
-        background: transparent;
-        border: 0;
-        padding: 0 8px;
-        font-family: inherit;
-        font-size: 11px;
-        color: var(--brut-accent);
-        cursor: pointer;
     }
     .brut-play .panel .play-body {
         display: grid;
