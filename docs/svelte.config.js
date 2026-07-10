@@ -5,7 +5,18 @@ import { createHighlighter } from 'shiki'
 
 const highlighter = await createHighlighter({
     themes: ['github-light', 'one-dark-pro'],
-    langs: ['javascript', 'typescript', 'html', 'css', 'json', 'bash', 'shell', 'svelte', 'text']
+    langs: [
+        'javascript',
+        'typescript',
+        'html',
+        'css',
+        'json',
+        'bash',
+        'shell',
+        'svelte',
+        'markdown',
+        'text'
+    ]
 })
 
 /** @type {import('@sveltejs/kit').Config} */
@@ -45,7 +56,7 @@ const config = {
             mode: 'hash',
             directives: {
                 'default-src': ['self'],
-                'script-src': ['self', 'unsafe-inline', 'wasm-unsafe-eval'],
+                'script-src': ['self', 'https://*.ahrefs.com', 'unsafe-inline', 'wasm-unsafe-eval'],
                 'style-src': ['self', 'unsafe-inline'],
                 'img-src': ['self', 'data:', 'https:'],
                 'font-src': ['self', 'data:'],

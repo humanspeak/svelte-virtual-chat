@@ -94,3 +94,4 @@ console.log(info.isFollowingBottom) // true
 | `viewportHeight` | `number` | Viewport height (px) |
 | `isFollowingBottom` | `boolean` | Whether viewport is pinned to bottom |
 | `averageHeight` | `number` | Average measured message height (px) |
+| `heightCacheVersion` | `number` | Monotonic counter of height-cache mutations (each measurement, removal, or clear adds 1) |

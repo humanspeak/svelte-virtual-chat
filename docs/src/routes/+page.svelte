@@ -21,8 +21,23 @@
         Rocket
     } from '@lucide/svelte'
     import rootPkg from '../../../package.json'
+    import '@fontsource-variable/inter/index.css'
+    import '@fontsource-variable/jetbrains-mono/index.css'
+    import type { PageData } from './$types'
+
+    const { data }: { data: PageData } = $props()
+    const packageStats = $derived(data.packageStats)
 
     const PKG_VERSION = rootPkg.version
+
+    // Packed tarball size comes from the npm registry via `+page.server.ts`
+    // (cached ~1h at the edge). `null` when the registry was unreachable —
+    // production renders `—` rather than a stale number.
+    const TARBALL_KB = $derived(
+        packageStats.tarballBytes !== null
+            ? Math.round(packageStats.tarballBytes / 102.4) / 10
+            : null
+    )
 
     const breadcrumbContext = getBreadcrumbContext()
     if (breadcrumbContext) {
@@ -203,7 +218,7 @@
         {
             title: 'Svelte 5 + TypeScript',
             description:
-                'Full generics, runes ($state, $derived, $effect), and snippets. Zero dependencies.',
+                'Full generics, runes ($state, $derived, $effect), and snippets. One micro-dependency (esm-env).',
             icon: Code
         }
     ]
@@ -298,7 +313,12 @@
                         <li class="border-border-muted rounded-full border px-3 py-1">
                             LLM Streaming
                         </li>
-                        <li class="border-border-muted rounded-full border px-3 py-1">Zero Deps</li>
+                        <li class="border-border-muted rounded-full border px-3 py-1">
+                            1 Micro Dep
+                        </li>
+                        <li class="border-border-muted rounded-full border px-3 py-1">
+                            {TARBALL_KB !== null ? `${TARBALL_KB} kB packed` : '—'}
+                        </li>
                     </ul>
                 </div>
             </div>

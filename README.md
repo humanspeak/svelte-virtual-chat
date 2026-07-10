@@ -286,19 +286,19 @@ The `onDebugInfo` callback provides real-time visibility into the component's in
 {/if}
 ```
 
-| Field                | Type      | Description                                |
-| -------------------- | --------- | ------------------------------------------ |
-| `totalMessages`      | `number`  | Total messages in the array                |
-| `renderedCount`      | `number`  | Messages currently in the DOM              |
-| `measuredCount`      | `number`  | Messages with measured heights             |
-| `startIndex`         | `number`  | First rendered index                       |
-| `endIndex`           | `number`  | Last rendered index                        |
-| `totalHeight`        | `number`  | Calculated total content height (px)       |
-| `scrollTop`          | `number`  | Current scroll position (px)               |
-| `viewportHeight`     | `number`  | Viewport height (px)                       |
-| `isFollowingBottom`  | `boolean` | Whether the viewport is pinned to bottom   |
-| `averageHeight`      | `number`  | Average measured message height (px)       |
-| `heightCacheVersion` | `number`  | Bumps whenever any measured height changes |
+| Field                | Type      | Description                                                                              |
+| -------------------- | --------- | ---------------------------------------------------------------------------------------- |
+| `totalMessages`      | `number`  | Total messages in the array                                                              |
+| `renderedCount`      | `number`  | Messages currently in the DOM                                                            |
+| `measuredCount`      | `number`  | Messages with measured heights                                                           |
+| `startIndex`         | `number`  | First rendered index                                                                     |
+| `endIndex`           | `number`  | Last rendered index                                                                      |
+| `totalHeight`        | `number`  | Calculated total content height (px)                                                     |
+| `scrollTop`          | `number`  | Current scroll position (px)                                                             |
+| `viewportHeight`     | `number`  | Viewport height (px)                                                                     |
+| `isFollowingBottom`  | `boolean` | Whether the viewport is pinned to bottom                                                 |
+| `averageHeight`      | `number`  | Average measured message height (px)                                                     |
+| `heightCacheVersion` | `number`  | Monotonic counter of height-cache mutations (each measurement, removal, or clear adds 1) |
 
 ## TypeScript
 
