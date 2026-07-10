@@ -84,103 +84,18 @@
     }
 </script>
 
-<div class="mx-auto w-full max-w-4xl">
-    <!-- Controls -->
-    <div class="mb-4 flex items-center gap-3">
-        <button
-            onclick={addBulkMessages}
-            class="border-border bg-card text-foreground hover:bg-muted rounded-lg border px-4 py-2 text-sm font-medium shadow-sm transition-colors"
-        >
-            Add 100 messages
-        </button>
-        <button
-            onclick={() => chat?.scrollToBottom({ smooth: true })}
-            class="bg-brand-600 hover:bg-brand-700 rounded-lg px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors"
-        >
-            Scroll to bottom
-        </button>
-        <div class="text-muted-foreground ml-auto flex items-center gap-2 text-sm">
-            <span class="font-mono">{messages.length}</span> messages
-            <span class="text-border mx-1">|</span>
-            {#if isFollowing}
-                <span class="flex items-center gap-1 text-green-600 dark:text-green-400">
-                    <span class="inline-block h-2 w-2 rounded-full bg-green-500"></span>
-                    Following
-                </span>
-            {:else}
-                <span class="flex items-center gap-1 text-amber-600 dark:text-amber-400">
-                    <span class="inline-block h-2 w-2 rounded-full bg-amber-500"></span>
-                    Scrolled away
-                </span>
-            {/if}
-        </div>
+<div class="bc">
+    <!-- ── Brut bar (file · messages · following) ───────────────── -->
+    <div class="bc-bar">
+        <span><span class="lbl">file</span> · <span class="v">BasicChat.svelte</span></span>
+        <span><span class="lbl">messages</span> <span class="v">{messages.length}</span></span>
+        <span class="live">
+            {#if isFollowing}● FOLLOWING{:else}○ SCROLLED{/if}
+        </span>
     </div>
 
-    <!-- Virtualization Stats -->
-    {#if debugInfo}
-        <div class="border-border bg-card mb-4 rounded-xl border p-4 shadow-sm">
-            <h3 class="text-muted-foreground mb-3 text-xs font-semibold tracking-wide uppercase">
-                Virtualization Stats
-            </h3>
-            <div class="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-                <div class="bg-muted/50 rounded-lg p-2.5">
-                    <div class="text-muted-foreground text-xs">Total</div>
-                    <div class="text-foreground font-mono text-lg font-semibold">
-                        {debugInfo.totalMessages}
-                    </div>
-                </div>
-                <div class="bg-brand-500/10 rounded-lg p-2.5">
-                    <div class="text-brand-500 text-xs">In DOM</div>
-                    <div class="text-brand-600 dark:text-brand-400 font-mono text-lg font-semibold">
-                        {debugInfo.renderedCount}
-                    </div>
-                </div>
-                <div class="bg-muted/50 rounded-lg p-2.5">
-                    <div class="text-muted-foreground text-xs">Measured</div>
-                    <div class="text-foreground font-mono text-lg font-semibold">
-                        {debugInfo.measuredCount}
-                    </div>
-                </div>
-                <div class="bg-muted/50 rounded-lg p-2.5">
-                    <div class="text-muted-foreground text-xs">Visible Range</div>
-                    <div class="text-foreground font-mono text-sm font-semibold">
-                        {debugInfo.startIndex}–{debugInfo.endIndex}
-                    </div>
-                </div>
-                <div class="bg-muted/50 rounded-lg p-2.5">
-                    <div class="text-muted-foreground text-xs">Content Height</div>
-                    <div class="text-foreground font-mono text-sm font-semibold">
-                        {Math.round(debugInfo.totalHeight)}px
-                    </div>
-                </div>
-                <div
-                    class="rounded-lg p-2.5 {debugInfo.isFollowingBottom
-                        ? 'bg-green-500/10'
-                        : 'bg-amber-500/10'}"
-                >
-                    <div
-                        class="text-xs {debugInfo.isFollowingBottom
-                            ? 'text-green-600 dark:text-green-400'
-                            : 'text-amber-600 dark:text-amber-400'}"
-                    >
-                        Scroll
-                    </div>
-                    <div
-                        class="font-mono text-sm font-semibold {debugInfo.isFollowingBottom
-                            ? 'text-green-700 dark:text-green-300'
-                            : 'text-amber-700 dark:text-amber-300'}"
-                    >
-                        {debugInfo.isFollowingBottom
-                            ? 'Following'
-                            : `${Math.round(debugInfo.scrollTop)}px`}
-                    </div>
-                </div>
-            </div>
-        </div>
-    {/if}
-
-    <!-- Chat viewport -->
-    <div class="border-border bg-card overflow-hidden rounded-xl border shadow-sm">
+    <!-- ── Chat viewport ────────────────────────────────────────── -->
+    <div class="bc-viewport">
         <SvelteVirtualChat
             bind:this={chat}
             {messages}
@@ -195,49 +110,253 @@
             testId="basic-chat"
         >
             {#snippet renderMessage(message: Message)}
-                <div
-                    class="border-border border-b px-5 py-4 {message.role === 'user'
-                        ? 'bg-brand-500/5'
-                        : ''}"
-                >
-                    <div class="mb-1 flex items-center gap-2">
-                        <span
-                            class="text-xs font-semibold {message.role === 'user'
-                                ? 'text-brand-600 dark:text-brand-400'
-                                : 'text-muted-foreground'}"
-                        >
-                            {message.role === 'user' ? 'You' : 'Assistant'}
+                <div class="bc-msg" class:bc-msg-user={message.role === 'user'}>
+                    <div class="bc-msg-head">
+                        <span class="bc-role" class:bc-role-user={message.role === 'user'}>
+                            {message.role === 'user' ? 'you' : 'assistant'}
                         </span>
-                        <span class="text-muted-foreground text-xs">
-                            {formatTime(message.timestamp)}
-                        </span>
+                        <span class="bc-time">{formatTime(message.timestamp)}</span>
                     </div>
-                    <div class="text-foreground text-sm leading-relaxed">
-                        {message.content}
-                    </div>
+                    <div class="bc-body">{message.content}</div>
                 </div>
             {/snippet}
         </SvelteVirtualChat>
     </div>
 
-    <!-- Input -->
-    <form
-        onsubmit={(e) => {
-            e.preventDefault()
-            sendMessage()
-        }}
-        class="mt-3 flex gap-2"
-    >
-        <input
-            bind:value={inputText}
-            placeholder="Type a message..."
-            class="border-border bg-card text-foreground focus:border-brand-500 focus:ring-brand-500 flex-1 rounded-lg border px-4 py-2.5 text-sm shadow-sm focus:ring-1 focus:outline-none"
-        />
-        <button
-            type="submit"
-            class="bg-brand-600 hover:bg-brand-700 rounded-lg px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-colors"
-        >
-            Send
+    <!-- ── Controls strip ───────────────────────────────────────── -->
+    <div class="bc-controls">
+        <button class="bc-btn" type="button" onclick={addBulkMessages}>＋ add 100</button>
+        <button class="bc-btn" type="button" onclick={() => chat?.scrollToBottom({ smooth: true })}>
+            ↓ scroll to bottom
         </button>
-    </form>
+
+        <form
+            class="bc-composer"
+            onsubmit={(e) => {
+                e.preventDefault()
+                sendMessage()
+            }}
+        >
+            <input
+                bind:value={inputText}
+                placeholder="type a message…"
+                class="bc-input"
+                spellcheck="false"
+            />
+            <button type="submit" class="bc-btn bc-btn-primary">▸ send</button>
+        </form>
+    </div>
+
+    <!-- ── Footer metrics strip ─────────────────────────────────── -->
+    {#if debugInfo}
+        <div class="bc-footer">
+            <div>
+                <span class="lbl">total</span> · <span class="v">{debugInfo.totalMessages}</span>
+            </div>
+            <div>
+                <span class="lbl">in-dom</span> · <span class="v">{debugInfo.renderedCount}</span>
+            </div>
+            <div>
+                <span class="lbl">measured</span> · <span class="v">{debugInfo.measuredCount}</span>
+            </div>
+            <div>
+                <span class="lbl">range</span> ·
+                <span class="v">{debugInfo.startIndex}–{debugInfo.endIndex}</span>
+            </div>
+            <div>
+                <span class="lbl">height</span> ·
+                <span class="v">{Math.round(debugInfo.totalHeight)}px</span>
+            </div>
+            <div>
+                <span class="lbl">following</span> ·
+                <span class="v" class:accent={debugInfo.isFollowingBottom}>
+                    {debugInfo.isFollowingBottom ? 'yes' : `${Math.round(debugInfo.scrollTop)}px`}
+                </span>
+            </div>
+        </div>
+    {/if}
 </div>
+
+<style>
+    .bc {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        font-family: 'Inter Variable', 'Inter', system-ui, sans-serif;
+        color: var(--brut-ink, currentColor);
+        background: var(--brut-bg);
+    }
+
+    /* ── Brut bar (file · messages · following) ────────────────── */
+    .bc-bar {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        padding: 8px 14px;
+        border-bottom: 1px solid var(--brut-rule);
+        font-family: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
+        font-size: 11px;
+        color: var(--brut-ink-3);
+        flex-wrap: wrap;
+    }
+    .bc-bar .lbl {
+        color: var(--brut-ink-3);
+    }
+    .bc-bar .v {
+        color: var(--brut-ink);
+        font-variant-numeric: tabular-nums;
+    }
+    .bc-bar .live {
+        margin-left: auto;
+        color: var(--brut-accent);
+        letter-spacing: 0.1em;
+        font-weight: 600;
+    }
+
+    /* ── Chat viewport ─────────────────────────────────────────── */
+    .bc-viewport {
+        border-bottom: 1px solid var(--brut-rule);
+        background: var(--brut-bg);
+    }
+
+    /* ── Message rows (rendered inside the snippet) ────────────── */
+    .bc-msg {
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--brut-rule);
+        background: var(--brut-bg);
+    }
+    .bc-msg-user {
+        background: var(--brut-accent-soft);
+    }
+    .bc-msg-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 5px;
+        font-family: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
+        font-size: 10px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+    .bc-role {
+        font-weight: 600;
+        color: var(--brut-ink-3);
+    }
+    .bc-role-user {
+        color: var(--brut-accent);
+    }
+    .bc-time {
+        color: var(--brut-ink-3);
+        text-transform: none;
+        letter-spacing: 0.02em;
+    }
+    .bc-body {
+        font-size: 13px;
+        line-height: 1.6;
+        color: var(--brut-ink-2);
+    }
+
+    /* ── Controls strip ────────────────────────────────────────── */
+    .bc-controls {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        padding: 14px;
+        border-bottom: 1px solid var(--brut-rule);
+        background: var(--brut-bg);
+    }
+    .bc-btn {
+        appearance: none;
+        background: var(--brut-bg);
+        color: var(--brut-ink-2);
+        border: 1px solid var(--brut-rule);
+        padding: 7px 14px;
+        font-family: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
+        font-size: 11px;
+        letter-spacing: 0.06em;
+        text-transform: lowercase;
+        cursor: pointer;
+        white-space: nowrap;
+        transition:
+            color 0.15s,
+            border-color 0.15s,
+            background 0.15s;
+    }
+    .bc-btn:hover:not(:disabled) {
+        color: var(--brut-accent);
+        border-color: var(--brut-accent);
+    }
+    .bc-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+    .bc-btn-primary {
+        background: var(--brut-accent);
+        color: var(--brut-accent-ink);
+        border-color: var(--brut-accent);
+        font-weight: 600;
+    }
+    .bc-btn-primary:hover:not(:disabled) {
+        background: var(--brut-accent-hover);
+        border-color: var(--brut-accent-hover);
+        color: var(--brut-accent-ink);
+    }
+    .bc-composer {
+        display: flex;
+        gap: 8px;
+        flex: 1;
+        min-width: 220px;
+        margin-left: auto;
+    }
+    .bc-input {
+        flex: 1;
+        min-width: 0;
+        appearance: none;
+        background: var(--brut-bg);
+        color: var(--brut-ink);
+        border: 1px solid var(--brut-rule);
+        padding: 7px 12px;
+        font-family: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
+        font-size: 12px;
+        outline: none;
+        transition:
+            border-color 0.15s,
+            background 0.15s;
+    }
+    .bc-input::placeholder {
+        color: var(--brut-ink-3);
+    }
+    .bc-input:focus {
+        border-color: var(--brut-accent);
+        background: var(--brut-bg-2);
+    }
+
+    /* ── Footer metrics strip ──────────────────────────────────── */
+    .bc-footer {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 18px;
+        padding: 8px 14px;
+        font-family: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
+        font-size: 11px;
+        color: var(--brut-ink-3);
+    }
+    .bc-footer .lbl {
+        color: var(--brut-ink-3);
+    }
+    .bc-footer .v {
+        color: var(--brut-ink);
+        font-variant-numeric: tabular-nums;
+    }
+    .bc-footer .v.accent {
+        color: var(--brut-accent);
+    }
+
+    @media (max-width: 640px) {
+        .bc-composer {
+            margin-left: 0;
+            width: 100%;
+        }
+    }
+</style>

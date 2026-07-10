@@ -190,211 +190,28 @@ count.update(n => n + 1)
     }
 </script>
 
-<div class="mx-auto w-full max-w-5xl">
-    <!-- Metrics bar -->
-    <div class="border-border bg-card mb-4 rounded-xl border p-4 shadow-sm">
-        <div class="flex items-center justify-between gap-4">
-            <div class="flex items-center gap-6">
-                <div>
-                    <div class="text-muted-foreground text-xs font-medium uppercase">Progress</div>
-                    <div class="text-foreground font-mono text-lg font-semibold">{progress}%</div>
-                </div>
-                <div>
-                    <div class="text-muted-foreground text-xs font-medium uppercase">Tokens</div>
-                    <div class="text-foreground font-mono text-lg font-semibold">
-                        {tokenCount} / {totalTokens}
-                    </div>
-                </div>
-                <div>
-                    <div class="text-muted-foreground text-xs font-medium uppercase">Speed</div>
-                    <div class="text-foreground font-mono text-lg font-semibold">
-                        {tokensPerSecond} tok/s
-                    </div>
-                </div>
-            </div>
-
-            {#if isStreaming}
-                <span
-                    class="flex items-center gap-1.5 text-sm font-medium text-green-600 dark:text-green-400"
-                >
-                    <span class="inline-block h-2 w-2 animate-pulse rounded-full bg-green-500"
-                    ></span>
-                    Streaming...
-                </span>
-            {/if}
-        </div>
-
-        <div class="bg-muted mt-3 h-1.5 w-full overflow-hidden rounded-full">
-            <div
-                class="bg-brand-500 h-full rounded-full transition-all duration-150"
-                style="width: {progress}%"
-            ></div>
-        </div>
+<div class="sc">
+    <!-- ── Brut bar (file · progress · tokens · speed · LIVE) ────── -->
+    <div class="sc-bar">
+        <span><span class="lbl">file</span> · <span class="v">StreamingChat.svelte</span></span>
+        <span><span class="lbl">progress</span> <span class="v">{progress}%</span></span>
+        <span
+            ><span class="lbl">tokens</span>
+            <span class="v">{tokenCount}/{totalTokens || '—'}</span></span
+        >
+        <span><span class="lbl">speed</span> <span class="v">{tokensPerSecond} tok/s</span></span>
+        <span class="live">
+            {#if isStreaming}● LIVE{:else}○ IDLE{/if}
+        </span>
     </div>
 
-    <!-- Controls -->
-    <div class="mb-4 flex items-center gap-3">
-        <button
-            onclick={startStreaming}
-            disabled={isStreaming}
-            class="bg-brand-600 hover:bg-brand-700 rounded-lg px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors disabled:opacity-50"
-        >
-            Start Streaming
-        </button>
-        <button
-            onclick={stopStreaming}
-            disabled={!isStreaming}
-            class="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-red-700 disabled:opacity-50"
-        >
-            Stop
-        </button>
-        <button
-            onclick={reset}
-            class="border-border bg-card text-foreground hover:bg-muted rounded-lg border px-4 py-2 text-sm font-medium shadow-sm transition-colors"
-        >
-            Reset
-        </button>
-
-        <div class="ml-auto flex items-center gap-2">
-            <label class="text-muted-foreground text-sm">
-                Speed:
-                <input
-                    type="range"
-                    min="10"
-                    max="100"
-                    step="5"
-                    bind:value={tokensPerSecond}
-                    disabled={isStreaming}
-                    class="accent-brand-500 w-32"
-                />
-            </label>
-        </div>
+    <!-- ── Progress rail ────────────────────────────────────────── -->
+    <div class="sc-progress">
+        <div class="sc-progress-fill" style="width: {progress}%"></div>
     </div>
 
-    <!-- How it works -->
-    <div
-        class="border-brand-500/20 from-brand-500/5 to-brand-600/5 mb-4 rounded-xl border bg-gradient-to-r p-5"
-    >
-        <h3 class="text-foreground mb-2 text-sm font-semibold">How LLM Streaming Works</h3>
-        <ul class="text-muted-foreground space-y-1.5 text-sm">
-            <li class="flex items-start gap-2">
-                <span class="text-brand-500 mt-0.5 shrink-0">&#9889;</span>
-                <span>
-                    LLMs stream tokens via SSE. As each token arrives, the message content grows and
-                    ResizeObserver detects the height change automatically.
-                </span>
-            </li>
-            <li class="flex items-start gap-2">
-                <span class="text-brand-500 mt-0.5 shrink-0">&#9889;</span>
-                <span>
-                    Height corrections are batched per animation frame — not per token. The viewport
-                    stays pinned to bottom with zero jitter.
-                </span>
-            </li>
-            <li class="flex items-start gap-2">
-                <span class="text-brand-500 mt-0.5 shrink-0">&#9889;</span>
-                <span>
-                    Markdown rendering powered by
-                    <a
-                        href="https://markdown.svelte.page"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="text-brand-500 hover:text-brand-400 underline"
-                    >
-                        @humanspeak/svelte-markdown
-                    </a>
-                    with streaming mode (~1.6ms avg per update). Code blocks, tables, lists — all rendered
-                    live without scroll disruption.
-                </span>
-            </li>
-            <li class="flex items-start gap-2">
-                <span class="mt-0.5 shrink-0 text-amber-500">&#128161;</span>
-                <span>
-                    Track token costs across providers with
-                    <a
-                        href="https://modelpricing.ai"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="text-brand-500 hover:text-brand-400 underline"
-                    >
-                        ModelPricing.ai
-                    </a>. Need a general-purpose virtual list? Try
-                    <a
-                        href="https://virtuallist.svelte.page"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="text-brand-500 hover:text-brand-400 underline"
-                    >
-                        @humanspeak/svelte-virtual-list
-                    </a>.
-                </span>
-            </li>
-        </ul>
-    </div>
-
-    <!-- Virtualization Stats -->
-    {#if debugInfo}
-        <div class="border-border bg-card mb-4 rounded-xl border p-4 shadow-sm">
-            <h3 class="text-muted-foreground mb-3 text-xs font-semibold tracking-wide uppercase">
-                Virtualization Stats
-            </h3>
-            <div class="grid grid-cols-3 gap-3 sm:grid-cols-6">
-                <div class="bg-muted/50 rounded-lg p-2.5">
-                    <div class="text-muted-foreground text-xs">Total</div>
-                    <div class="text-foreground font-mono text-lg font-semibold">
-                        {debugInfo.totalMessages}
-                    </div>
-                </div>
-                <div class="bg-brand-500/10 rounded-lg p-2.5">
-                    <div class="text-brand-500 text-xs">In DOM</div>
-                    <div class="text-brand-600 dark:text-brand-400 font-mono text-lg font-semibold">
-                        {debugInfo.renderedCount}
-                    </div>
-                </div>
-                <div class="bg-muted/50 rounded-lg p-2.5">
-                    <div class="text-muted-foreground text-xs">Measured</div>
-                    <div class="text-foreground font-mono text-lg font-semibold">
-                        {debugInfo.measuredCount}
-                    </div>
-                </div>
-                <div class="bg-muted/50 rounded-lg p-2.5">
-                    <div class="text-muted-foreground text-xs">Range</div>
-                    <div class="text-foreground font-mono text-sm font-semibold">
-                        {debugInfo.startIndex}–{debugInfo.endIndex}
-                    </div>
-                </div>
-                <div class="bg-muted/50 rounded-lg p-2.5">
-                    <div class="text-muted-foreground text-xs">Height</div>
-                    <div class="text-foreground font-mono text-sm font-semibold">
-                        {Math.round(debugInfo.totalHeight)}px
-                    </div>
-                </div>
-                <div
-                    class="rounded-lg p-2.5 {debugInfo.isFollowingBottom
-                        ? 'bg-green-500/10'
-                        : 'bg-amber-500/10'}"
-                >
-                    <div
-                        class="text-xs {debugInfo.isFollowingBottom
-                            ? 'text-green-600 dark:text-green-400'
-                            : 'text-amber-600 dark:text-amber-400'}"
-                    >
-                        Bottom
-                    </div>
-                    <div
-                        class="font-mono text-sm font-semibold {debugInfo.isFollowingBottom
-                            ? 'text-green-700 dark:text-green-300'
-                            : 'text-amber-700 dark:text-amber-300'}"
-                    >
-                        {debugInfo.isFollowingBottom ? 'Following' : 'Scrolled'}
-                    </div>
-                </div>
-            </div>
-        </div>
-    {/if}
-
-    <!-- Chat viewport -->
-    <div class="border-border bg-card overflow-hidden rounded-xl border shadow-sm">
+    <!-- ── Chat viewport ────────────────────────────────────────── -->
+    <div class="sc-viewport">
         <SvelteVirtualChat
             bind:this={chat}
             {messages}
@@ -408,44 +225,342 @@ count.update(n => n + 1)
             testId="streaming-chat"
         >
             {#snippet renderMessage(message: Message)}
-                <div
-                    class="border-border border-b px-5 py-4 {message.role === 'user'
-                        ? 'bg-brand-500/5'
-                        : ''}"
-                >
-                    <div class="mb-1.5 flex items-center gap-2">
-                        <span
-                            class="text-xs font-semibold {message.role === 'user'
-                                ? 'text-brand-600 dark:text-brand-400'
-                                : 'text-muted-foreground'}"
-                        >
-                            {message.role === 'user' ? 'You' : 'Assistant'}
+                <div class="sc-msg" class:sc-msg-user={message.role === 'user'}>
+                    <div class="sc-msg-head">
+                        <span class="sc-role" class:sc-role-user={message.role === 'user'}>
+                            {message.role === 'user' ? 'you' : 'assistant'}
                         </span>
-                        <span class="text-muted-foreground text-xs">
-                            {formatTime(message.timestamp)}
-                        </span>
+                        <span class="sc-time">{formatTime(message.timestamp)}</span>
                         {#if message.isStreaming}
-                            <span
-                                class="rounded-full bg-green-500/15 px-2 py-0.5 text-xs text-green-700 dark:text-green-300"
-                            >
-                                streaming
-                            </span>
+                            <span class="sc-streaming">● streaming</span>
                         {/if}
                     </div>
                     {#if message.role === 'assistant' && message.content}
-                        <div class="prose prose-sm dark:prose-invert max-w-none">
+                        <div class="sc-md prose prose-sm dark:prose-invert max-w-none">
                             <SvelteMarkdown
                                 source={message.content}
                                 streaming={message.isStreaming ?? false}
                             />
                         </div>
                     {:else}
-                        <div class="text-foreground text-sm leading-relaxed">
-                            {message.content}
-                        </div>
+                        <div class="sc-body">{message.content}</div>
                     {/if}
                 </div>
             {/snippet}
         </SvelteVirtualChat>
     </div>
+
+    <!-- ── Controls strip ───────────────────────────────────────── -->
+    <div class="sc-controls">
+        <div class="sc-actions">
+            <button class="sc-btn sc-btn-primary" onclick={startStreaming} disabled={isStreaming}>
+                ▸ start
+            </button>
+            <button class="sc-btn" onclick={stopStreaming} disabled={!isStreaming}>■ stop</button>
+            <button class="sc-btn" onclick={reset}>↻ reset</button>
+        </div>
+
+        <label class="sc-field">
+            <span class="sc-field-k">speed</span>
+            <input
+                type="range"
+                min="10"
+                max="100"
+                step="5"
+                bind:value={tokensPerSecond}
+                disabled={isStreaming}
+            />
+            <span class="sc-field-v">{tokensPerSecond}/s</span>
+        </label>
+    </div>
+
+    <!-- ── Footer metrics strip ─────────────────────────────────── -->
+    {#if debugInfo}
+        <div class="sc-footer">
+            <div>
+                <span class="lbl">total</span> · <span class="v">{debugInfo.totalMessages}</span>
+            </div>
+            <div>
+                <span class="lbl">in-dom</span> · <span class="v">{debugInfo.renderedCount}</span>
+            </div>
+            <div>
+                <span class="lbl">measured</span> · <span class="v">{debugInfo.measuredCount}</span>
+            </div>
+            <div>
+                <span class="lbl">range</span> ·
+                <span class="v">{debugInfo.startIndex}–{debugInfo.endIndex}</span>
+            </div>
+            <div>
+                <span class="lbl">height</span> ·
+                <span class="v">{Math.round(debugInfo.totalHeight)}px</span>
+            </div>
+            <div>
+                <span class="lbl">following</span> ·
+                <span class="v" class:accent={debugInfo.isFollowingBottom}>
+                    {debugInfo.isFollowingBottom ? 'yes' : 'no'}
+                </span>
+            </div>
+        </div>
+    {/if}
 </div>
+
+<style>
+    .sc {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        font-family: 'Inter Variable', 'Inter', system-ui, sans-serif;
+        color: var(--brut-ink, currentColor);
+        background: var(--brut-bg);
+    }
+
+    /* ── Brut bar ──────────────────────────────────────────────── */
+    .sc-bar {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        padding: 8px 14px;
+        border-bottom: 1px solid var(--brut-rule);
+        font-family: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
+        font-size: 11px;
+        color: var(--brut-ink-3);
+        flex-wrap: wrap;
+    }
+    .sc-bar .lbl {
+        color: var(--brut-ink-3);
+    }
+    .sc-bar .v {
+        color: var(--brut-ink);
+        font-variant-numeric: tabular-nums;
+    }
+    .sc-bar .live {
+        margin-left: auto;
+        color: var(--brut-accent);
+        letter-spacing: 0.1em;
+        font-weight: 600;
+    }
+
+    /* ── Progress rail ─────────────────────────────────────────── */
+    .sc-progress {
+        height: 2px;
+        width: 100%;
+        background: var(--brut-bg-2);
+        border-bottom: 1px solid var(--brut-rule);
+    }
+    .sc-progress-fill {
+        height: 100%;
+        background: var(--brut-accent);
+        transition: width 0.15s linear;
+    }
+
+    /* ── Chat viewport ─────────────────────────────────────────── */
+    .sc-viewport {
+        border-bottom: 1px solid var(--brut-rule);
+        background: var(--brut-bg);
+    }
+
+    /* ── Message rows (rendered inside the snippet) ────────────── */
+    .sc-msg {
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--brut-rule);
+        background: var(--brut-bg);
+    }
+    .sc-msg-user {
+        background: var(--brut-accent-soft);
+    }
+    .sc-msg-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 6px;
+        font-family: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
+        font-size: 10px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+    .sc-role {
+        font-weight: 600;
+        color: var(--brut-ink-3);
+    }
+    .sc-role-user {
+        color: var(--brut-accent);
+    }
+    .sc-time {
+        color: var(--brut-ink-3);
+        text-transform: none;
+        letter-spacing: 0.02em;
+    }
+    .sc-streaming {
+        color: var(--brut-accent);
+        letter-spacing: 0.08em;
+        animation: sc-pulse 1.2s ease-in-out infinite;
+    }
+    @keyframes sc-pulse {
+        0%,
+        100% {
+            opacity: 1;
+        }
+        50% {
+            opacity: 0.35;
+        }
+    }
+    .sc-body {
+        font-size: 13px;
+        line-height: 1.6;
+        color: var(--brut-ink-2);
+    }
+
+    /* ── Markdown output (streamed assistant messages) ─────────── */
+    .sc-md {
+        font-size: 13px;
+        line-height: 1.65;
+        color: var(--brut-ink-2);
+    }
+    .sc-md :global(h1),
+    .sc-md :global(h2),
+    .sc-md :global(h3),
+    .sc-md :global(h4) {
+        color: var(--brut-ink);
+        letter-spacing: -0.02em;
+    }
+    .sc-md :global(:not(pre) > code) {
+        background: var(--brut-bg-2);
+        border: 1px solid var(--brut-rule);
+        padding: 0 4px;
+        font-family: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
+        font-size: 12px;
+    }
+    .sc-md :global(pre) {
+        margin: 12px 0;
+        padding: 12px 14px;
+        border: 1px solid var(--brut-rule);
+        background: var(--brut-bg-2);
+        overflow-x: auto;
+        font-family: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
+        font-size: 12px;
+        line-height: 1.65;
+        color: var(--brut-ink);
+        border-radius: 0;
+    }
+    .sc-md :global(pre code) {
+        background: transparent;
+        border: 0;
+        padding: 0;
+    }
+    .sc-md :global(blockquote) {
+        border-left: 2px solid var(--brut-accent);
+        padding-left: 12px;
+        font-style: italic;
+        color: var(--brut-ink-2);
+    }
+    .sc-md :global(table) {
+        border-collapse: collapse;
+        font-size: 12px;
+    }
+    .sc-md :global(th),
+    .sc-md :global(td) {
+        border: 1px solid var(--brut-rule);
+        padding: 4px 8px;
+    }
+
+    /* ── Controls strip ────────────────────────────────────────── */
+    .sc-controls {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        flex-wrap: wrap;
+        padding: 14px;
+        border-bottom: 1px solid var(--brut-rule);
+        background: var(--brut-bg);
+    }
+    .sc-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    .sc-btn {
+        appearance: none;
+        background: var(--brut-bg);
+        color: var(--brut-ink-2);
+        border: 1px solid var(--brut-rule);
+        padding: 7px 14px;
+        font-family: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
+        font-size: 11px;
+        letter-spacing: 0.06em;
+        text-transform: lowercase;
+        cursor: pointer;
+        transition:
+            color 0.15s,
+            border-color 0.15s,
+            background 0.15s;
+    }
+    .sc-btn:hover:not(:disabled) {
+        color: var(--brut-accent);
+        border-color: var(--brut-accent);
+    }
+    .sc-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+    .sc-btn-primary {
+        background: var(--brut-accent);
+        color: var(--brut-accent-ink);
+        border-color: var(--brut-accent);
+        font-weight: 600;
+    }
+    .sc-btn-primary:hover:not(:disabled) {
+        background: var(--brut-accent-hover);
+        border-color: var(--brut-accent-hover);
+        color: var(--brut-accent-ink);
+    }
+    .sc-field {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-left: auto;
+        font-family: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
+        font-size: 11px;
+        color: var(--brut-ink-2);
+    }
+    .sc-field-k {
+        color: var(--brut-ink-3);
+        letter-spacing: 0.06em;
+    }
+    .sc-field input[type='range'] {
+        width: 140px;
+        accent-color: var(--brut-accent);
+    }
+    .sc-field-v {
+        color: var(--brut-ink);
+        font-variant-numeric: tabular-nums;
+        min-width: 44px;
+        text-align: right;
+    }
+
+    /* ── Footer metrics strip ──────────────────────────────────── */
+    .sc-footer {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 18px;
+        padding: 8px 14px;
+        font-family: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
+        font-size: 11px;
+        color: var(--brut-ink-3);
+    }
+    .sc-footer .lbl {
+        color: var(--brut-ink-3);
+    }
+    .sc-footer .v {
+        color: var(--brut-ink);
+        font-variant-numeric: tabular-nums;
+    }
+    .sc-footer .v.accent {
+        color: var(--brut-accent);
+    }
+
+    @media (max-width: 640px) {
+        .sc-field {
+            margin-left: 0;
+        }
+    }
+</style>

@@ -4,6 +4,8 @@
     import favicon from '$lib/assets/logo.svg'
     import { buildBreadcrumbs, headerNav } from '$lib/docsNav'
     import rootPkg from '../../../../package.json'
+    import '@fontsource-variable/inter/index.css'
+    import '@fontsource-variable/jetbrains-mono/index.css'
 
     const { children } = $props()
     const PKG_VERSION = rootPkg.version

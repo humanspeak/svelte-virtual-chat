@@ -145,13 +145,6 @@ CSS class for the scrollable viewport element. Typically set to `"h-full"`.
 
 Accessible label for the scrollable viewport region. Set this when a page has more than one chat or needs a more specific region name.
 
-### `debug`
-
-- **Type:** `boolean`
-- **Default:** `false`
-
-Accepted by the component type but currently unused. Included for forward compatibility — future versions may use this to enable built-in debug overlays or verbose logging.
-
 ### `testId`
 
 - **Type:** `string`

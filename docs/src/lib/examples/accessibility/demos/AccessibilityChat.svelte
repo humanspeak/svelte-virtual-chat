@@ -32,11 +32,20 @@
         if (!SCROLL_KEYS.has(event.key)) return
         lastKey = event.key === ' ' ? (event.shiftKey ? 'Shift+Space' : 'Space') : event.key
     }
+
+    const KEY_REFERENCE: Array<[string, string]> = [
+        ['↑ / ↓', 'one line'],
+        ['PageUp / PageDn', 'one page'],
+        ['Space / ⇧Space', 'one page'],
+        ['Home', 'oldest · unfollow'],
+        ['End', 'newest · re-follow']
+    ]
 </script>
 
-<div class="flex w-full grow flex-col gap-4 md:flex-row">
+<div class="ak">
+    <!-- ── Chat surface (keyboard-focusable) ────────────────────── -->
     <div
-        class="border-border h-[340px] flex-1 rounded border"
+        class="ak-surface"
         onkeydowncapture={describeKey}
         onfocusin={() => (focused = true)}
         onfocusout={() => (focused = false)}
@@ -50,63 +59,161 @@
             viewportClass="h-full"
         >
             {#snippet renderMessage(message)}
-                <div class="px-3 py-1.5">
-                    <div
-                        class="max-w-[85%] rounded-xl px-3 py-2 text-xs {message.role === 'user'
-                            ? 'bg-brand-500/10 ml-auto'
-                            : 'bg-muted'}"
-                    >
-                        {message.content}
-                    </div>
+                <div class="ak-msg" data-role={message.role}>
+                    <span class="ak-bubble">{message.content}</span>
                 </div>
             {/snippet}
         </SvelteVirtualChat>
     </div>
-    <div class="border-border bg-muted/50 flex-1 rounded border p-4">
-        <h3 class="mb-3 text-sm font-medium">Try it with your keyboard</h3>
-        <p class="text-muted-foreground mb-3 text-xs">
-            Press <kbd class="rounded border px-1">Tab</kbd> until the conversation has a focus
-            ring, then use the scroll keys. Watch <em>Following bottom</em> as you press
-            <kbd class="rounded border px-1">PageUp</kbd> and then
-            <kbd class="rounded border px-1">End</kbd>.
-        </p>
-        <div class="space-y-2 text-xs">
-            <div class="flex justify-between">
-                <span class="text-muted-foreground">Conversation focused:</span>
-                <span class="font-mono">{focused ? 'yes' : 'no'}</span>
+
+    <!-- ── Spec panel (readout + key reference) ─────────────────── -->
+    <div class="ak-panel">
+        <div class="ak-label">keyboard · readout</div>
+        <div class="ak-hint">tab to focus, then scroll keys — watch <b>following</b></div>
+
+        <dl class="ak-rows">
+            <div>
+                <dt>focused</dt>
+                <dd class:on={focused}>{focused ? 'yes' : 'no'}</dd>
             </div>
-            <div class="flex justify-between">
-                <span class="text-muted-foreground">Last scroll key:</span>
-                <span class="font-mono">{lastKey ?? '—'}</span>
+            <div>
+                <dt>last key</dt>
+                <dd>{lastKey ?? '—'}</dd>
             </div>
-            <div class="flex justify-between">
-                <span class="text-muted-foreground">Following bottom:</span>
-                <span class="font-mono">{following ? 'yes' : 'no'}</span>
+            <div>
+                <dt>following</dt>
+                <dd class:on={following}>{following ? 'yes' : 'no'}</dd>
             </div>
-        </div>
-        <table class="mt-4 w-full text-xs">
-            <tbody>
-                <tr>
-                    <td class="text-muted-foreground py-1">↑ / ↓</td>
-                    <td class="text-right">one line</td>
-                </tr>
-                <tr>
-                    <td class="text-muted-foreground py-1">PageUp / PageDown</td>
-                    <td class="text-right">one page</td>
-                </tr>
-                <tr>
-                    <td class="text-muted-foreground py-1">Space / Shift+Space</td>
-                    <td class="text-right">one page</td>
-                </tr>
-                <tr>
-                    <td class="text-muted-foreground py-1">Home</td>
-                    <td class="text-right">oldest message, unfollow</td>
-                </tr>
-                <tr>
-                    <td class="text-muted-foreground py-1">End</td>
-                    <td class="text-right">newest message, re-follow</td>
-                </tr>
-            </tbody>
-        </table>
+        </dl>
+
+        <div class="ak-label">key · action</div>
+        <dl class="ak-rows">
+            {#each KEY_REFERENCE as [key, action] (key)}
+                <div>
+                    <dt>{key}</dt>
+                    <dd class="muted">{action}</dd>
+                </div>
+            {/each}
+        </dl>
     </div>
 </div>
+
+<style>
+    .ak {
+        display: flex;
+        width: 100%;
+        gap: 1px;
+        background: var(--brut-rule);
+        border: 1px solid var(--brut-rule);
+        font-family: 'Inter Variable', 'Inter', system-ui, sans-serif;
+        color: var(--brut-ink, currentColor);
+        flex-direction: column;
+    }
+    @media (min-width: 768px) {
+        .ak {
+            flex-direction: row;
+        }
+    }
+
+    /* ── Chat surface ───────────────────────────────────────────── */
+    .ak-surface {
+        flex: 1;
+        min-width: 0;
+        height: 340px;
+        background: var(--brut-bg);
+        transition: box-shadow 0.15s;
+    }
+    /* Clearly visible keyboard focus — the whole point of this demo. */
+    .ak-surface:focus-within {
+        box-shadow: inset 0 0 0 2px var(--brut-accent);
+    }
+    .ak-surface :global(:focus-visible) {
+        outline: 2px solid var(--brut-accent);
+        outline-offset: -2px;
+    }
+
+    .ak-msg {
+        display: flex;
+        padding: 4px 12px;
+    }
+    .ak-msg[data-role='user'] {
+        justify-content: flex-end;
+    }
+    .ak-bubble {
+        max-width: 85%;
+        padding: 7px 10px;
+        border: 1px solid var(--brut-rule);
+        font-size: 12px;
+        line-height: 1.5;
+        color: var(--brut-ink);
+        background: var(--brut-bg-2);
+    }
+    .ak-msg[data-role='user'] .ak-bubble {
+        border-color: var(--brut-accent);
+        background: var(--brut-accent-soft);
+    }
+
+    /* ── Spec panel ─────────────────────────────────────────────── */
+    .ak-panel {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 14px 16px;
+        background: var(--brut-bg);
+        font-family: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
+    }
+    .ak-label {
+        font-size: 10px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--brut-ink-3);
+    }
+    .ak-label:not(:first-child) {
+        margin-top: 8px;
+    }
+    .ak-hint {
+        font-size: 11px;
+        line-height: 1.5;
+        color: var(--brut-ink-2);
+    }
+    .ak-hint b {
+        color: var(--brut-accent);
+        font-weight: 600;
+    }
+    .ak-rows {
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+    }
+    .ak-rows div {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 5px 0;
+        border-bottom: 1px dashed var(--brut-rule);
+    }
+    .ak-rows div:last-child {
+        border-bottom: 0;
+    }
+    .ak-rows dt {
+        font-size: 11.5px;
+        color: var(--brut-ink-2);
+    }
+    .ak-rows dd {
+        margin: 0;
+        font-size: 11.5px;
+        color: var(--brut-ink);
+        font-variant-numeric: tabular-nums;
+        text-align: right;
+    }
+    .ak-rows dd.on {
+        color: var(--brut-accent);
+        font-weight: 600;
+    }
+    .ak-rows dd.muted {
+        color: var(--brut-ink-3);
+    }
+</style>
