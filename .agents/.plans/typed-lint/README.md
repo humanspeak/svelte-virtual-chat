@@ -13,12 +13,20 @@ exactly-once-awaited fixtures.
 
 ## Execution order & status
 
-| Plan | Title                                                                         | Priority | Effort | Depends on           | Status |
-| ---- | ----------------------------------------------------------------------------- | -------- | ------ | -------------------- | ------ |
-| 001  | Lint the unit-test files and enable type-aware lint rules (floating promises) | P2       | M      | — (see precondition) | DONE   |
+| Plan | Title                                                                         | Priority | Effort | Depends on           | Status      |
+| ---- | ----------------------------------------------------------------------------- | -------- | ------ | -------------------- | ----------- |
+| 001  | Lint the unit-test files and enable type-aware lint rules (floating promises) | P2       | M      | — (see precondition) | IN PROGRESS |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) |
 REJECTED (with one-line rationale)
+
+> 001 was marked `DONE` by the executor but did not clear `guard final`
+> (NO-PASS at `4da326c`). The config work is sound and every gate is green;
+> what remains is the executor report the done criteria require, rationale
+> comments on the three `void` marks, and resolving the
+> `margin-bubbles`/`estimate-miss` inconsistency. Plan amended 2026-07-09 to
+> remove an incorrect claim about Svelte event handlers. See
+> `001-lint-unit-tests-and-typed-lint.guard-report.md`.
 
 ## Dependency notes
 

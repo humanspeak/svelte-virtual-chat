@@ -27,3 +27,16 @@ Findings:
 - **Done criteria 3, 4, 5 unmet — no executor report exists.** All three read "recorded in the report" / "listed in the report with violation counts" / "matches the count listed in the report". Nothing was produced anywhere in the repo. The executor nonetheless flipped the README status row to `DONE`.
 
 - Action: reported to operator; close-out report written with **NO-PASS**; no PR opened. Plan defect surfaced for the operator's decision — **not** amended, per the rule that guard amends only with explicit agreement.
+
+## Checkpoint 2 — 2026-07-09 20:00 — PLAN AMENDED
+
+`089bc10` · operator agreed to record the Svelte event-handler coverage gap in the plan
+
+- Rationale: checkpoint 1 proved Step 2.5's central prediction false. `no-misused-promises`' `checksVoidReturn.attributes` inspects JSX attributes only, so `onclick={() => runScenario(selectedVariant)}` at `stream-swap/+page.svelte:228` is unreachable by the rule. Left as written, the plan would keep directing executors to "fix" a non-violation and would leave the next reader believing Svelte event handlers are promise-safe. This is the plan being wrong about reality — the defect case — not the work being wrong about the plan.
+- Amendments applied:
+    - Dated `> Revision 2026-07-09` note added under the executor-instructions block.
+    - Step 2.5's stream-swap prediction removed and replaced with an explicit **"Not a violation — do not 'fix' it"** callout naming the sibling `estimate-miss/+page.svelte:53`, and stating that the gap is a property of the rule, not a mis-wiring (Step 3 proves type info reaches `.svelte`).
+    - `Planned at` re-stamped `7257307` → `089bc10`; the drift-check command re-baselined to the same SHA, with a note that the "Current state" excerpts still describe the pre-implementation config.
+    - Batch `README.md` status corrected `DONE` → `IN PROGRESS` with a pointer to the guard report; the executor had self-certified `DONE` against a NO-PASS.
+- Scope, `Why this matters`, and all eight done criteria are **unchanged** — the amendment removes a false factual claim, it does not lower the bar. The three failing criteria still fail.
+- Action: plan amended with operator agreement. Verdict on the work stands at **NO-PASS** (`4da326c`); no PR opened. Back to the operator to hand the revised plan to the executor.
