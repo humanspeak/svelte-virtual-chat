@@ -1,5 +1,5 @@
 <script lang="ts" generics="TMessage">
-    import { untrack } from 'svelte'
+    import { tick, untrack } from 'svelte'
     import type { SvelteVirtualChatProps, SvelteVirtualChatDebugInfo } from './types.js'
     import {
         ChatHeightCache,
@@ -96,6 +96,11 @@
     let lastMessageCountDecreaseAt = Number.NEGATIVE_INFINITY
     let nextMessageIdentityToken = 1
     let pendingAnchor: VisualAnchor | null = null
+    // Message ids as of the last `$effect.pre` run — the reference used to
+    // detect an older-history prepend (old ids reappearing shifted). Plain,
+    // not reactive: only read/written inside the pre-effect.
+    let prependPrevIds: string[] = []
+    let pendingPrependAnchor: VisualAnchor | null = null
     let pendingProgressPreservation = false
     let scrollMutationObserver: MutationObserver | null = null
     let tailRemovalReserve = $state(0)
@@ -455,6 +460,69 @@
         scheduleAnchorRestore(anchor)
     }
 
+    /**
+     * Capture the reading anchor for a history prepend straight from the DOM.
+     *
+     * Runs in `$effect.pre`, before the prepended messages are rendered, so
+     * the still-painted layout is the pre-change one. A DOM read (topmost
+     * still-visible message + its viewport-relative top) is used instead of
+     * `captureCurrentVisualAnchor` because the derived offsets have already
+     * been invalidated by the new `messages` prop at this point — reading them
+     * would sync the height cache to the *new* array and yield a prepended
+     * message as the anchor (the very teleport we are preventing). The DOM,
+     * by contrast, is authoritatively pre-paint here.
+     */
+    const capturePrependAnchorFromDom = (): VisualAnchor | null => {
+        if (!viewportEl || !itemsEl) return null
+        const viewportTop = viewportEl.getBoundingClientRect().top
+        for (const child of itemsEl.querySelectorAll<HTMLElement>('[data-message-id]')) {
+            const rect = child.getBoundingClientRect()
+            // First message whose box still overlaps the viewport top — the
+            // one the user is reading against.
+            if (rect.bottom <= viewportTop + 1) continue
+            const messageId = child.dataset.messageId
+            if (!messageId) continue
+            return { messageId, offsetFromViewportTop: rect.top - viewportTop }
+        }
+        return null
+    }
+
+    /**
+     * Restore the reading position after a history prepend, once the taller
+     * content exists in the DOM (deferred to `tick()` — writing scrollTop
+     * before the spacer grows would clamp to the old, shorter scrollHeight).
+     *
+     * Unlike `restoreAnchorPrePaint`, this is NOT gated on
+     * `canPreserveAnchor()`: a prepend can arrive via `onNeedHistory` *during*
+     * an active upward scroll, when `isUserScrollPreservationActive()` is true.
+     * The scroll-progress preserver only preserves normalized progress through
+     * growth *below* the viewport, so it is a no-op for growth *above* — it
+     * cannot pin the reading message across a prepend, and would otherwise drag
+     * scrollTop back toward its stale ratio. We restore the anchor and then
+     * feed the preserver its new baseline via the public `commitAdjustment`, so
+     * the two cooperate without reaching into its internals.
+     */
+    const restorePrependAnchor = () => {
+        const anchor = pendingPrependAnchor
+        pendingPrependAnchor = null
+        if (!anchor || !viewportEl || isFollowingBottom) return
+
+        layoutPreservation.begin()
+        restoreCurrentVisualAnchor(anchor)
+
+        const now = performance.now()
+        if (scrollProgressPreserver.isActive(now)) {
+            const geometry = captureViewportGeometry()
+            if (geometry) scrollProgressPreserver.commitAdjustment(geometry, now)
+        }
+
+        // Settle net for late re-measurement of the anchored/neighbour items
+        // (mirrors the ResizeObserver path). Gated on canPreserveAnchor by
+        // design — once idle it re-asserts; mid-scroll it defers to the
+        // preserver baseline committed above.
+        scheduleAnchorRestore(anchor)
+    }
+
     const restoreScrollProgressIfNeeded = (now: number): ScrollGeometry | null => {
         if (!viewportEl) return null
 
@@ -705,6 +773,33 @@
         if (tailSwap.reserveHeight > 0) {
             tailRemovalReserve = tailSwap.reserveHeight
             scheduleTailRemovalReserveClear()
+        }
+
+        // ── History-prepend anchor preservation ─────────────────────
+        // Detect an older-history prepend: every old id reappears shifted by
+        // `newN - oldN`, endpoints sampled (mirrors ChatHeightCache.sync's
+        // prepend fast path, without coupling to its private ordering). When
+        // one lands while the user is scrolled away, pin the reading message
+        // across it. We are pre-DOM-update here, so the anchor is captured
+        // against the old layout; the restore is deferred to `tick()` so the
+        // corrected scrollTop is written only after the taller content exists.
+        const oldIds = prependPrevIds
+        const oldN = oldIds.length
+        const newN = currentIds.length
+        const isPrepend =
+            oldN > 0 &&
+            newN > oldN &&
+            currentIds[newN - oldN] === oldIds[0] &&
+            currentIds[newN - 1] === oldIds[oldN - 1]
+        prependPrevIds = currentIds
+
+        if (isPrepend && !isFollowingBottom && viewportEl && pendingPrependAnchor === null) {
+            const anchor = capturePrependAnchorFromDom()
+            if (anchor) {
+                pendingPrependAnchor = anchor
+                layoutPreservation.begin()
+                void tick().then(restorePrependAnchor)
+            }
         }
     })
 
