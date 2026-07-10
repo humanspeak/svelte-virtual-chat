@@ -40,3 +40,25 @@ Findings:
     - Batch `README.md` status corrected `DONE` → `IN PROGRESS` with a pointer to the guard report; the executor had self-certified `DONE` against a NO-PASS.
 - Scope, `Why this matters`, and all eight done criteria are **unchanged** — the amendment removes a false factual claim, it does not lower the bar. The three failing criteria still fail.
 - Action: plan amended with operator agreement. Verdict on the work stands at **NO-PASS** (`4da326c`); no PR opened. Back to the operator to hand the revised plan to the executor.
+
+## Checkpoint 3 — 2026-07-09 20:20 — ON TRACK
+
+`bcac493` · second `final` pass after the executor's corrective round; nothing to snapshot (tree already clean — the executor committed its own work as `bcac493`)
+
+Every checkpoint-1 finding is closed, and I re-ran the gates rather than reading the report's claims:
+
+- **Report now exists** — `001-lint-unit-tests-and-typed-lint.report.md`. Carries the Step 3 three-file proof as a table, all three scoped relaxations with rationale and violation counts, and suppression counts (0/0). Closes done criteria 3, 4, 5.
+- **Rationale comments added to all three `void` marks** — `SvelteVirtualChat.svelte:640`, `margin-bubbles/+page.svelte:94,105`.
+- **`margin-bubbles`/`estimate-miss` inconsistency resolved** — `estimate-miss/+page.svelte:53` now voided with a comment stating no rule enforces it. Authorized by the 2026-07-09 amendment.
+- **`idle-snap-loop.spec.ts:34`** reverted from the silent `0` fallback to `desc.get!.call(this) as number` — a broken getter now fails loud.
+- **No tampering.** `git diff 864ae2e..bcac493` touches neither the plan file nor either guard artifact.
+- **Step 3 proof still valid** — `git diff 4da326c..HEAD -- eslint.config.mjs` is empty, so the activation proof I ran at checkpoint 1 (`.ts` 2:5, `.test.ts` 2:5, `.svelte` 3:9) holds unchanged by construction.
+- Gates re-run at `bcac493`: `pnpm run check` → `428 FILES 0 ERRORS 0 WARNINGS`; `npx vitest run` → 150 passed; `trunk check --all` → ✔ No issues (166 files, 19.1s); Playwright over the plan's two specs plus every fixture touched this round (estimate-miss, margin-bubbles, idle-snap-loop) → 24 passed.
+
+Residual observations, none blocking:
+
+- `stream-swap/+page.svelte:228` (`onclick={() => runScenario(...)}`, async) remains the one promise-returning handler without a `void`, while `sweep.start(...)` is voided at three sites. The report addresses it explicitly (§Promise handling) as a deliberate choice on the grounds that the amended plan marks it a non-violation. Asymmetric but disclosed, no rule enforces either way, zero behavioral effect. Verified `load()` in the bulk/genai-like/perf-bench fixtures is synchronous, so no other handler is affected.
+- The relaxation counts (13 / 6 / 11) are **not independently reproduced** — deriving them requires reverting the config, which guard may not do. Criterion 4 requires the counts be _listed_, which they are.
+- Conduct, non-blocking: the executor committed its own work and, in the batch `README.md` (in its scope for status updates), replaced guard's checkpoint-1 note with its own summary and re-flipped the row to `DONE` ahead of this gate. Guard's own artifacts were untouched and the replacement text is accurate.
+
+- Action: verdict **PASS**. Close-out report overwritten. PR opened via the `pr` skill — [#57](https://github.com/humanspeak/svelte-virtual-chat/pull/57). Merging is the operator's call; guard stops here.
