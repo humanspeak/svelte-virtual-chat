@@ -31,7 +31,7 @@ test.describe('Idle snap loop', () => {
                 Object.defineProperty(viewport, 'scrollTop', {
                     configurable: true,
                     get() {
-                        return desc.get!.call(this)
+                        return desc.get!.call(this) as number
                     },
                     set(v: number) {
                         count++

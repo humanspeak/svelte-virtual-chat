@@ -192,7 +192,7 @@ export class ChatHeightCache {
         // and bounded: the alternative (falling through to rebuild) is also
         // O(n), so checking is never slower than rebuilding.
         if (newN === oldN) {
-            const newIds: string[] = new Array(newN)
+            const newIds = Array<string>(newN)
             const changedIndexes: number[] = []
             let allMatch = true
             for (let i = 0; i < newN; i++) {
@@ -272,7 +272,7 @@ export class ChatHeightCache {
 
     #rebuildOrdering<T>(messages: readonly T[], getMessageId: (_message: T) => string): void {
         const n = messages.length
-        const ids: string[] = new Array(n)
+        const ids = Array<string>(n)
         const idx: Record<string, number> = Object.create(null) as Record<string, number>
         for (let i = 0; i < n; i++) {
             const id = getMessageId(messages[i])
@@ -281,7 +281,7 @@ export class ChatHeightCache {
         }
         this.#orderedIds = ids
         this.#idToIndex = idx
-        this.#prefixSum = new Array(n + 1)
+        this.#prefixSum = Array<number>(n + 1)
         this.#prefixSum[0] = 0
     }
 

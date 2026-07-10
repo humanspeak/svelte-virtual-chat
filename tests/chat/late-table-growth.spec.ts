@@ -14,7 +14,7 @@ test.describe('Late table growth', () => {
         await rafWait(page, 3)
         await page.waitForFunction(
             (selector) => {
-                const viewport = document.querySelector(selector) as HTMLElement | null
+                const viewport = document.querySelector(selector)
                 if (!viewport) return false
 
                 const snapshot = {

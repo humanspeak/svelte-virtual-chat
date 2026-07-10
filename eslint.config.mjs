@@ -26,12 +26,11 @@ export default [
             '**/pnpm-lock.yaml',
             '**/package-lock.json',
             '**/yarn.lock',
-            '**/dist',
-            '**/*.test.ts'
+            '**/dist'
         ]
     },
     js.configs.recommended,
-    ...ts.configs.recommended,
+    ...ts.configs.recommendedTypeChecked,
     ...svelte.configs['flat/recommended'],
     prettier,
     ...svelte.configs['flat/prettier'],
@@ -42,7 +41,10 @@ export default [
                 ...globals.node
             },
             parserOptions: {
-                tsconfigRootDir
+                tsconfigRootDir,
+                projectService: {
+                    allowDefaultProject: ['*.ts', '*.mjs']
+                }
             }
         },
         rules: {
@@ -96,12 +98,38 @@ export default [
         files: ['**/*.svelte', '**/*.svelte.ts'],
         languageOptions: {
             parserOptions: {
-                parser: ts.parser
+                parser: ts.parser,
+                projectService: true,
+                extraFileExtensions: ['.svelte']
             }
         },
         rules: {
             'prefer-const': ['off'],
             'svelte/no-navigation-without-resolve': ['off']
+        }
+    },
+    {
+        files: ['*.mjs', '*.config.js', '*.config.ts', 'vitest.setup.ts', 'scripts/**/*.mjs'],
+        ...ts.configs.disableTypeChecked,
+        languageOptions: {
+            parserOptions: {
+                projectService: false
+            }
+        }
+    },
+    {
+        files: ['docs/**/*'],
+        ...ts.configs.disableTypeChecked,
+        languageOptions: {
+            parserOptions: {
+                projectService: false
+            }
+        }
+    },
+    {
+        files: ['**/*.test.ts', 'tests/**/*.spec.ts'],
+        rules: {
+            '@typescript-eslint/no-non-null-assertion': 'off'
         }
     }
 ]

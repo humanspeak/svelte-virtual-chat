@@ -32,10 +32,12 @@ async function recordGrowth(
 ): Promise<FollowFrame[]> {
     return page.evaluate(
         ([viewportSel, triggerSel, frameCount]) => {
-            const viewport = document.querySelector(viewportSel as string) as HTMLElement | null
-            const trigger = document.querySelector(triggerSel as string) as HTMLElement | null
+            const viewport = document.querySelector(viewportSel)
+            const trigger = document.querySelector(triggerSel)
             if (!viewport) throw new Error(`Missing viewport ${viewportSel}`)
             if (!trigger) throw new Error(`Missing trigger ${triggerSel}`)
+            if (!(trigger instanceof HTMLElement))
+                throw new Error(`Trigger is not clickable ${triggerSel}`)
 
             const read = (): FollowFrame => {
                 const maxScroll = viewport.scrollHeight - viewport.clientHeight
@@ -56,7 +58,7 @@ async function recordGrowth(
                 const loop = () => {
                     samples.push(read())
                     n += 1
-                    if (n < (frameCount as number)) {
+                    if (n < frameCount) {
                         requestAnimationFrame(loop)
                     } else {
                         resolve(samples)

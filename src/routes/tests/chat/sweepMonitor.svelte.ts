@@ -73,7 +73,7 @@ export class SweepMonitor {
         this.maxJumpPx = 0
         this.totalJumpPx = 0
 
-        const viewport = document.querySelector(this.#viewportSelector) as HTMLElement | null
+        const viewport = document.querySelector(this.#viewportSelector)
         if (!viewport) {
             this.state = 'idle'
             return

@@ -169,7 +169,7 @@ async function setupAtBottom(page: Page) {
     if (!box) throw new Error(`Missing viewport ${VIEWPORT}`)
 
     const didScrollToBottom = await page.evaluate((selector) => {
-        const el = document.querySelector(selector) as HTMLElement | null
+        const el = document.querySelector(selector)
         if (!el) return false
         el.scrollTop = el.scrollHeight
         return true
@@ -202,7 +202,7 @@ async function setupKeyboardAtBottom(page: Page) {
     await expect(viewport).toBeFocused()
 
     const didScrollToBottom = await page.evaluate((selector) => {
-        const el = document.querySelector(selector) as HTMLElement | null
+        const el = document.querySelector(selector)
         if (!el) return false
         el.scrollTop = el.scrollHeight
         return true
@@ -224,7 +224,7 @@ async function setupKeyboardAtProgress(page: Page, progress: number) {
 
     const didScrollToProgress = await page.evaluate(
         ({ selector, progress }) => {
-            const el = document.querySelector(selector) as HTMLElement | null
+            const el = document.querySelector(selector)
             if (!el) return false
             el.scrollTop = (el.scrollHeight - el.clientHeight) * progress
             return true
@@ -270,7 +270,7 @@ async function pressKeyAndCaptureFinalSample(page: Page, key: string) {
 async function waitForKeyboardBottom(page: Page) {
     await page.waitForFunction(
         ([viewportSelector, statsSelector, threshold]) => {
-            const viewport = document.querySelector(viewportSelector) as HTMLElement | null
+            const viewport = document.querySelector(viewportSelector)
             const stats = document.querySelector(statsSelector)?.textContent ?? ''
             if (!viewport) return false
 
@@ -306,7 +306,7 @@ test.describe('Wheel scroll jump', () => {
         if (!box) throw new Error(`Missing viewport ${VIEWPORT}`)
 
         const didScrollToTop = await page.evaluate((selector) => {
-            const el = document.querySelector(selector) as HTMLElement | null
+            const el = document.querySelector(selector)
             if (!el) return false
             el.scrollTop = 0
             return true

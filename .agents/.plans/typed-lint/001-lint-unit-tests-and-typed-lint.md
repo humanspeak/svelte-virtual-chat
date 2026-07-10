@@ -8,12 +8,13 @@
 > (`.agents/.plans/typed-lint/README.md`).
 >
 > **Drift check (run first)**:
-> `git diff --stat 7257307..HEAD -- eslint.config.mjs package.json`
-> If either file changed since this plan was written, compare the
+> `git diff --stat 089bc10..HEAD -- eslint.config.mjs package.json`
+> If either file changed since this plan was last revised, compare the
 > "Current state" excerpts against the live code before proceeding; on a
-> mismatch, treat it as a STOP condition. (The SHA sits on the
-> `fix/overflow-anchor-follow-bottom` branch; if it is not an ancestor of your
-> HEAD, fall back to comparing the excerpts textually — they are authoritative.)
+> mismatch, treat it as a STOP condition. (If the SHA is not an ancestor of
+> your HEAD, fall back to comparing the excerpts textually — they are
+> authoritative. Note the "Current state" excerpts below still describe the
+> pre-implementation config, recorded at `7257307`.)
 >
 > **Precondition**: confirm the `fix/overflow-anchor-follow-bottom` branch
 > (batch `stream-swap-follow`, plan 002) has merged to `main`, or is abandoned,
@@ -22,6 +23,18 @@
 > `src/lib/SvelteVirtualChat.svelte`, and the stream-swap fixture — files this
 > plan will surface lint fixes in. Running both concurrently produces
 > conflicting edits to the same lines. If it is still open and active, STOP.
+>
+> **Revision 2026-07-09**: Step 2.5's prediction that
+> `stream-swap/+page.svelte`'s `onclick={() => runScenario(...)}` would trip
+> `no-misused-promises` was **wrong** and has been removed. Verified against
+> the live config: `checksVoidReturn.attributes` inspects JSX attributes only,
+> so a promise-returning Svelte event handler is invisible to typescript-eslint.
+> A scratch `.svelte` reproducing that line reports ✔ No issues while a bare
+> `Promise.resolve()` statement in the same file fires `no-floating-promises`.
+> Typed linting is correctly wired in all three parser paths; the coverage gap
+> is real and is a property of the rule, not the config. `Planned at` re-stamped
+> so the drift check re-baselines. See
+> `001-lint-unit-tests-and-typed-lint.guard-report.md`.
 
 ## Status
 
@@ -32,7 +45,8 @@
 - **Depends on**: none within this batch (see Precondition above for the
   cross-batch ordering constraint)
 - **Category**: dx
-- **Planned at**: commit `7257307`, 2026-07-09
+- **Planned at**: commit `089bc10`, 2026-07-09 (re-stamped on the 2026-07-09
+  revision; originally `7257307`)
 
 ## Why this matters
 
@@ -299,17 +313,25 @@ In `eslint.config.mjs`:
    the rabbit hole).
 
 5. Triage surfaced violations. Known-likely hits from planning recon (verify,
-   don't assume): - `src/routes/tests/chat/stream-swap/+page.svelte` — `onclick={() =>
-runScenario(selectedVariant)}` returns a promise into a void handler
-   (`no-misused-promises` with `checksVoidReturn.attributes`). The idiomatic
-   minimal fix is `onclick={() => { void runScenario(selectedVariant) }}`.
-   If this pattern recurs across many fixtures, relaxing
-   `checksVoidReturn: { attributes: false }` for `**/*.svelte` only is an
-   accepted, documented alternative (rationale: Svelte event attributes are
-   fire-and-forget by design) — choose one approach, apply consistently. - Playwright specs — any unawaited `expect(...)` /`expect.poll` chains.
-   Fix with `await`. - Fire-and-forget monitors in fixtures (`monitorPaintedBottomGap`-style) —
-   these are deliberately concurrent; where one is intentionally not awaited
-   at call site, `void` it with a one-line rationale.
+   don't assume):
+
+    - Playwright specs — any unawaited `expect(...)` / `expect.poll` chains.
+      Fix with `await`.
+    - Fire-and-forget monitors in fixtures (`monitorPaintedBottomGap`-style) —
+      these are deliberately concurrent; where one is intentionally not awaited
+      at call site, `void` it with a one-line rationale.
+
+    **Not a violation — do not "fix" it** (Revision 2026-07-09): a
+    promise-returning Svelte event handler such as
+    `onclick={() => runScenario(selectedVariant)}` in
+    `src/routes/tests/chat/stream-swap/+page.svelte` is **not** reported by
+    `no-misused-promises`. Its `checksVoidReturn.attributes` check inspects JSX
+    attributes only, and Svelte template attributes are not JSX nodes. Adding a
+    `void` there is a style choice no rule enforces — if you do it, do it
+    consistently across every fixture (`estimate-miss/+page.svelte:53` has the
+    same shape) and say so in your report. This is a known coverage gap of the
+    rule, not a mis-wiring of the config: Step 3 proves type info reaches
+    `.svelte` regardless.
 
 **Verify**: `trunk fmt && trunk check --all` → ✔ No issues.
 `pnpm run check` → `0 ERRORS 0 WARNINGS`.

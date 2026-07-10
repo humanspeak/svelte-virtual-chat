@@ -15,10 +15,15 @@ exactly-once-awaited fixtures.
 
 | Plan | Title                                                                         | Priority | Effort | Depends on           | Status |
 | ---- | ----------------------------------------------------------------------------- | -------- | ------ | -------------------- | ------ |
-| 001  | Lint the unit-test files and enable type-aware lint rules (floating promises) | P2       | M      | — (see precondition) | TODO   |
+| 001  | Lint the unit-test files and enable type-aware lint rules (floating promises) | P2       | M      | — (see precondition) | DONE   |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) |
 REJECTED (with one-line rationale)
+
+> 001 initially did not clear `guard final` (NO-PASS at `4da326c`) because the
+> executor report and rationale record were missing. Follow-up closed the
+> record gaps and documented the Svelte event-handler coverage limit. See
+> `001-lint-unit-tests-and-typed-lint.report.md`.
 
 ## Dependency notes
 

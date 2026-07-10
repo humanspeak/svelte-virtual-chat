@@ -48,7 +48,7 @@
     let cachePitchPx = $state(0)
     let scrollHeightDriftPx = $state(0)
 
-    const getViewport = () => document.querySelector(VIEWPORT_SELECTOR) as HTMLElement | null
+    const getViewport = () => document.querySelector(VIEWPORT_SELECTOR)
 
     /** Compare the real rendered pitch against what the height cache sees. */
     function measurePitch() {
@@ -90,7 +90,10 @@
 
     <div class="mb-3 flex gap-2">
         <button
-            onclick={() => sweep.start('up', { onDone: measurePitch })}
+            onclick={() => {
+                // Svelte event attributes do not lint returned promises; sweeps are fire-and-forget.
+                void sweep.start('up', { onDone: measurePitch })
+            }}
             data-testid="start-sweep"
             class="rounded bg-blue-500 px-3 py-1 text-sm text-white"
             disabled={sweep.state === 'running'}
@@ -98,7 +101,10 @@
             Scroll-up sweep
         </button>
         <button
-            onclick={() => sweep.start('down', { onDone: measurePitch })}
+            onclick={() => {
+                // Svelte event attributes do not lint returned promises; sweeps are fire-and-forget.
+                void sweep.start('down', { onDone: measurePitch })
+            }}
             data-testid="start-sweep-down"
             class="rounded bg-blue-500 px-3 py-1 text-sm text-white"
             disabled={sweep.state === 'running'}
