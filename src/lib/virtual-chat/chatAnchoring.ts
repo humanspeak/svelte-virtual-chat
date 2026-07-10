@@ -1,4 +1,4 @@
-import { type ChatHeightCache, calculateOffsetForIndex } from './chatMeasurement.svelte.js'
+import type { ChatHeightCache } from './chatMeasurement.svelte.js'
 import type { ScrollAnchor } from './chatTypes.js'
 
 /**
@@ -31,26 +31,16 @@ export const captureScrollAnchor = <T>(
 ): ScrollAnchor | null => {
     if (messages.length === 0) return null
 
-    let offsetY = 0
-    for (let i = 0; i < messages.length; i++) {
-        const id = getMessageId(messages[i])
-        const h = heightCache.get(id) ?? estimatedHeight
-        const itemBottom = offsetY + h
+    heightCache.sync(messages, getMessageId, estimatedHeight)
 
-        if (itemBottom > scrollTop) {
-            return {
-                messageId: id,
-                offsetFromViewportTop: offsetY - scrollTop
-            }
-        }
+    const visibleStart = heightCache.findVisibleStart(scrollTop)
+    // -1 means scrollTop is past all content — anchor to the last message,
+    // matching the previous linear-walk fallback.
+    const anchorIndex = visibleStart === -1 ? messages.length - 1 : visibleStart
 
-        offsetY += h
-    }
-
-    const lastId = getMessageId(messages[messages.length - 1])
     return {
-        messageId: lastId,
-        offsetFromViewportTop: offsetY - scrollTop - (heightCache.get(lastId) ?? estimatedHeight)
+        messageId: getMessageId(messages[anchorIndex]),
+        offsetFromViewportTop: heightCache.getOffsetForIndex(anchorIndex) - scrollTop
     }
 }
 
@@ -81,16 +71,10 @@ export const restoreScrollAnchor = <T>(
     heightCache: ChatHeightCache,
     estimatedHeight: number
 ): number => {
-    const anchorIndex = messages.findIndex((m) => getMessageId(m) === anchor.messageId)
+    heightCache.sync(messages, getMessageId, estimatedHeight)
+
+    const anchorIndex = heightCache.getIndexForId(anchor.messageId)
     if (anchorIndex === -1) return 0
 
-    const anchorOffset = calculateOffsetForIndex(
-        messages,
-        anchorIndex,
-        getMessageId,
-        heightCache,
-        estimatedHeight
-    )
-
-    return anchorOffset - anchor.offsetFromViewportTop
+    return heightCache.getOffsetForIndex(anchorIndex) - anchor.offsetFromViewportTop
 }

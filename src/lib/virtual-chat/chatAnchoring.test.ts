@@ -131,3 +131,64 @@ describe('restoreScrollAnchor', () => {
         expect(restoreScrollAnchor(anchor, m, getId, cache, 50)).toBe(10)
     })
 })
+
+describe('prefix-sum cache paths', () => {
+    it('round-trips a 5,000-message list with mixed heights across a prepend', () => {
+        const cache = new ChatHeightCache()
+        const est = 40
+        const original = msgs(Array.from({ length: 5000 }, (_, i) => `m${i}`))
+        // Measure every third message; leave the rest at the estimate so the
+        // list has genuinely mixed measured/unmeasured heights.
+        for (let i = 0; i < original.length; i += 3) {
+            cache.set(`m${i}`, 55 + (i % 7))
+        }
+
+        // Capture at a mid-list scrollTop.
+        const scrollTop = 90000
+        const anchor = captureScrollAnchor(original, getId, cache, est, scrollTop)
+        expect(anchor).not.toBeNull()
+
+        // Prepend 500 older (unmeasured) messages.
+        const prepended = msgs(Array.from({ length: 500 }, (_, i) => `p${i}`))
+        const afterPrepend = [...prepended, ...original]
+
+        const newScrollTop = restoreScrollAnchor(anchor!, afterPrepend, getId, cache, est)
+
+        // The anchor message must sit at the same offset from the viewport top
+        // as when it was captured (compute expected offset with the same cache).
+        cache.sync(afterPrepend, getId, est)
+        const idx = cache.getIndexForId(anchor!.messageId)
+        expect(idx).toBeGreaterThanOrEqual(0)
+        const offsetAfter = cache.getOffsetForIndex(idx)
+        expect(offsetAfter - newScrollTop).toBeCloseTo(anchor!.offsetFromViewportTop)
+    })
+
+    it('captures the last message when scrollTop is past the end', () => {
+        const cache = new ChatHeightCache()
+        cache.set('1', 50)
+        cache.set('2', 50)
+        cache.set('3', 50)
+        const m = msgs(['1', '2', '3'])
+
+        // Total height = 150; scrollTop=500 is well past the end.
+        const scrollTop = 500
+        const anchor = captureScrollAnchor(m, getId, cache, 50, scrollTop)
+        expect(anchor!.messageId).toBe('3')
+        // Fallback semantics: offsetFromViewportTop = offset(last) - scrollTop.
+        // offset('3') = 100, so 100 - 500 = -400.
+        expect(anchor!.offsetFromViewportTop).toBe(100 - scrollTop)
+    })
+
+    it('syncs a fresh cache the array has never been seen by before querying', () => {
+        // Fresh cache, no set() calls and never synced to this array. If the
+        // internal sync were missing, the queries would read stale/empty state.
+        const cache = new ChatHeightCache()
+        const m = msgs(['a', 'b', 'c', 'd'])
+
+        // All unmeasured at est=30: a(0-30) b(30-60) c(60-90) d(90-120).
+        // scrollTop=75 → first visible is 'c'.
+        const anchor = captureScrollAnchor(m, getId, cache, 30, 75)
+        expect(anchor!.messageId).toBe('c')
+        expect(anchor!.offsetFromViewportTop).toBe(60 - 75)
+    })
+})
