@@ -64,6 +64,18 @@ Follow-bottom semantics are input-agnostic:
 
 The component only intercepts keys when the viewport element itself has focus. Inputs, buttons, links, and any other interactive elements rendered inside messages receive their keystrokes untouched — `Space` in a textarea types a space; it does not page the chat.
 
+### Focus and virtualization
+
+Because messages are virtualized, off-screen messages are removed from the DOM entirely. If the user has focused a control inside a message — a button, a link, an input — and then scrolls that message out of the rendered range, the browser drops focus to `document.body`. When the message scrolls back in, it re-mounts as a fresh element and focus is **not** restored to it.
+
+This is deliberate: the component does not manage focus inside message content. Restoring focus on re-entry would steal it from wherever the user has since moved — the composer, a toolbar, another message — which is more disruptive than the drop itself.
+
+Design around it rather than fighting it:
+
+- Keep primary interactive flows — the composer, action bars, "jump to newest" — **outside** the scroll viewport, where they never virtualize.
+- For in-message controls that start a flow (a "retry" or "copy" button on a message), complete that flow in UI that lives outside the virtualized region so focus has a stable home.
+- If your app genuinely needs focus restoration for in-message controls, track the focused message id yourself and re-focus the control when its message re-mounts.
+
 ## Reduced motion
 
 When the user has `prefers-reduced-motion: reduce` set, the smooth-scroll easing for new messages is disabled and the viewport lands instantly. No configuration needed.
