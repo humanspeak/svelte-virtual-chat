@@ -50,7 +50,10 @@
 
     <div class="mb-3 flex gap-2">
         <button
-            onclick={() => sweep.start('up')}
+            onclick={() => {
+                // Svelte event attributes do not lint returned promises; sweeps are fire-and-forget.
+                void sweep.start('up')
+            }}
             data-testid="start-sweep"
             class="rounded bg-blue-500 px-3 py-1 text-sm text-white"
             disabled={sweep.state === 'running'}

@@ -637,6 +637,7 @@
         scheduleScrollProgressPreservation()
 
         if (onNeedHistory && scrollTop - topGap < viewportHeight * 0.5) {
+            // History loading is consumer-owned async work; scroll handling must keep moving.
             void onNeedHistory()
         }
     }

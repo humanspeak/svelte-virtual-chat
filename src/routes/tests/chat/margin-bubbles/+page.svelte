@@ -91,6 +91,7 @@
     <div class="mb-3 flex gap-2">
         <button
             onclick={() => {
+                // Svelte event attributes do not lint returned promises; sweeps are fire-and-forget.
                 void sweep.start('up', { onDone: measurePitch })
             }}
             data-testid="start-sweep"
@@ -101,6 +102,7 @@
         </button>
         <button
             onclick={() => {
+                // Svelte event attributes do not lint returned promises; sweeps are fire-and-forget.
                 void sweep.start('down', { onDone: measurePitch })
             }}
             data-testid="start-sweep-down"
