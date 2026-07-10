@@ -84,111 +84,32 @@
     }
 </script>
 
-<div class="mx-auto w-full max-w-4xl">
-    <!-- Controls -->
-    <div class="mb-4 flex items-center gap-3">
-        <button
-            onclick={addBulkMessages}
-            class="border-border bg-card text-foreground hover:bg-muted rounded-lg border px-4 py-2 text-sm font-medium shadow-sm transition-colors"
-        >
-            Add 50 messages
-        </button>
-        <button
-            onclick={() => (showTyping = !showTyping)}
-            class="rounded-lg px-4 py-2 text-sm font-medium shadow-sm transition-colors {showTyping
-                ? 'bg-amber-500 text-white hover:bg-amber-600'
-                : 'border-border bg-card text-foreground hover:bg-muted border'}"
-        >
-            {showTyping ? 'Typing...' : 'Toggle typing'}
-        </button>
-        <button
-            onclick={() => chat?.scrollToBottom({ smooth: true })}
-            class="bg-brand-600 hover:bg-brand-700 rounded-lg px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors"
-        >
-            Scroll to bottom
-        </button>
-        <div class="text-muted-foreground ml-auto flex items-center gap-2 text-sm">
-            <span class="font-mono">{messages.length}</span> messages
-            <span class="text-border mx-1">|</span>
-            {#if isFollowing}
-                <span class="flex items-center gap-1 text-green-600 dark:text-green-400">
-                    <span class="inline-block h-2 w-2 rounded-full bg-green-500"></span>
-                    Following
-                </span>
-            {:else}
-                <span class="flex items-center gap-1 text-amber-600 dark:text-amber-400">
-                    <span class="inline-block h-2 w-2 rounded-full bg-amber-500"></span>
-                    Scrolled away
-                </span>
-            {/if}
-        </div>
+<div class="hf">
+    <!-- ── Brut bar (file · messages · follow state) ────────────── -->
+    <div class="hf-bar">
+        <span><span class="lbl">file</span> · <span class="v">HeaderFooterChat.svelte</span></span>
+        <span><span class="lbl">messages</span> <span class="v">{messages.length}</span></span>
+        <span class="status" class:away={!isFollowing}>
+            {#if isFollowing}● following{:else}○ scrolled away{/if}
+        </span>
     </div>
 
-    <!-- Virtualization Stats -->
-    {#if debugInfo}
-        <div class="border-border bg-card mb-4 rounded-xl border p-4 shadow-sm">
-            <h3 class="text-muted-foreground mb-3 text-xs font-semibold tracking-wide uppercase">
-                Virtualization Stats
-            </h3>
-            <div class="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-                <div class="bg-muted/50 rounded-lg p-2.5">
-                    <div class="text-muted-foreground text-xs">Total</div>
-                    <div class="text-foreground font-mono text-lg font-semibold">
-                        {debugInfo.totalMessages}
-                    </div>
-                </div>
-                <div class="bg-brand-500/10 rounded-lg p-2.5">
-                    <div class="text-brand-500 text-xs">In DOM</div>
-                    <div class="text-brand-600 dark:text-brand-400 font-mono text-lg font-semibold">
-                        {debugInfo.renderedCount}
-                    </div>
-                </div>
-                <div class="bg-muted/50 rounded-lg p-2.5">
-                    <div class="text-muted-foreground text-xs">Measured</div>
-                    <div class="text-foreground font-mono text-lg font-semibold">
-                        {debugInfo.measuredCount}
-                    </div>
-                </div>
-                <div class="bg-muted/50 rounded-lg p-2.5">
-                    <div class="text-muted-foreground text-xs">Visible Range</div>
-                    <div class="text-foreground font-mono text-sm font-semibold">
-                        {debugInfo.startIndex}–{debugInfo.endIndex}
-                    </div>
-                </div>
-                <div class="bg-muted/50 rounded-lg p-2.5">
-                    <div class="text-muted-foreground text-xs">Content Height</div>
-                    <div class="text-foreground font-mono text-sm font-semibold">
-                        {Math.round(debugInfo.totalHeight)}px
-                    </div>
-                </div>
-                <div
-                    class="rounded-lg p-2.5 {debugInfo.isFollowingBottom
-                        ? 'bg-green-500/10'
-                        : 'bg-amber-500/10'}"
-                >
-                    <div
-                        class="text-xs {debugInfo.isFollowingBottom
-                            ? 'text-green-600 dark:text-green-400'
-                            : 'text-amber-600 dark:text-amber-400'}"
-                    >
-                        Scroll
-                    </div>
-                    <div
-                        class="font-mono text-sm font-semibold {debugInfo.isFollowingBottom
-                            ? 'text-green-700 dark:text-green-300'
-                            : 'text-amber-700 dark:text-amber-300'}"
-                    >
-                        {debugInfo.isFollowingBottom
-                            ? 'Following'
-                            : `${Math.round(debugInfo.scrollTop)}px`}
-                    </div>
-                </div>
-            </div>
-        </div>
-    {/if}
+    <!-- ── Controls strip ───────────────────────────────────────── -->
+    <div class="hf-controls">
+        <button class="hf-btn" onclick={addBulkMessages}>+ add 50</button>
+        <button class="hf-btn" class:active={showTyping} onclick={() => (showTyping = !showTyping)}>
+            {showTyping ? '● typing…' : '○ toggle typing'}
+        </button>
+        <button
+            class="hf-btn hf-btn-primary"
+            onclick={() => chat?.scrollToBottom({ smooth: true })}
+        >
+            ▸ scroll bottom
+        </button>
+    </div>
 
-    <!-- Chat viewport -->
-    <div class="border-border bg-card overflow-hidden rounded-xl border shadow-sm">
+    <!-- ── Chat surface (header + footer snippet bands) ─────────── -->
+    <div class="hf-surface">
         <SvelteVirtualChat
             bind:this={chat}
             {messages}
@@ -203,92 +124,325 @@
             testId="header-footer-chat"
         >
             {#snippet header()}
-                <div
-                    class="border-border bg-muted/30 flex items-center gap-2 border-b px-5 py-3 text-sm"
-                >
-                    <span
-                        class="bg-brand-500/10 text-brand-600 dark:text-brand-400 rounded-md px-2 py-0.5 text-xs font-semibold"
-                    >
-                        Header
-                    </span>
-                    <span class="text-muted-foreground">
-                        Beginning of conversation &mdash; {messages.length} message{messages.length !==
-                        1
+                <div class="hf-band hf-band-header">
+                    <span class="hf-band-tag">header</span>
+                    <span class="hf-band-text">
+                        beginning of conversation · {messages.length} message{messages.length !== 1
                             ? 's'
                             : ''}
                     </span>
                 </div>
             {/snippet}
             {#snippet renderMessage(message: Message)}
-                <div
-                    class="border-border border-b px-5 py-4 {message.role === 'user'
-                        ? 'bg-brand-500/5'
-                        : ''}"
-                >
-                    <div class="mb-1 flex items-center gap-2">
-                        <span
-                            class="text-xs font-semibold {message.role === 'user'
-                                ? 'text-brand-600 dark:text-brand-400'
-                                : 'text-muted-foreground'}"
-                        >
-                            {message.role === 'user' ? 'You' : 'Assistant'}
+                <div class="hf-msg" data-role={message.role}>
+                    <div class="hf-msg-head">
+                        <span class="hf-msg-role">
+                            {message.role === 'user' ? 'you' : 'assistant'}
                         </span>
-                        <span class="text-muted-foreground text-xs">
-                            {formatTime(message.timestamp)}
-                        </span>
+                        <span class="hf-msg-time">{formatTime(message.timestamp)}</span>
                     </div>
-                    <div class="text-foreground text-sm leading-relaxed">
-                        {message.content}
-                    </div>
+                    <div class="hf-msg-body">{message.content}</div>
                 </div>
             {/snippet}
             {#snippet footer()}
                 {#if showTyping}
-                    <div
-                        class="border-border bg-muted/20 flex items-center gap-3 border-t px-5 py-3"
-                    >
-                        <div class="flex gap-1">
-                            <span
-                                class="bg-muted-foreground/40 inline-block h-2 w-2 animate-bounce rounded-full [animation-delay:0ms]"
-                            ></span>
-                            <span
-                                class="bg-muted-foreground/40 inline-block h-2 w-2 animate-bounce rounded-full [animation-delay:150ms]"
-                            ></span>
-                            <span
-                                class="bg-muted-foreground/40 inline-block h-2 w-2 animate-bounce rounded-full [animation-delay:300ms]"
-                            ></span>
-                        </div>
-                        <span class="text-muted-foreground text-sm">Assistant is typing...</span>
+                    <div class="hf-band hf-band-typing">
+                        <span class="hf-dots">
+                            <span></span><span></span><span></span>
+                        </span>
+                        <span class="hf-band-text">assistant is typing…</span>
                     </div>
                 {/if}
-                <div class="border-border bg-muted/10 border-t px-5 py-2 text-center text-xs">
-                    <span class="text-muted-foreground">
-                        Powered by
-                        <span class="text-brand-500 font-medium">SvelteVirtualChat</span>
-                    </span>
+                <div class="hf-band hf-band-footer">
+                    <span class="hf-band-tag">footer</span>
+                    <span class="hf-band-text">powered by <b>SvelteVirtualChat</b></span>
                 </div>
             {/snippet}
         </SvelteVirtualChat>
     </div>
 
-    <!-- Input -->
+    <!-- ── Footer metrics (virtualization) ──────────────────────── -->
+    {#if debugInfo}
+        <div class="hf-footer">
+            <div>
+                <span class="lbl">total</span> · <span class="v">{debugInfo.totalMessages}</span>
+            </div>
+            <div>
+                <span class="lbl">in dom</span> ·
+                <span class="v accent">{debugInfo.renderedCount}</span>
+            </div>
+            <div>
+                <span class="lbl">measured</span> · <span class="v">{debugInfo.measuredCount}</span>
+            </div>
+            <div>
+                <span class="lbl">range</span> ·
+                <span class="v">{debugInfo.startIndex}–{debugInfo.endIndex}</span>
+            </div>
+            <div>
+                <span class="lbl">height</span> ·
+                <span class="v">{Math.round(debugInfo.totalHeight)}px</span>
+            </div>
+            <div>
+                <span class="lbl">scroll</span> ·
+                <span class="v" class:accent={debugInfo.isFollowingBottom}>
+                    {debugInfo.isFollowingBottom
+                        ? 'following'
+                        : `${Math.round(debugInfo.scrollTop)}px`}
+                </span>
+            </div>
+        </div>
+    {/if}
+
+    <!-- ── Composer (outside the scroll box) ────────────────────── -->
     <form
+        class="hf-composer"
         onsubmit={(e) => {
             e.preventDefault()
             sendMessage()
         }}
-        class="mt-3 flex gap-2"
     >
-        <input
-            bind:value={inputText}
-            placeholder="Type a message..."
-            class="border-border bg-card text-foreground focus:border-brand-500 focus:ring-brand-500 flex-1 rounded-lg border px-4 py-2.5 text-sm shadow-sm focus:ring-1 focus:outline-none"
-        />
-        <button
-            type="submit"
-            class="bg-brand-600 hover:bg-brand-700 rounded-lg px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-colors"
-        >
-            Send
-        </button>
+        <input bind:value={inputText} class="hf-input" placeholder="type a message…" />
+        <button type="submit" class="hf-btn hf-btn-primary">▸ send</button>
     </form>
 </div>
+
+<style>
+    .hf {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        font-family: 'Inter Variable', 'Inter', system-ui, sans-serif;
+        color: var(--brut-ink, currentColor);
+        background: var(--brut-bg);
+    }
+
+    /* ── Brut bar ───────────────────────────────────────────────── */
+    .hf-bar {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        padding: 8px 14px;
+        border-bottom: 1px solid var(--brut-rule);
+        font-family: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
+        font-size: 11px;
+        color: var(--brut-ink-3);
+        flex-wrap: wrap;
+    }
+    .hf-bar .lbl {
+        color: var(--brut-ink-3);
+    }
+    .hf-bar .v {
+        color: var(--brut-ink);
+        font-variant-numeric: tabular-nums;
+    }
+    .hf-bar .status {
+        margin-left: auto;
+        letter-spacing: 0.06em;
+        color: var(--brut-accent);
+        font-weight: 600;
+    }
+    .hf-bar .status.away {
+        color: var(--brut-ink-3);
+        font-weight: 400;
+    }
+
+    /* ── Controls ───────────────────────────────────────────────── */
+    .hf-controls {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--brut-rule);
+        background: var(--brut-bg);
+    }
+    .hf-btn {
+        appearance: none;
+        background: var(--brut-bg);
+        color: var(--brut-ink-2);
+        border: 1px solid var(--brut-rule);
+        padding: 7px 14px;
+        font-family: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
+        font-size: 11px;
+        letter-spacing: 0.06em;
+        text-transform: lowercase;
+        cursor: pointer;
+        transition:
+            color 0.15s,
+            border-color 0.15s,
+            background 0.15s;
+    }
+    .hf-btn:hover:not(:disabled) {
+        color: var(--brut-accent);
+        border-color: var(--brut-accent);
+    }
+    .hf-btn.active {
+        color: var(--brut-accent);
+        border-color: var(--brut-accent);
+        background: var(--brut-accent-soft);
+    }
+    .hf-btn-primary {
+        background: var(--brut-accent);
+        color: var(--brut-accent-ink);
+        border-color: var(--brut-accent);
+        font-weight: 600;
+    }
+    .hf-btn-primary:hover:not(:disabled) {
+        background: var(--brut-accent-hover);
+        border-color: var(--brut-accent-hover);
+        color: var(--brut-accent-ink);
+    }
+
+    /* ── Chat surface ───────────────────────────────────────────── */
+    .hf-surface {
+        border-bottom: 1px solid var(--brut-rule);
+        background: var(--brut-bg);
+    }
+
+    /* Header / footer snippet bands — deliberately distinct from
+       message rows so the feature reads clearly. */
+    .hf-band {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 9px 16px;
+        background: var(--brut-bg-2);
+        font-family: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
+        font-size: 11px;
+        color: var(--brut-ink-2);
+    }
+    .hf-band-header {
+        border-bottom: 1px solid var(--brut-rule);
+    }
+    .hf-band-footer {
+        border-top: 1px solid var(--brut-rule);
+    }
+    .hf-band-tag {
+        padding: 2px 7px;
+        border: 1px solid var(--brut-accent);
+        color: var(--brut-accent);
+        font-size: 9.5px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        font-weight: 600;
+    }
+    .hf-band-text b {
+        color: var(--brut-accent);
+        font-weight: 600;
+    }
+    .hf-band-typing {
+        border-top: 1px dashed var(--brut-rule);
+    }
+    .hf-dots {
+        display: inline-flex;
+        gap: 4px;
+    }
+    .hf-dots span {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--brut-accent);
+        animation: hf-bounce 1.2s ease-in-out infinite;
+    }
+    .hf-dots span:nth-child(2) {
+        animation-delay: 0.15s;
+    }
+    .hf-dots span:nth-child(3) {
+        animation-delay: 0.3s;
+    }
+    @keyframes hf-bounce {
+        0%,
+        60%,
+        100% {
+            opacity: 0.3;
+            transform: translateY(0);
+        }
+        30% {
+            opacity: 1;
+            transform: translateY(-3px);
+        }
+    }
+
+    /* Message rows */
+    .hf-msg {
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--brut-rule);
+        border-left: 2px solid transparent;
+    }
+    .hf-msg[data-role='user'] {
+        border-left-color: var(--brut-accent);
+        background: var(--brut-accent-soft);
+    }
+    .hf-msg-head {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        margin-bottom: 5px;
+        font-family: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
+        font-size: 10px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+    }
+    .hf-msg-role {
+        color: var(--brut-ink-2);
+        font-weight: 600;
+    }
+    .hf-msg[data-role='user'] .hf-msg-role {
+        color: var(--brut-accent);
+    }
+    .hf-msg-time {
+        color: var(--brut-ink-3);
+    }
+    .hf-msg-body {
+        font-size: 13px;
+        line-height: 1.6;
+        color: var(--brut-ink);
+    }
+
+    /* ── Footer metrics ─────────────────────────────────────────── */
+    .hf-footer {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 18px;
+        padding: 8px 14px;
+        border-bottom: 1px solid var(--brut-rule);
+        font-family: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
+        font-size: 11px;
+        color: var(--brut-ink-3);
+    }
+    .hf-footer .lbl {
+        color: var(--brut-ink-3);
+    }
+    .hf-footer .v {
+        color: var(--brut-ink);
+        font-variant-numeric: tabular-nums;
+    }
+    .hf-footer .v.accent {
+        color: var(--brut-accent);
+    }
+
+    /* ── Composer ───────────────────────────────────────────────── */
+    .hf-composer {
+        display: flex;
+        gap: 8px;
+        padding: 12px 14px;
+    }
+    .hf-input {
+        flex: 1;
+        min-width: 0;
+        appearance: none;
+        background: var(--brut-bg);
+        color: var(--brut-ink);
+        border: 1px solid var(--brut-rule);
+        padding: 8px 12px;
+        font-family: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
+        font-size: 12px;
+        outline: none;
+        transition: border-color 0.15s;
+    }
+    .hf-input:focus {
+        border-color: var(--brut-accent);
+    }
+    .hf-input::placeholder {
+        color: var(--brut-ink-3);
+    }
+</style>
