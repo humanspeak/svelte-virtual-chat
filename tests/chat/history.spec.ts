@@ -1,10 +1,12 @@
 import { expect, test, type Page } from '@playwright/test'
 import {
     getRenderedIds,
+    getScrollState,
     getStat,
     isFollowing,
     messageInDom,
     rafWait,
+    scrollByWheel,
     scrollTo,
     SETTLE_MS,
     VIEWPORT,
@@ -42,6 +44,90 @@ async function messageTop(page: Page, id: string): Promise<number | null> {
         },
         [VIEWPORT, id] as const
     )
+}
+
+type FrameRead = { kind: 'gapFromBottom' } | { kind: 'messageTop'; id: string }
+
+/**
+ * Start an in-page per-frame rAF sampler. Settle-based assertions cannot see
+ * a transient that a later correction converges back before a post-settle
+ * read — recording every frame captures any painted excursion. Records the
+ * viewport's distance from bottom, or a message's viewport-relative top
+ * (`null` when the message is not in the DOM).
+ */
+async function startFrameSampler(page: Page, read: FrameRead): Promise<void> {
+    await page.evaluate(
+        ([vpSel, kind, messageId]) => {
+            const w = window as unknown as {
+                __frameSamples: (number | null)[]
+                __frameSamplerStop: boolean
+            }
+            w.__frameSamples = []
+            w.__frameSamplerStop = false
+            const sample = () => {
+                const vp = document.querySelector(vpSel)
+                let value: number | null = null
+                if (vp && kind === 'gapFromBottom') {
+                    value = vp.scrollHeight - vp.scrollTop - vp.clientHeight
+                } else if (vp) {
+                    const el = document.querySelector(`[data-message-id="${messageId}"]`)
+                    if (el) {
+                        value = el.getBoundingClientRect().top - vp.getBoundingClientRect().top
+                    }
+                }
+                w.__frameSamples.push(value)
+                if (!w.__frameSamplerStop) requestAnimationFrame(sample)
+            }
+            requestAnimationFrame(sample)
+        },
+        [VIEWPORT, read.kind, read.kind === 'messageTop' ? read.id : ''] as const
+    )
+}
+
+/**
+ * Wait on the sampler's frame count rather than wall time: CPU throttling
+ * slows frame delivery, and the >= 60 frame contract must hold regardless.
+ */
+async function waitForFrames(page: Page, frames: number, timeout: number): Promise<void> {
+    await page.waitForFunction(
+        (min) =>
+            (window as unknown as { __frameSamples: (number | null)[] }).__frameSamples.length >=
+            min,
+        frames,
+        { timeout }
+    )
+}
+
+/** Stop the sampler and return everything it recorded. */
+async function collectFrames(page: Page): Promise<(number | null)[]> {
+    return page.evaluate(() => {
+        const w = window as unknown as {
+            __frameSamples: (number | null)[]
+            __frameSamplerStop: boolean
+        }
+        w.__frameSamplerStop = true
+        return w.__frameSamples
+    })
+}
+
+/**
+ * Scroll ~250px up from the bottom: enough to unfollow, but not far enough
+ * to trip the onNeedHistory auto-load (which would prepend before the test
+ * clicks the button and invalidate its precondition). Returns the reading
+ * anchor a prepend must preserve.
+ */
+async function unfollowNearBottom(page: Page): Promise<{ id: string; top: number }> {
+    await page.waitForTimeout(SETTLE_MS)
+    const { maxScroll } = await getScrollState(page)
+    await scrollTo(page, Math.max(0, maxScroll - 250))
+    await page.waitForTimeout(SETTLE_MS)
+
+    expect(await isFollowing(page)).toBe(false)
+    expect(await getStat(page, 'prepended')).toBe(0)
+
+    const anchor = await topVisibleMessage(page)
+    expect(anchor).not.toBeNull()
+    return anchor!
 }
 
 test.describe('Prepend History', () => {
@@ -141,24 +227,7 @@ test.describe('Prepend History', () => {
     })
 
     test('manual load keeps the reading message pinned', async ({ page }) => {
-        await page.waitForTimeout(SETTLE_MS)
-
-        // Scroll ~250px up from the bottom: enough to unfollow, but not far
-        // enough to trip the onNeedHistory auto-load (which would prepend
-        // before we get to click the button and invalidate the precondition).
-        const maxScroll = await page.evaluate((sel) => {
-            const el = document.querySelector(sel) as HTMLElement
-            return el.scrollHeight - el.clientHeight
-        }, VIEWPORT)
-        await scrollTo(page, Math.max(0, maxScroll - 250))
-        await page.waitForTimeout(SETTLE_MS)
-
-        expect(await isFollowing(page)).toBe(false)
-        expect(await getStat(page, 'prepended')).toBe(0)
-
-        const anchor = await topVisibleMessage(page)
-        expect(anchor).not.toBeNull()
-        const anchorId = anchor!.id
+        const anchor = await unfollowNearBottom(page)
 
         await page.locator('[data-testid="load-history"]').click()
         await page.waitForTimeout(300 + SETTLE_MS) // 300ms simulated latency
@@ -166,11 +235,11 @@ test.describe('Prepend History', () => {
         await page.waitForTimeout(SETTLE_MS)
 
         expect(await getStat(page, 'prepended')).toBe(20)
-        expect(await messageInDom(page, anchorId)).toBe(true)
+        expect(await messageInDom(page, anchor.id)).toBe(true)
 
-        const after = await messageTop(page, anchorId)
+        const after = await messageTop(page, anchor.id)
         expect(after).not.toBeNull()
-        expect(Math.abs(after! - anchor!.top)).toBeLessThanOrEqual(4)
+        expect(Math.abs(after! - anchor.top)).toBeLessThanOrEqual(4)
     })
 
     test('manual load does not visibly scroll during the prepend', async ({
@@ -182,51 +251,8 @@ test.describe('Prepend History', () => {
         // the prepended DOM landing and the anchor restore.
         test.skip(browserName !== 'chromium', 'CDP CPU throttling is chromium-only')
 
-        await page.waitForTimeout(SETTLE_MS)
-
-        // Same setup as the pinned test: unfollow without tripping the
-        // onNeedHistory auto-load threshold.
-        const maxScroll = await page.evaluate((sel) => {
-            const el = document.querySelector(sel) as HTMLElement
-            return el.scrollHeight - el.clientHeight
-        }, VIEWPORT)
-        await scrollTo(page, Math.max(0, maxScroll - 250))
-        await page.waitForTimeout(SETTLE_MS)
-
-        expect(await isFollowing(page)).toBe(false)
-        expect(await getStat(page, 'prepended')).toBe(0)
-
-        const anchor = await topVisibleMessage(page)
-        expect(anchor).not.toBeNull()
-        const anchorId = anchor!.id
-        const baseline = anchor!.top
-
-        // Per-frame sampler: the settle-based pinned test cannot see a
-        // transient where the anchor teleports for a few frames before a
-        // post-paint correction pulls it back. Record every frame so any
-        // painted excursion is captured, not just the final resting position.
-        await page.evaluate(
-            ([vpSel, messageId]) => {
-                const w = window as unknown as {
-                    __anchorSamples: (number | null)[]
-                    __anchorSamplerStop: boolean
-                }
-                w.__anchorSamples = []
-                w.__anchorSamplerStop = false
-                const sample = () => {
-                    const vp = document.querySelector(vpSel)
-                    const el = document.querySelector(`[data-message-id="${messageId}"]`)
-                    w.__anchorSamples.push(
-                        vp && el
-                            ? el.getBoundingClientRect().top - vp.getBoundingClientRect().top
-                            : null
-                    )
-                    if (!w.__anchorSamplerStop) requestAnimationFrame(sample)
-                }
-                requestAnimationFrame(sample)
-            },
-            [VIEWPORT, anchorId] as const
-        )
+        const anchor = await unfollowNearBottom(page)
+        await startFrameSampler(page, { kind: 'messageTop', id: anchor.id })
 
         // Rate 8: plan's escalation ceiling (4 and 6 also tried); no rate
         // reproduced the red on 9a0b5a3 — see the Step 1c stop report.
@@ -234,25 +260,10 @@ test.describe('Prepend History', () => {
         await cdp.send('Emulation.setCPUThrottlingRate', { rate: 8 })
 
         await page.locator('[data-testid="load-history"]').click()
-        // Sample through the 300ms simulated latency plus settle. Wait on the
-        // frame count rather than wall time: throttling slows frame delivery,
-        // and the >= 60 frame requirement must hold regardless of rate.
-        await page.waitForFunction(
-            () =>
-                (window as unknown as { __anchorSamples: (number | null)[] }).__anchorSamples
-                    .length >= 90,
-            undefined,
-            { timeout: 30000 }
-        )
+        // Sample through the 300ms simulated latency plus restore and settle.
+        await waitForFrames(page, 60, 30000)
 
-        const samples = await page.evaluate(() => {
-            const w = window as unknown as {
-                __anchorSamples: (number | null)[]
-                __anchorSamplerStop: boolean
-            }
-            w.__anchorSamplerStop = true
-            return w.__anchorSamples
-        })
+        const samples = await collectFrames(page)
         await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 })
 
         expect(await getStat(page, 'prepended')).toBe(20)
@@ -261,10 +272,10 @@ test.describe('Prepend History', () => {
         const nullFrames = samples.filter((s) => s === null).length
         const maxDeviation = samples
             .filter((s): s is number => s !== null)
-            .reduce((max, s) => Math.max(max, Math.abs(s - baseline)), 0)
+            .reduce((max, s) => Math.max(max, Math.abs(s - anchor.top)), 0)
         const signature =
-            `anchor=${anchorId} frames=${samples.length} nullFrames=${nullFrames} ` +
-            `maxDeviation=${maxDeviation.toFixed(1)}px baseline=${baseline.toFixed(1)}px`
+            `anchor=${anchor.id} frames=${samples.length} nullFrames=${nullFrames} ` +
+            `maxDeviation=${maxDeviation.toFixed(1)}px baseline=${anchor.top.toFixed(1)}px`
 
         // Every painted frame must show the anchor within 8px of where the
         // user was reading — "one frame, no visible flicker" is the contract.
@@ -283,54 +294,68 @@ test.describe('Prepend History', () => {
         expect(await isFollowing(page)).toBe(true)
         expect(await getStat(page, 'prepended')).toBe(0)
 
-        // Per-frame sampler: any frame that paints off the bottom is a
-        // visible jump the settle-based tests cannot see (the smooth-scroll
-        // recovery converges back before a post-settle read).
-        await page.evaluate((vpSel) => {
-            const w = window as unknown as {
-                __bottomSamples: number[]
-                __bottomSamplerStop: boolean
-            }
-            w.__bottomSamples = []
-            w.__bottomSamplerStop = false
-            const sample = () => {
-                const vp = document.querySelector(vpSel)
-                if (vp) {
-                    w.__bottomSamples.push(vp.scrollHeight - vp.scrollTop - vp.clientHeight)
-                }
-                if (!w.__bottomSamplerStop) requestAnimationFrame(sample)
-            }
-            requestAnimationFrame(sample)
-        }, VIEWPORT)
+        await startFrameSampler(page, { kind: 'gapFromBottom' })
 
         await page.locator('[data-testid="load-history"]').click()
         // Sample through the 300ms simulated latency plus settle (>= 60 frames).
-        await page.waitForFunction(
-            () => (window as unknown as { __bottomSamples: number[] }).__bottomSamples.length >= 90,
-            undefined,
-            { timeout: 15000 }
-        )
+        await waitForFrames(page, 60, 15000)
 
-        const samples = await page.evaluate(() => {
-            const w = window as unknown as {
-                __bottomSamples: number[]
-                __bottomSamplerStop: boolean
-            }
-            w.__bottomSamplerStop = true
-            return w.__bottomSamples
-        })
+        const samples = await collectFrames(page)
 
         expect(await getStat(page, 'prepended')).toBe(20)
         expect(samples.length).toBeGreaterThanOrEqual(60)
 
-        const maxDistance = samples.reduce((max, s) => Math.max(max, s), 0)
-        const framesOffBottom = samples.filter((s) => s > 8).length
+        const distances = samples.filter((s): s is number => s !== null)
+        const maxDistance = distances.reduce((max, s) => Math.max(max, s), 0)
+        const framesOffBottom = distances.filter((s) => s > 8).length
         const signature =
             `frames=${samples.length} framesOffBottom=${framesOffBottom} ` +
             `maxDistance=${maxDistance.toFixed(1)}px`
 
         // No painted frame may show the viewport off the bottom while the
         // user is following — content growing above must not displace them.
+        expect(
+            maxDistance,
+            `viewport fell off the bottom during the prepend (${signature})`
+        ).toBeLessThanOrEqual(8)
+        expect(await isFollowing(page), `follow state lost after prepend (${signature})`).toBe(true)
+    })
+
+    test('prepend inside the follow re-engage window stays pinned to the bottom', async ({
+        page
+    }, testInfo) => {
+        await page.waitForTimeout(SETTLE_MS)
+
+        // Real wheel input, not scrollTo: the scroll-progress preservation
+        // window only opens on user intent, and this test targets a prepend
+        // landing inside that window right after the user flicks back to the
+        // bottom (following re-engaged, preservation still active).
+        const viewport = page.locator(VIEWPORT)
+        await scrollByWheel(page, viewport, -250, testInfo)
+        expect(await isFollowing(page)).toBe(false)
+
+        await scrollByWheel(page, viewport, 600, testInfo)
+        expect(await isFollowing(page)).toBe(true)
+        expect(await getStat(page, 'prepended')).toBe(0)
+
+        await startFrameSampler(page, { kind: 'gapFromBottom' })
+
+        // No settle here: the click must land while the window is still open.
+        await page.locator('[data-testid="load-history"]').click()
+        await waitForFrames(page, 60, 15000)
+
+        const samples = await collectFrames(page)
+
+        expect(await getStat(page, 'prepended')).toBe(20)
+        expect(samples.length).toBeGreaterThanOrEqual(60)
+
+        const distances = samples.filter((s): s is number => s !== null)
+        const maxDistance = distances.reduce((max, s) => Math.max(max, s), 0)
+        const framesOffBottom = distances.filter((s) => s > 8).length
+        const signature =
+            `frames=${samples.length} framesOffBottom=${framesOffBottom} ` +
+            `maxDistance=${maxDistance.toFixed(1)}px`
+
         expect(
             maxDistance,
             `viewport fell off the bottom during the prepend (${signature})`
@@ -352,14 +377,7 @@ test.describe('Prepend History', () => {
         const refId = ref!.id
 
         // Wait for the prepend to complete and layout to settle.
-        await page.waitForFunction(
-            () => {
-                const stats = document.querySelector('[data-testid="debug-stats"]')?.textContent
-                return !!stats && !stats.includes('prepended=0')
-            },
-            undefined,
-            { timeout: 5000 }
-        )
+        await expect.poll(() => getStat(page, 'prepended'), { timeout: 5000 }).toBeGreaterThan(0)
         await rafWait(page, 3)
         await page.waitForTimeout(SETTLE_MS)
 
