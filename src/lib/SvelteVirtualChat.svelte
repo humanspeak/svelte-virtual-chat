@@ -101,6 +101,12 @@
     // not reactive: only read/written inside the pre-effect.
     let prependPrevIds: string[] = []
     let pendingPrependAnchor: VisualAnchor | null = null
+    // Whether the most recent messages-prop change was an older-history
+    // prepend. Written by the pre-effect (which runs before the growth
+    // effect in the same flush), read by the follow-bottom growth effect:
+    // a prepend grows content ABOVE the reader, so the pinned view must not
+    // move at all — easing toward the new bottom would visibly scroll it.
+    let lastMessagesChangeWasPrepend = false
     let pendingProgressPreservation = false
     let scrollMutationObserver: MutationObserver | null = null
     let tailRemovalReserve = $state(0)
@@ -523,6 +529,25 @@
         scheduleAnchorRestore(anchor)
     }
 
+    /**
+     * Re-pin the bottom after a history prepend that landed while following.
+     *
+     * The prepended content grows the scroll range above the reader, leaving
+     * scrollTop pointing mid-history until corrected. Deferred to `tick()`
+     * for the same reason as `restorePrependAnchor` (an earlier write would
+     * clamp to the old scrollHeight), and written instantly — never via the
+     * smooth ease, which would visibly scroll a view that must not move.
+     * Subsequent re-measure growth of the prepended items is held by the
+     * ResizeObserver path (`snapToBottomPrePaint`), which stays on its
+     * instant branch because the growth effect suppresses the smooth snap
+     * for prepends.
+     */
+    const repinBottomAfterPrepend = () => {
+        if (!viewportEl || !isFollowingBottom || isUserScrollPreservationActive()) return
+        layoutPreservation.begin()
+        jumpToBottom()
+    }
+
     const restoreScrollProgressIfNeeded = (now: number): ScrollGeometry | null => {
         if (!viewportEl) return null
 
@@ -792,13 +817,24 @@
             currentIds[newN - oldN] === oldIds[0] &&
             currentIds[newN - 1] === oldIds[oldN - 1]
         prependPrevIds = currentIds
+        lastMessagesChangeWasPrepend = isPrepend
 
-        if (isPrepend && !isFollowingBottom && viewportEl && pendingPrependAnchor === null) {
-            const anchor = capturePrependAnchorFromDom()
-            if (anchor) {
-                pendingPrependAnchor = anchor
-                layoutPreservation.begin()
-                void tick().then(restorePrependAnchor)
+        if (isPrepend && viewportEl) {
+            if (isFollowingBottom) {
+                if (!isUserScrollPreservationActive()) {
+                    // Content grows above the pinned reader: re-pin instantly
+                    // once the taller content exists, so no frame paints
+                    // off-bottom (#64 operator follow-up).
+                    layoutPreservation.begin()
+                    void tick().then(repinBottomAfterPrepend)
+                }
+            } else if (pendingPrependAnchor === null) {
+                const anchor = capturePrependAnchorFromDom()
+                if (anchor) {
+                    pendingPrependAnchor = anchor
+                    layoutPreservation.begin()
+                    void tick().then(restorePrependAnchor)
+                }
             }
         }
     })
@@ -1005,8 +1041,14 @@
         const shrank = previousMessageCount >= 0 && count < previousMessageCount
         const now = performance.now()
         if (shrank) lastMessageCountDecreaseAt = now
+        // A prepend is growth ABOVE the reader — the pinned view must not
+        // move, so it may never ride the smooth ease (that ease scrolling
+        // through the prepended content IS the visible off-bottom bug).
+        // Appends keep their smooth arrival untouched.
         const shouldSmooth =
-            grew && now - lastMessageCountDecreaseAt > SHRINK_GROW_SMOOTH_SUPPRESSION_MS
+            grew &&
+            !lastMessagesChangeWasPrepend &&
+            now - lastMessageCountDecreaseAt > SHRINK_GROW_SMOOTH_SUPPRESSION_MS
         previousMessageCount = count
         if (isFollowingBottom && viewportEl && !isUserScrollPreservationActive()) {
             layoutPreservation.begin()
