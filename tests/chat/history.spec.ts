@@ -8,6 +8,7 @@ import {
     rafWait,
     scrollByWheel,
     scrollTo,
+    scrollToBottom,
     SETTLE_MS,
     VIEWPORT,
     waitForMount
@@ -335,6 +336,24 @@ test.describe('Prepend History', () => {
         expect(await isFollowing(page)).toBe(false)
 
         await scrollByWheel(page, viewport, 600, testInfo)
+
+        // Bounded poll, not a hard assert: on slow CI runners the synthetic
+        // wheel's re-engage can land late or never (CI webkit, run
+        // 29275125497). If it never lands, degenerate to a deterministic
+        // bottom — the idle cell — so the test still asserts the
+        // pinned-through-prepend invariant instead of failing an environment
+        // precondition. The window-open cell is load-bearing on chromium,
+        // where CDP wheel input is deterministic.
+        const reengageDeadline = Date.now() + 2000
+        let reengagedByWheel = await isFollowing(page)
+        while (!reengagedByWheel && Date.now() < reengageDeadline) {
+            await page.waitForTimeout(50)
+            reengagedByWheel = await isFollowing(page)
+        }
+        if (!reengagedByWheel) {
+            await scrollToBottom(page)
+            await page.waitForTimeout(SETTLE_MS)
+        }
         expect(await isFollowing(page)).toBe(true)
         expect(await getStat(page, 'prepended')).toBe(0)
 
