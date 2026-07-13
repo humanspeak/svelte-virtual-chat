@@ -1,5 +1,5 @@
 <script lang="ts" generics="TMessage">
-    import { untrack } from 'svelte'
+    import { tick, untrack } from 'svelte'
     import type { SvelteVirtualChatProps, SvelteVirtualChatDebugInfo } from './types.js'
     import {
         ChatHeightCache,
@@ -96,6 +96,24 @@
     let lastMessageCountDecreaseAt = Number.NEGATIVE_INFINITY
     let nextMessageIdentityToken = 1
     let pendingAnchor: VisualAnchor | null = null
+    // Endpoint signature of the messages prop as of the last `$effect.pre`
+    // run — first id, last id, count are all the prepend check reads, so the
+    // whole id array is not retained. Plain, not reactive: only read/written
+    // inside the pre-effect.
+    let prevMessagesShape: { firstId: string; lastId: string; count: number } | null = null
+    // A prepend dispatch is pending for this tick. First capture wins: a
+    // second prepend arriving before the dispatcher runs would capture its
+    // anchor from a DOM whose scrollTop is still mid-correction.
+    let pendingPrependDispatch = false
+    // Whether the most recent messages-prop change was an older-history
+    // prepend. Canonical invariant (referenced by the growth effect and the
+    // prepend dispatcher): a prepend grows content ABOVE the reader, so the
+    // pinned view must not move at all — any correction is one instant
+    // write, never the smooth ease, which would visibly scroll through the
+    // prepended content. Written by the pre-effect (which runs before the
+    // growth effect in the same flush), read by the follow-bottom growth
+    // effect to keep that ease from engaging.
+    let lastMessagesChangeWasPrepend = false
     let pendingProgressPreservation = false
     let scrollMutationObserver: MutationObserver | null = null
     let tailRemovalReserve = $state(0)
@@ -455,6 +473,95 @@
         scheduleAnchorRestore(anchor)
     }
 
+    /**
+     * Capture the reading anchor for a history prepend straight from the DOM.
+     *
+     * Runs in `$effect.pre`, before the prepended messages are rendered, so
+     * the still-painted layout is the pre-change one. A DOM read (topmost
+     * still-visible message + its viewport-relative top) is used instead of
+     * `captureCurrentVisualAnchor` because the derived offsets have already
+     * been invalidated by the new `messages` prop at this point — reading them
+     * would sync the height cache to the *new* array and yield a prepended
+     * message as the anchor (the very teleport we are preventing). The DOM,
+     * by contrast, is authoritatively pre-paint here.
+     */
+    const capturePrependAnchorFromDom = (): VisualAnchor | null => {
+        if (!viewportEl || !itemsEl) return null
+        const viewportTop = viewportEl.getBoundingClientRect().top
+        for (const child of itemsEl.querySelectorAll<HTMLElement>('[data-message-id]')) {
+            const rect = child.getBoundingClientRect()
+            // First message whose box still overlaps the viewport top — the
+            // one the user is reading against.
+            if (rect.bottom <= viewportTop + 1) continue
+            const messageId = child.dataset.messageId
+            if (!messageId) continue
+            return { messageId, offsetFromViewportTop: rect.top - viewportTop }
+        }
+        return null
+    }
+
+    /**
+     * Post-tick dispatcher for a detected history prepend, shaped like
+     * `handleLayoutHeightChange`. Deferred to `tick()` because a scrollTop
+     * write before the spacer grows would clamp to the old, shorter
+     * scrollHeight; every cell re-checks live state — follow or preservation
+     * may have changed between capture and dispatch.
+     *
+     * Following + preservation idle: one instant re-pin of the bottom (see
+     * `lastMessagesChangeWasPrepend` for why never the smooth ease); the
+     * later re-measure growth of the prepended items is held by the
+     * ResizeObserver path (`snapToBottomPrePaint`), which stays on its
+     * instant branch because the growth effect suppresses the smooth snap
+     * for prepends.
+     *
+     * Following + preservation active (prepend landing in the window right
+     * after the user flicks back to the bottom): the preserver's baseline
+     * sits at progress≈1 with a downward direction, so its rAF pass derives
+     * the new bottom as its target and re-syncs follow — the same routing
+     * `handleLayoutHeightChange` uses for this cell.
+     *
+     * Not following: restore the captured reading anchor. Deliberately NOT
+     * gated on `canPreserveAnchor()`: a prepend can arrive via
+     * `onNeedHistory` *during* an active upward scroll, when
+     * `isUserScrollPreservationActive()` is true. The scroll-progress
+     * preserver only preserves normalized progress through growth *below*
+     * the viewport, so it is a no-op for growth *above* — it cannot pin the
+     * reading message across a prepend, and would otherwise drag scrollTop
+     * back toward its stale ratio. We restore the anchor and then feed the
+     * preserver its new baseline via the public `commitAdjustment`, so the
+     * two cooperate without reaching into its internals.
+     */
+    const handlePrependLayoutChange = (anchor: VisualAnchor | null) => {
+        pendingPrependDispatch = false
+        if (!viewportEl) return
+
+        if (isFollowingBottom) {
+            if (isUserScrollPreservationActive()) {
+                scheduleScrollProgressPreservation()
+            } else {
+                layoutPreservation.begin()
+                jumpToBottom()
+            }
+            return
+        }
+
+        if (!anchor) return
+        layoutPreservation.begin()
+        restoreCurrentVisualAnchor(anchor)
+
+        const now = performance.now()
+        if (scrollProgressPreserver.isActive(now)) {
+            const geometry = captureViewportGeometry()
+            if (geometry) scrollProgressPreserver.commitAdjustment(geometry, now)
+        }
+
+        // Settle net for late re-measurement of the anchored/neighbour items
+        // (mirrors the ResizeObserver path). Gated on canPreserveAnchor by
+        // design — once idle it re-asserts; mid-scroll it defers to the
+        // preserver baseline committed above.
+        scheduleAnchorRestore(anchor)
+    }
+
     const restoreScrollProgressIfNeeded = (now: number): ScrollGeometry | null => {
         if (!viewportEl) return null
 
@@ -706,6 +813,31 @@
             tailRemovalReserve = tailSwap.reserveHeight
             scheduleTailRemovalReserveClear()
         }
+
+        // ── History-prepend position preservation ───────────────────
+        // Detect an older-history prepend: the old first/last ids reappear
+        // shifted by `newN - oldN` (mirrors ChatHeightCache.sync's prepend
+        // fast path, without coupling to its private ordering). We are
+        // pre-DOM-update here, so the reading anchor is captured against the
+        // old layout; the correction is dispatched after `tick()`, once the
+        // taller content exists (see `handlePrependLayoutChange`).
+        const prev = prevMessagesShape
+        const newN = currentIds.length
+        const isPrepend =
+            prev !== null &&
+            newN > prev.count &&
+            currentIds[newN - prev.count] === prev.firstId &&
+            currentIds[newN - 1] === prev.lastId
+        prevMessagesShape =
+            newN > 0 ? { firstId: currentIds[0], lastId: currentIds[newN - 1], count: newN } : null
+        lastMessagesChangeWasPrepend = isPrepend
+
+        if (isPrepend && viewportEl && !pendingPrependDispatch) {
+            const anchor = isFollowingBottom ? null : capturePrependAnchorFromDom()
+            pendingPrependDispatch = true
+            layoutPreservation.begin()
+            void tick().then(() => handlePrependLayoutChange(anchor))
+        }
     })
 
     // ── Measurement ─────────────────────────────────────────────────
@@ -910,8 +1042,11 @@
         const shrank = previousMessageCount >= 0 && count < previousMessageCount
         const now = performance.now()
         if (shrank) lastMessageCountDecreaseAt = now
+        // Prepends never ride the smooth ease — see lastMessagesChangeWasPrepend.
         const shouldSmooth =
-            grew && now - lastMessageCountDecreaseAt > SHRINK_GROW_SMOOTH_SUPPRESSION_MS
+            grew &&
+            !lastMessagesChangeWasPrepend &&
+            now - lastMessageCountDecreaseAt > SHRINK_GROW_SMOOTH_SUPPRESSION_MS
         previousMessageCount = count
         if (isFollowingBottom && viewportEl && !isUserScrollPreservationActive()) {
             layoutPreservation.begin()
