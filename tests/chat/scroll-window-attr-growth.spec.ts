@@ -120,6 +120,14 @@ test.describe('Scroll window attribute growth referee', () => {
             testInfo.project.name === 'mobile-safari',
             'Playwright does not support mouse.wheel in mobile WebKit'
         )
+        // CI webkit frame pacing trips the frame-delta detector with AND without
+        // attribute observation (guard A/B via draft PR #67, 2026-07-13) — no
+        // discriminating power on that platform; cross-platform landmark referee
+        // tracked in #69.
+        test.skip(
+            testInfo.project.name === 'webkit',
+            'CI webkit frame pacing trips the frame-delta detector regardless of observer configuration'
+        )
     })
 
     test('preserves frame-level scroll stability when above-viewport blocks grow mid-scroll', async ({
