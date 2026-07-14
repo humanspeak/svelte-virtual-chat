@@ -608,8 +608,14 @@
             restoreProgressAndSyncFollow(performance.now())
             scheduleScrollProgressPreservation()
         })
+        // childList + subtree only (#32): attribute observation measurably added
+        // nothing — the rAF preservation loop re-corrects every frame while the
+        // user-scroll window is open and wrapper ResizeObservers correct pre-paint,
+        // so style-driven growth mid-scroll never produced a frame-level jump even
+        // at 8 blocks x 600px (see tests/chat/scroll-window-attr-growth.spec.ts,
+        // the referee from that experiment). Re-add via attributeFilter if that
+        // spec ever needs attribute records to stay green.
         scrollMutationObserver.observe(contentEl, {
-            attributes: true,
             childList: true,
             subtree: true
         })
