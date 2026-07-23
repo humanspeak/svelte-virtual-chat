@@ -4,9 +4,8 @@ packages:
 onlyBuiltDependencies:
     - '@humanspeak/docs-kit'
 allowBuilds:
+    '@humanspeak/docs-kit@https://codeload.github.com/humanspeak/docs-kit/tar.gz/a474a0725babdda6f267951a578d14289037b0cc': true
     '@humanspeak/docs-kit': true
-    '@humanspeak/docs-kit@https://codeload.github.com/humanspeak/docs-kit/tar.gz/136b988030bf83e50ba182a01b053d242f75c72d': true
-    '@humanspeak/docs-kit@https://codeload.github.com/humanspeak/docs-kit/tar.gz/df4405ac363ffc2098741971db94cc21cc6f5921': true
     esbuild: true
     sharp: true
     workerd: true
