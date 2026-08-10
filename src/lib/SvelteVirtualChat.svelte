@@ -1,5 +1,5 @@
 <script lang="ts" generics="TMessage">
-    import { tick, untrack } from 'svelte'
+    import { flushSync, tick, untrack } from 'svelte'
     import type { SvelteVirtualChatProps, SvelteVirtualChatDebugInfo } from './types.js'
     import {
         ChatHeightCache,
@@ -421,8 +421,9 @@
         }
     }
 
-    const restoreCurrentVisualAnchor = (anchor: VisualAnchor) => {
-        if (!viewportEl) return
+    /** Returns the computed target scrollTop, so callers can detect a clamped write. */
+    const restoreCurrentVisualAnchor = (anchor: VisualAnchor): number | null => {
+        if (!viewportEl) return null
         const targetScrollTop = restoreVisualAnchor({
             anchor,
             messages,
@@ -432,10 +433,11 @@
             topGap: topGap + tailRemovalReserve,
             headerHeight
         })
-        if (targetScrollTop === null) return
+        if (targetScrollTop === null) return null
         viewportEl.scrollTop = targetScrollTop
         scrollTop = viewportEl.scrollTop
         setFollowingBottom(isAtViewportBottom())
+        return targetScrollTop
     }
 
     const scheduleAnchorRestore = (anchor: VisualAnchor | null) => {
@@ -646,9 +648,94 @@
         })
     }
 
+    /**
+     * Anchor for a height change landing while the user is actively
+     * scrolling UP through the backlog. The scroll-progress preserver cannot
+     * help here: for upward input it only corrects progress *gain*, and
+     * growth above the viewport makes progress drop — so late growth
+     * (loading tables, estimate-miss corrections) would shove the reading
+     * content down by its full height in one painted frame.
+     *
+     * Anchored to the first message wholly at/below the viewport top rather
+     * than the straddling one: growth cannot be located *within* a message
+     * at pitch granularity, and the straddling message's compact regions sit
+     * above the fold — pinning the first fully visible top is the strongest
+     * guarantee message-level anchoring can give (everything the user can
+     * see below the fold stays put), matching native scroll anchoring's
+     * choice of an in-view anchor node.
+     */
+    const captureMidScrollUpAnchor = (): VisualAnchor | null => {
+        if (!viewportEl || messages.length === 0) return null
+        const currentScrollTop = viewportEl.scrollTop
+        let index = Math.min(Math.max(visibleRange.visibleStart, 0), messages.length - 1)
+        const indexTop =
+            topGap +
+            tailRemovalReserve +
+            headerHeight +
+            calculateOffsetForIndex(
+                messages,
+                index,
+                getMessageId,
+                heightCache,
+                estimatedMessageHeight
+            )
+        if (indexTop < currentScrollTop - 1 && index < messages.length - 1) index += 1
+        return captureVisualAnchor({
+            messages,
+            getMessageId,
+            heightCache,
+            estimatedHeight: estimatedMessageHeight,
+            visibleStart: index,
+            topGap: topGap + tailRemovalReserve,
+            headerHeight,
+            scrollTop: currentScrollTop
+        })
+    }
+
     /** Anchor the first visible message before a layout change, unless pinned to bottom. */
-    const captureLayoutAnchor = (): VisualAnchor | null =>
-        canPreserveAnchor() ? captureCurrentVisualAnchor() : null
+    const captureLayoutAnchor = (): VisualAnchor | null => {
+        if (isFollowingBottom) return null
+        if (!isUserScrollPreservationActive()) return captureCurrentVisualAnchor()
+        // Mid-scroll: only upward scrollers get anchor compensation — for
+        // downward input the progress preserver already owns the position,
+        // and an anchor restore would cancel its trajectory correction.
+        return scrollProgressPreserver.getActiveDirection(performance.now()) === 'up'
+            ? captureMidScrollUpAnchor()
+            : null
+    }
+
+    /**
+     * Mid-scroll growth compensation, mirroring handlePrependLayoutChange's
+     * not-following cell: one instant anchor restore (pre-paint — we are in
+     * ResizeObserver context), then feed the progress preserver its adjusted
+     * baseline via the public commitAdjustment so it doesn't drag scrollTop
+     * back toward the stale pre-growth ratio. No deferred settle net on
+     * purpose: a rAF-later re-assert would fight the user's next scroll step.
+     */
+    const restoreAnchorMidScroll = (anchor: VisualAnchor) => {
+        if (!viewportEl) return
+        layoutPreservation.begin()
+        const target = restoreCurrentVisualAnchor(anchor)
+        if (target !== null && viewportEl.scrollTop < target - 0.5) {
+            // The write clamped: the compensation needs scroll range the
+            // spacer doesn't have yet, because the height cache's version
+            // bump (and the effect that resizes the spacer) is deferred.
+            // Near the bottom this shortfall is the whole jump — land the
+            // bump and flush synchronously (we are pre-paint in
+            // ResizeObserver context), then re-assert against the grown
+            // range. The flush must stay on this clamped branch: flushing
+            // BEFORE the write re-renders against the stale scrollTop and
+            // moves content ahead of the compensation.
+            heightCache.flushPendingBump()
+            flushSync()
+            restoreCurrentVisualAnchor(anchor)
+        }
+        const now = performance.now()
+        if (scrollProgressPreserver.isActive(now)) {
+            const geometry = captureViewportGeometry()
+            if (geometry) scrollProgressPreserver.commitAdjustment(geometry, now)
+        }
+    }
 
     const handleLayoutHeightChange = (anchor: VisualAnchor | null) => {
         if (isUserScrollPreservationActive()) {
@@ -663,6 +750,16 @@
             }
             return
         }
+
+        if (isUserScrollPreservationActive()) {
+            // An anchor here means the capture saw an active upward scroll —
+            // see captureLayoutAnchor for why downward input stays with the
+            // progress preserver.
+            if (anchor) restoreAnchorMidScroll(anchor)
+            scheduleScrollProgressPreservation()
+            return
+        }
+
         restoreAnchorPrePaint(anchor)
         scheduleScrollProgressPreservation()
     }

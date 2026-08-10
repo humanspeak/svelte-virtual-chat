@@ -354,10 +354,15 @@ test.describe('Wheel scroll jump', () => {
             samples.push(...(await captureScrollSamplesForFrames(page, tick)))
         }
 
+        // Escape from the bottom is asserted on the bottom gap, not raw
+        // scrollTop: mid-scroll growth compensation adds each late-grown
+        // height back to scrollTop so the reading position stays pinned,
+        // making raw scrollTop meaningless as a travel measure. The gap is
+        // compensation-invariant — a livelock or snap-back would hold it
+        // near zero.
         const first = samples[0]
         const last = samples.at(-1)
         expect(last?.gapFromBottom).toBeGreaterThan(first.gapFromBottom + 1000)
-        expect(last?.scrollTop).toBeLessThan(first.scrollTop - 1000)
     })
 
     test('does not re-grow already loaded tables when revisiting the same upward range', async ({
@@ -439,7 +444,14 @@ test.describe('Keyboard scroll jump', () => {
             const after = await pressKeyAndCaptureFinalSample(page, key)
 
             if (direction === 'up') {
-                expect(after.scrollTop).toBeLessThan(before.scrollTop - minDelta)
+                // Upward movement is asserted on the bottom gap, not raw
+                // scrollTop: page-sized up-steps mount unmeasured messages
+                // whose immediate estimate corrections are compensated back
+                // into scrollTop to hold the reading position, so raw
+                // scrollTop can net out near zero. The gap is
+                // compensation-invariant. Downward steps get no anchor
+                // compensation, so their scrollTop assertion stays exact.
+                expect(after.gapFromBottom).toBeGreaterThan(before.gapFromBottom + minDelta)
             } else {
                 expect(after.scrollTop).toBeGreaterThan(before.scrollTop + minDelta)
             }
@@ -516,10 +528,15 @@ test.describe('Keyboard scroll jump', () => {
             samples.push(...(await pressKeyAndCaptureSamples(page, 'PageUp', tick)))
         }
 
+        // Escape from the bottom is asserted on the bottom gap, not raw
+        // scrollTop: mid-scroll growth compensation adds each late-grown
+        // height back to scrollTop so the reading position stays pinned,
+        // making raw scrollTop meaningless as a travel measure. The gap is
+        // compensation-invariant — a livelock or snap-back would hold it
+        // near zero.
         const first = samples[0]
         const last = samples.at(-1)
         expect(last?.gapFromBottom).toBeGreaterThan(first.gapFromBottom + 1000)
-        expect(last?.scrollTop).toBeLessThan(first.scrollTop - 1000)
     })
 
     test('does not re-grow already loaded tables when keyboard revisits an upward range', async ({
@@ -578,10 +595,15 @@ test.describe('Touch scroll jump', () => {
             samples.push(...(await captureScrollSamplesForFrames(page, tick)))
         }
 
+        // Escape from the bottom is asserted on the bottom gap, not raw
+        // scrollTop: mid-scroll growth compensation adds each late-grown
+        // height back to scrollTop so the reading position stays pinned,
+        // making raw scrollTop meaningless as a travel measure. The gap is
+        // compensation-invariant — a livelock or snap-back would hold it
+        // near zero.
         const first = samples[0]
         const last = samples.at(-1)
         expect(last?.gapFromBottom).toBeGreaterThan(first.gapFromBottom + 1000)
-        expect(last?.scrollTop).toBeLessThan(first.scrollTop - 1000)
     })
 
     test('does not re-grow already loaded tables when touch revisits an upward range', async ({
