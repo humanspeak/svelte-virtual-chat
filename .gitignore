@@ -58,3 +58,4 @@ tmp/
 /docs/.wrangler
 docs/static/og-default.png
 docs/static/twitter-default.png
+/.claude/worktrees

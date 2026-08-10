@@ -116,7 +116,13 @@
 
         const timer = setTimeout(() => {
             pendingTimers.delete(timer)
-            growBlocksAboveViewport()
+            // The mutation itself lands in the rAF phase, not the timer
+            // task: a timer can fire between a frame's paint and a
+            // post-paint sampler's task, handing the referee a mid-task
+            // state no frame ever painted (growth applied, pre-paint
+            // compensation not yet run). rAF-phase growth keeps the
+            // mid-scroll semantics and stays frame-aligned.
+            requestAnimationFrame(() => growBlocksAboveViewport())
         }, GROW_DELAY_MS)
         pendingTimers.add(timer)
     }

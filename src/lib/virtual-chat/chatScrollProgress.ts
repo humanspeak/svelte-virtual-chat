@@ -188,6 +188,19 @@ export class ChatScrollProgressPreserver {
         })
     }
 
+    /**
+     * Direction of the still-fresh user scroll, or null when idle. Lets the
+     * component branch on scroll direction without duplicating this class's
+     * freshness bookkeeping.
+     */
+    getActiveDirection(now: number): ChatScrollDirection | null {
+        const record = this.#lastDirectionalScroll
+        if (record && this.#isFresh(record.capturedAt, now)) return record.direction
+        const pending = this.#pendingDirection
+        if (pending && this.#isFresh(pending.capturedAt, now)) return pending.direction
+        return null
+    }
+
     isActive(now: number): boolean {
         return (
             (!!this.#lastDirectionalScroll &&

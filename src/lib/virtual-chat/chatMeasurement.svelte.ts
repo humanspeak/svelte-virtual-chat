@@ -103,6 +103,16 @@ export class ChatHeightCache {
         if (i !== undefined && i < this.#dirtyFromIndex) this.#dirtyFromIndex = i
     }
 
+    /**
+     * Land any `set()`-deferred version bump immediately. For callers that
+     * must see the new heights reflected in derived layout within the
+     * current task — e.g. a pre-paint scroll correction that needs the
+     * grown scrollable range before it can write scrollTop.
+     */
+    flushPendingBump(): void {
+        if (this.#pendingBump) this.#flushBumpSync()
+    }
+
     #scheduleBump(): void {
         if (this.#pendingBump) return
         this.#pendingBump = true

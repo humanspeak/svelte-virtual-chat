@@ -164,6 +164,37 @@ describe('ChatScrollProgressPreserver', () => {
         expect(preserver.isActive(1201)).toBe(false)
     })
 
+    it('reports the direction of a fresh user scroll and null when idle', () => {
+        const preserver = new ChatScrollProgressPreserver({ activeWindowMs: 200 })
+
+        expect(preserver.getActiveDirection(1000)).toBeNull()
+
+        preserver.recordScrollIntent({
+            direction: 'up',
+            current: { scrollTop: 1400, scrollHeight: 1900, clientHeight: 500 },
+            now: 1000
+        })
+
+        expect(preserver.getActiveDirection(1200)).toBe('up')
+        expect(preserver.getActiveDirection(1201)).toBeNull()
+    })
+
+    it('tracks the latest direction across a direction change', () => {
+        const preserver = new ChatScrollProgressPreserver({ activeWindowMs: 200 })
+        preserver.recordScrollIntent({
+            direction: 'up',
+            current: { scrollTop: 1400, scrollHeight: 1900, clientHeight: 500 },
+            now: 1000
+        })
+        preserver.recordScrollIntent({
+            direction: 'down',
+            current: { scrollTop: 1400, scrollHeight: 1900, clientHeight: 500 },
+            now: 1050
+        })
+
+        expect(preserver.getActiveDirection(1100)).toBe('down')
+    })
+
     it('replaces a provisional intent baseline after matching movement', () => {
         const preserver = new ChatScrollProgressPreserver()
         preserver.recordScrollIntent({

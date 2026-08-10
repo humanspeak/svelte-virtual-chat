@@ -159,7 +159,12 @@ export async function captureScrollSample(
 }
 
 /**
- * Sample viewport scroll geometry once per animation frame.
+ * Sample viewport scroll geometry once per PAINTED frame (rAF →
+ * MessageChannel task). Plain rAF-phase sampling reads the sub-frame state
+ * before the frame's ResizeObserver step — pre-paint corrections (e.g.
+ * scroll compensation for late growth) land after the rAF phase, so an
+ * rAF-phase sample pairs a never-painted intermediate state with the next
+ * frame's corrected one and reports jumps no user ever saw.
  */
 export async function sampleViewportFrames(
     page: Page,
@@ -195,13 +200,19 @@ export async function sampleViewportFrames(
                 return sample
             }
 
-            const nextFrame = () =>
-                new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+            const afterPaint = () =>
+                new Promise<void>((resolve) =>
+                    requestAnimationFrame(() => {
+                        const channel = new MessageChannel()
+                        channel.port1.onmessage = () => resolve()
+                        channel.port2.postMessage(null)
+                    })
+                )
 
             return (async () => {
                 const samples: ViewportFrameSample[] = []
                 for (let phase = 0; phase < frameCount; phase++) {
-                    await nextFrame()
+                    await afterPaint()
                     samples.push(readSample(phase))
                 }
                 return samples
