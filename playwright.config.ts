@@ -6,6 +6,8 @@ const argProjects = process.argv
 
 export default defineConfig({
     testDir: './tests',
+    // Written into test-results/ so CI's trunk analytics uploader and the
+    // playwright-results artifact both find it (junit-paths in npm-publish.yml)
     reporter: [
         ['junit', { outputFile: 'test-results/junit-playwright.xml' }],
         ['html', { open: 'never' }]
