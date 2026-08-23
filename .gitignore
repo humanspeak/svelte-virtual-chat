@@ -48,12 +48,14 @@ docs/static/social-cards/**
 docs/static/docs/**
 docs/static/examples.md
 docs/static/examples/**
+docs/static/compare/**
 docs/static/llms.txt
 docs/static/llms-full.txt
 docs/src/lib/demo-manifest.json
 docs/src/lib/demo-loaders.ts
 docs/src/lib/demo-virtual.d.ts
 docs/src/lib/github-stats.json
+docs/src/worker-configuration.d.ts
 tmp/
 /docs/.wrangler
 docs/static/og-default.png
