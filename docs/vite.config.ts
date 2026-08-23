@@ -11,7 +11,9 @@ import {
 import { sveltekit } from '@sveltejs/kit/vite'
 import tailwindcss from '@tailwindcss/vite'
 import { defineConfig } from 'vite'
-import { docsConfig } from './src/lib/docs-config'
+
+import { competitors, ours } from './src/lib/compare-data.js'
+import { docsConfig } from './src/lib/docs-config.js'
 
 const indexNowKey = '3ffcb05f-e81d-415c-b5d3-446fa6ec612d'
 const docsSourceBaseUrl = `https://github.com/${docsConfig.repo}/blob/main/docs`
@@ -21,7 +23,13 @@ export default defineConfig({
     // They regenerate demo manifests, sitemap data, Markdown mirrors, LLM
     // discovery files, and social cards without separate package.json scripts.
     plugins: [
-        sitemapManifestPlugin({ blogDir: false }),
+        sitemapManifestPlugin({
+            blogDir: false,
+            extraPages: competitors.map((competitor) => ({
+                route: `/compare/${competitor.slug}`,
+                source: 'src/lib/compare-data.ts'
+            }))
+        }),
         demoManifestPlugin({ split: true }),
         docMirrorsPlugin({ siteUrl: docsConfig.url }),
         exampleMirrorsPlugin({
@@ -37,14 +45,39 @@ export default defineConfig({
             siteUrl: docsConfig.url,
             pkgName: docsConfig.npmPackage,
             description: docsConfig.description,
-            prepend: 'llms-positioning.md'
+            prepend: 'llms-positioning.md',
+            comparisons: { ours, competitors }
         }),
         socialCardsPlugin({
             npmPackage: docsConfig.npmPackage,
             defaultTitle: docsConfig.name,
             defaultDescription:
                 'A high-performance virtual chat viewport for Svelte 5. Follow-bottom, streaming-stable, history-aware.',
-            defaultFeatures: docsConfig.defaultFeatures
+            defaultFeatures: docsConfig.defaultFeatures,
+            extraPages: [
+                {
+                    ogSlug: 'compare',
+                    ogTitle: 'Compare',
+                    ogTagline: 'Chat-aware virtualization compared with generic list windowing.',
+                    ogFeatures: [
+                        'Chat Behavior',
+                        'Feature Matrices',
+                        'Pros & Cons',
+                        'Honest Verdicts'
+                    ]
+                },
+                ...competitors.map((competitor) => ({
+                    ogSlug: `compare-${competitor.slug}`,
+                    ogTitle: `vs ${competitor.name}`,
+                    ogTagline: competitor.tagline,
+                    ogFeatures: [
+                        'Follow-Bottom',
+                        'Streaming Stability',
+                        'History Anchoring',
+                        'Honest Verdict'
+                    ]
+                }))
+            ]
         }),
         indexNowPlugin({
             siteUrl: docsConfig.url,

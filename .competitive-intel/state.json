@@ -1,0 +1,212 @@
+{
+    "last_run": "2026-08-23",
+    "fetched_at": "2026-08-23T08:30:26Z",
+    "project": "@humanspeak/svelte-virtual-chat",
+    "run_type": "baseline",
+    "self": {
+        "npm": "@humanspeak/svelte-virtual-chat",
+        "repo": "humanspeak/svelte-virtual-chat",
+        "latest_version": "0.1.23",
+        "last_publish": "2026-08-10",
+        "weekly_downloads": 273,
+        "svelte_peer": "^5.0.0",
+        "stars": 6,
+        "archived": false,
+        "last_release": "2026-08-10",
+        "pushed_at": "2026-08-12",
+        "error": null
+    },
+    "competitors": [
+        {
+            "npm": "svelte-tiny-virtual-list",
+            "repo": "jonasgeiler/svelte-tiny-virtual-list",
+            "latest_version": "4.0.0",
+            "last_publish": "2026-08-11",
+            "weekly_downloads": 29655,
+            "svelte_peer": "^5.0.0",
+            "stars": 643,
+            "archived": false,
+            "last_release": "2026-08-11",
+            "pushed_at": "2026-08-20",
+            "error": null
+        },
+        {
+            "npm": "@tanstack/svelte-virtual",
+            "repo": "TanStack/virtual",
+            "latest_version": "3.13.36",
+            "last_publish": "2026-08-18",
+            "weekly_downloads": 82514,
+            "svelte_peer": "^3.48.0 || ^4.0.0 || ^5.0.0",
+            "stars": 7080,
+            "archived": false,
+            "last_release": "2026-08-18",
+            "pushed_at": "2026-08-18",
+            "error": null
+        }
+    ],
+    "watchlist": [
+        {
+            "npm": "svelte-virtual-list",
+            "repo": "sveltejs/svelte-virtual-list",
+            "latest_version": "3.0.1",
+            "last_publish": "2021-06-22",
+            "weekly_downloads": 786,
+            "svelte_peer": null,
+            "stars": 772,
+            "archived": false,
+            "last_release": null,
+            "pushed_at": "2023-03-01",
+            "error": null
+        }
+    ],
+    "watchlist_candidates": [
+        {
+            "npm": "svelte-virtual-scroll-list",
+            "repo": "pavish/svelte-virtual-scroll-list",
+            "latest_version": "1.3.0",
+            "last_publish": "2023-07-16",
+            "weekly_downloads": 17387,
+            "svelte_peer": ">=3.5.0",
+            "note": "Surfaced 2026-08-23 by discovery pass. Svelte 3-era, unmaintained, but 17k weekly DL \u2014 addressable demand. Proposed for watchlist, not yet promoted."
+        }
+    ],
+    "open_gaps": [
+        {
+            "id": "sticky-indices",
+            "them": "svelte-tiny-virtual-list",
+            "capability": "Sticky/pinned indices",
+            "why": "Chat date separators ('Today'/'Yesterday') pinned while scrolling backlog.",
+            "assessment": "Genuinely chat-shaped. Worth doing.",
+            "first_seen": "2026-08-23"
+        },
+        {
+            "id": "window-scroll-mode",
+            "them": "@tanstack/svelte-virtual",
+            "capability": "Window virtualizer + scrollMargin",
+            "why": "Full-page ChatGPT-style transcripts virtualize against the document scroller, not an inner container.",
+            "assessment": "Worth investigating; interacts non-trivially with follow-bottom.",
+            "first_seen": "2026-08-23"
+        },
+        {
+            "id": "measurement-cache-persistence",
+            "them": "@tanstack/svelte-virtual",
+            "capability": "useCachedMeasurements",
+            "why": "Return to a conversation without re-measuring the whole backlog.",
+            "assessment": "Moderate value, likely cheap.",
+            "first_seen": "2026-08-23"
+        }
+    ],
+    "not_gaps_by_design": [
+        "multi-framework adapters",
+        "horizontal/RTL virtualization",
+        "masonry lanes",
+        "generic grid/table virtualization (non-goal)",
+        "chat UI kit / bubbles / markdown (non-goal)"
+    ],
+    "rank_tracker": {
+        "project_id": 9694468,
+        "date": "2026-08-23",
+        "date_compared": "2026-08-16",
+        "summary": {
+            "tracked": 2,
+            "ranked": 2,
+            "top3": 0,
+            "top10": 0,
+            "top100": 2,
+            "improved": 0,
+            "declined": 2,
+            "avg_position": 23.5
+        },
+        "rows": [
+            {
+                "keyword": "svelte chat",
+                "volume": 30,
+                "position": 20,
+                "position_diff": 20,
+                "position_prev": null,
+                "url": "https://virtualchat.svelte.page/",
+                "kd": 2
+            },
+            {
+                "keyword": "svelte chat component",
+                "volume": 20,
+                "position": 27,
+                "position_diff": 3,
+                "position_prev": 24,
+                "url": "https://virtualchat.svelte.page/",
+                "kd": 3
+            }
+        ],
+        "note": "'svelte chat' had position_prev=null this run \u2014 first reading, not a decline, despite the summary counting it under 'declined'."
+    },
+    "seo": {
+        "export_date": "2026-08-22",
+        "striking_distance": [
+            {
+                "query": "svelte chat",
+                "impressions": 43.0,
+                "position": 12.63
+            },
+            {
+                "query": "virtualchat",
+                "impressions": 37.0,
+                "position": 6.38
+            },
+            {
+                "query": "chat svelte",
+                "impressions": 23.0,
+                "position": 10.87
+            }
+        ],
+        "underperforming_pages": [
+            {
+                "page": "https://virtualchat.svelte.page/",
+                "impressions": 619.0,
+                "position": 27.46,
+                "ctr": 1.62
+            }
+        ],
+        "zero_click": [
+            {
+                "query": "svelte chatbot",
+                "impressions": 258.0,
+                "position": 46.15
+            },
+            {
+                "query": "virtualchat",
+                "impressions": 37.0,
+                "position": 6.38
+            },
+            {
+                "query": "chat svelte",
+                "impressions": 23.0,
+                "position": 10.87
+            }
+        ],
+        "recommendations_open": [
+            "rewrite homepage title/meta for virtualchat + svelte chat CTR",
+            "publish chatbot-intent guide targeting 'svelte chatbot' (258 impressions, pos 46)",
+            "add 'svelte chatbot' to Ahrefs rank tracker",
+            "add 'virtualchat' to Ahrefs rank tracker",
+            "add 'chat svelte' to Ahrefs rank tracker"
+        ],
+        "note": "Ahrefs Keywords Explorer returns no volume for this niche's terms; GSC impressions are the demand signal."
+    },
+    "repo_triage": {
+        "since": "2026-07-24",
+        "new_external_prs": 0,
+        "new_external_issues": 0,
+        "awaiting_your_reply": 0,
+        "bots": {
+            "prs": 1,
+            "issues": 0
+        },
+        "errors": []
+    },
+    "compare_validation": {},
+    "delivery": {
+        "channel": "C0BP5BF1UTX",
+        "method": "webhook",
+        "status": "posted"
+    }
+}

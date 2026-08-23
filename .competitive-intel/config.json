@@ -1,0 +1,59 @@
+{
+    "project": "@humanspeak/svelte-virtual-chat",
+    "category": "Svelte 5 virtual chat viewport — windowed message list purpose-built for LLM/support chat: follow-bottom, streaming-stable, history-prepend with anchor preservation",
+
+    "self_npm": "@humanspeak/svelte-virtual-chat",
+    "self_repo": "humanspeak/svelte-virtual-chat",
+
+    "ahrefs_project_id": 9694468,
+    "github_handle": "jaysin586",
+    "repo_triage": {
+        "enabled": true,
+        "_comment": "Public repo — GITHUB_TOKEN raises rate limits; public-read fallback works without it. Surfaces open PRs/issues NOT opened by github_handle, and threads awaiting your reply since the previous last_run."
+    },
+
+    "self_features": [
+        "Virtualized message viewport (renders only visible messages) for long chat histories",
+        "Follow-bottom that survives streaming — stays pinned while tokens arrive, releases on user scroll-up",
+        "History-prepend with scroll-anchor preservation (load older messages without a jump)",
+        "Streaming-stable measurement for variable-height, growing messages",
+        "Svelte 5 runes; purpose-built for LLM conversations, support chat, any message-based UI"
+    ],
+
+    "non_goals": [
+        "A general-purpose table/grid virtualizer — this is message-shaped (sibling @humanspeak/svelte-virtual-list covers generic lists)",
+        "A chat UI kit / bubbles / markdown rendering — it's the viewport, not the message components"
+    ],
+
+    "competitors": [
+        {
+            "npm": "svelte-tiny-virtual-list",
+            "repo": "jonasgeiler/svelte-tiny-virtual-list",
+            "note": "Popular Svelte virtual list; generic windowing, not chat-aware (no follow-bottom / prepend-anchor / streaming stability)"
+        },
+        {
+            "npm": "@tanstack/svelte-virtual",
+            "repo": "TanStack/virtual",
+            "note": "Framework-spanning headless virtualizer with a Svelte adapter; powerful but you build the chat behaviors yourself"
+        }
+    ],
+
+    "watchlist": [
+        {
+            "npm": "svelte-virtual-list",
+            "repo": "sveltejs/svelte-virtual-list",
+            "note": "The original Svelte virtual list; largely dormant/Svelte-3 era — watch for any revival"
+        }
+    ],
+
+    "seo": {
+        "enabled": true,
+        "docs_domain": "virtualchat.svelte.page",
+        "gsc_dir": ".competitive-intel/gsc",
+        "gsc_staleness_days": 14,
+        "_comment": "2 keywords in Ahrefs rank tracker (project 9694468) — early. Target terms: 'svelte virtual list', 'svelte chat scroll', 'svelte llm chat ui', 'follow bottom scroll svelte', 'virtualized chat'. No /compare pages yet — a candidate GEO surface later."
+    },
+
+    "slack_channel": "C0BP5BF1UTX",
+    "_slack_channel_comment": "#claude-reports in human-speak.slack.com via the shared webhook in common.env — same channel as the other OSS digests."
+}

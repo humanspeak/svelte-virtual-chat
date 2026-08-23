@@ -35,9 +35,9 @@
     // SeoHead renders after children and reads these reactively.
     const seo = getSeoContext()
     if (seo) {
-        seo.title = 'svelte-virtual-chat · high-performance virtual chat viewport for Svelte 5'
+        seo.title = 'VirtualChat: Svelte Chat Component for Streaming LLM UIs'
         seo.description =
-            'A virtualized chat viewport for Svelte 5, purpose-built for LLM conversations — follow-bottom, in-frame streaming correction, and history prepend with scroll anchor preservation. ~20 DOM nodes at 10,000 messages.'
+            'Build fast Svelte chatbots and LLM chat UIs with streaming-safe follow-bottom, virtualized messages, and jump-free history loading.'
         seo.ogTitle = 'Svelte Virtual Chat'
         seo.ogTagline = 'A high-performance virtual chat viewport for Svelte 5.'
         seo.ogFeatures = [
@@ -83,23 +83,23 @@
     const features = [
         {
             title: 'Follow-Bottom',
-            body: 'Viewport stays pinned to the newest message. Scroll away and it stops. Return and it resumes.'
+            body: 'Stay with new messages and streaming replies until the reader scrolls away. Return to the bottom and following resumes.'
         },
         {
-            title: 'LLM Streaming',
-            body: 'Height changes from token streaming are batched per frame. No jitter, no jumps, no workarounds.'
+            title: 'Frame-Stable Streaming',
+            body: 'Correct token-by-token height growth in the same frame, before paint. No jitter, jumps, or manual scroll fixes.'
         },
         {
             title: 'Virtualized',
             body: 'Only visible messages exist in the DOM. 10,000 messages renders ~20 DOM nodes.'
         },
         {
-            title: 'History Prepend',
-            body: "Load older messages at the top. Scroll anchor preservation keeps the user's position stable."
+            title: 'Anchored History',
+            body: "Prepend older messages without moving the conversation. The reader's visible message and offset stay anchored."
         },
         {
-            title: 'Message-Aware',
-            body: 'Uses message IDs for identity. Height caching, scroll-to-message, and keyed rendering built in.'
+            title: 'Message Identity',
+            body: 'Track messages by getMessageId instead of array position, with keyed rendering, height caching, and scroll-to-message built in.'
         },
         {
             title: 'Svelte 5 + TypeScript',
@@ -381,10 +381,10 @@
                     >
                 </h1>
                 <p class="sub">
-                    A <b>high-performance</b> virtual chat viewport for Svelte 5 — purpose-built for
-                    <b>LLM conversations</b>, support chat, and any message-based UI. Only visible
-                    messages hit the DOM, with follow-bottom, in-frame streaming correction, and
-                    history prepend that never jumps the scroll.
+                    The Svelte 5 chat component that keeps long conversations stable while
+                    <b>LLM responses stream</b> and older history loads. Get chat-aware follow-bottom,
+                    in-frame height correction, anchored prepends, and message identity with only the
+                    visible messages in the DOM.
                 </p>
                 <div class="cta-row">
                     <a class="pri" href="/docs/getting-started">get started ↗</a>
@@ -519,7 +519,10 @@
             <div class="lede">
                 <div class="k">FIG-003 / CAPABILITIES</div>
                 <h2>built for <span>chat</span>, not lists.</h2>
-                <p>Every feature is a direct response to a real problem in chat UI development.</p>
+                <p>
+                    Generic virtualizers render rows. VirtualChat also owns the conversation
+                    behavior: following, streaming growth, history anchoring, and message identity.
+                </p>
             </div>
             <div class="grid">
                 {#each features as f, i (f.title)}

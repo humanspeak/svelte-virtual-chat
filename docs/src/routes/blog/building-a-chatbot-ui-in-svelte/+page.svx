@@ -1,0 +1,278 @@
+---
+title: Building a Chatbot UI in Svelte 5
+date: '2026-08-23T12:00:00-04:00'
+description: Build a virtualized Svelte chatbot UI that follows streaming LLM responses, preserves scroll position when loading history, and renders markdown safely.
+tags:
+    - svelte-chatbot
+    - llm
+    - streaming
+    - virtualization
+    - svelte-5
+author: Jason Kummerl
+readingTime: 9
+---
+
+<script lang="ts">
+    import { BlogPostV2, type BlogPostMeta } from '@humanspeak/docs-kit/blog'
+    import { docsConfig } from '$lib/docs-config'
+    import StreamingChat from '$lib/examples/streaming/demos/StreamingChat.svelte'
+
+    const post: BlogPostMeta = {
+        slug: 'building-a-chatbot-ui-in-svelte',
+        title: 'Building a Chatbot UI in Svelte 5',
+        date: '2026-08-23T12:00:00-04:00',
+        description:
+            'Build a virtualized Svelte chatbot UI that follows streaming LLM responses, preserves scroll position when loading history, and renders markdown safely.',
+        tags: ['svelte-chatbot', 'llm', 'streaming', 'virtualization', 'svelte-5'],
+        author: 'Jason Kummerl',
+        readingTime: 9
+    }
+</script>
+
+<BlogPostV2 {post} config={docsConfig}>
+
+A chatbot looks like a list of messages, but it does not behave like an ordinary list.
+
+The newest assistant message grows while tokens arrive. New messages should stay visible only while the reader is following the conversation. Loading older history at the top must not move the message they are reading. Once a conversation contains thousands of messages, rendering every bubble also becomes unnecessary work.
+
+This guide builds that behavior in Svelte 5 with two focused components:
+
+- [`@humanspeak/svelte-virtual-chat`](/docs/getting-started) owns the virtualized viewport, follow-bottom state, streaming height correction, and history anchoring.
+- [`@humanspeak/svelte-markdown`](https://markdown.svelte.page) renders assistant markdown as Svelte components, including partial output while a response streams.
+
+## Try the finished Svelte chatbot
+
+The example below is live. Start a response, then scroll upward while it is streaming. The viewport releases follow-bottom instead of pulling you back. Return to the bottom and it follows new tokens again.
+
+<div class="chatbot-demo">
+    <StreamingChat />
+</div>
+
+## Install the viewport and markdown renderer
+
+```bash
+pnpm add @humanspeak/svelte-virtual-chat @humanspeak/svelte-markdown
+```
+
+Both packages target Svelte 5. The viewport does not prescribe bubble styling or message content, so the markdown renderer remains a normal child of your message template.
+
+## Define messages by identity
+
+Use a stable ID from your database or chat API. Array position is not message identity: prepending history changes every index, while the messages themselves have not changed.
+
+```ts
+type ChatMessage = {
+    id: string
+    role: 'user' | 'assistant'
+    content: string
+    streaming?: boolean
+}
+
+let messages: ChatMessage[] = $state([])
+```
+
+Pass that identity to the viewport with `getMessageId`:
+
+```svelte
+<SvelteVirtualChat
+    {messages}
+    getMessageId={(message) => message.id}
+    estimatedMessageHeight={96}
+    containerClass="h-[min(70vh,42rem)]"
+    viewportClass="h-full"
+>
+    {#snippet renderMessage(message)}
+        <!-- message UI goes here -->
+    {/snippet}
+</SvelteVirtualChat>
+```
+
+The parent needs a bounded height. Virtualization calculates visible messages from the viewport height and scroll position; an unconstrained element simply expands to fit every message.
+
+## Render assistant responses with Svelte Markdown
+
+Inside `renderMessage`, render user text directly and assistant text through `SvelteMarkdown`. The `streaming` flag tells the renderer that the source is still growing.
+
+```svelte
+<script lang="ts">
+    import SvelteVirtualChat from '@humanspeak/svelte-virtual-chat'
+    import SvelteMarkdown from '@humanspeak/svelte-markdown'
+
+    type ChatMessage = {
+        id: string
+        role: 'user' | 'assistant'
+        content: string
+        streaming?: boolean
+    }
+
+    let messages: ChatMessage[] = $state([])
+</script>
+
+<SvelteVirtualChat
+    {messages}
+    getMessageId={(message) => message.id}
+    estimatedMessageHeight={96}
+    containerClass="h-[min(70vh,42rem)]"
+    viewportClass="h-full"
+>
+    {#snippet renderMessage(message)}
+        <article class:user={message.role === 'user'}>
+            <strong>{message.role === 'user' ? 'You' : 'Assistant'}</strong>
+
+            {#if message.role === 'assistant'}
+                <SvelteMarkdown
+                    source={message.content}
+                    streaming={message.streaming ?? false}
+                />
+            {:else}
+                <p>{message.content}</p>
+            {/if}
+        </article>
+    {/snippet}
+</SvelteVirtualChat>
+```
+
+`SvelteMarkdown` renders tokens through Svelte components rather than inserting one opaque HTML string. Its default URL and attribute policies also harden model output against dangerous protocols and executable attributes. For fully untrusted raw HTML, define a stricter application policy or add a dedicated sanitizer; the renderer's defaults are defense in depth, not a universal DOM sanitizer.
+
+## Stream an LLM response into the final message
+
+Create the assistant message before reading the response body, then append decoded chunks to that same message. Svelte's deep state reactivity updates the content while VirtualChat observes the changing message height.
+
+```ts
+async function send(prompt: string) {
+    messages.push({
+        id: crypto.randomUUID(),
+        role: 'user',
+        content: prompt
+    })
+
+    const assistant: ChatMessage = {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: '',
+        streaming: true
+    }
+    messages.push(assistant)
+
+    const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ messages })
+    })
+
+    if (!response.ok || !response.body) {
+        assistant.content = 'Sorry, the response could not be loaded.'
+        assistant.streaming = false
+        return
+    }
+
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+
+    while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        assistant.content += decoder.decode(value, { stream: true })
+    }
+
+    assistant.content += decoder.decode()
+    assistant.streaming = false
+}
+```
+
+The server endpoint can use OpenAI, Anthropic, Workers AI, or any provider that returns a text stream. The viewport does not depend on the transport. If your provider emits SSE envelopes or structured deltas, parse those frames before appending their text.
+
+## Why follow-bottom needs user intent
+
+Calling `scrollTo({ top: scrollHeight })` whenever content changes appears to work until someone scrolls up to read an earlier message. The next token then drags them back to the bottom.
+
+A chat viewport needs two states:
+
+1. **Following:** new messages and height growth remain pinned to the latest content.
+2. **Scrolled away:** layout can change, but the reader's position stays stable.
+
+VirtualChat tracks scroll intent and the distance from the bottom to move between those states. When streaming content grows faster than the browser processes scroll events, height correction is batched into the same animation frame so the viewport does not visibly oscillate.
+
+Use `onFollowBottomChange` when the composer or a “new messages” indicator needs that state:
+
+```svelte
+<script lang="ts">
+    let following = $state(true)
+</script>
+
+<SvelteVirtualChat
+    {messages}
+    getMessageId={(message) => message.id}
+    onFollowBottomChange={(value) => (following = value)}
+>
+    <!-- ... -->
+</SvelteVirtualChat>
+
+{#if !following}
+    <button onclick={() => chat?.scrollToBottom({ smooth: true })}>
+        New messages ↓
+    </button>
+{/if}
+```
+
+## Prepend history without a jump
+
+When the viewport approaches the top, fetch the previous page and prepend it in chronological order:
+
+```ts
+async function loadOlderMessages() {
+    if (loadingHistory || !hasMoreHistory) return
+    loadingHistory = true
+
+    try {
+        const oldestId = messages[0]?.id
+        const response = await fetch(`/api/messages?before=${oldestId ?? ''}`)
+        const older: ChatMessage[] = await response.json()
+
+        messages.unshift(...older)
+        hasMoreHistory = older.length > 0
+    } finally {
+        loadingHistory = false
+    }
+}
+```
+
+Then connect the callback:
+
+```svelte
+<SvelteVirtualChat
+    {messages}
+    getMessageId={(message) => message.id}
+    onNeedHistory={loadOlderMessages}
+    historyThresholdPx={240}
+>
+    <!-- ... -->
+</SvelteVirtualChat>
+```
+
+Before the prepend, VirtualChat captures the first visible message and its offset from the viewport. After Svelte renders the older messages, it restores that anchor. The scrollbar grows upward, but the conversation under the reader's eyes stays put.
+
+## Production checklist
+
+Before shipping a Svelte chatbot, verify these behaviors with real response sizes and network timing:
+
+- Give every message a stable ID that survives pagination and retries.
+- Constrain the viewport height and test it inside the final flex or grid layout.
+- Mark only the actively growing assistant message as `streaming`.
+- Stop following when the reader scrolls away; do not force-scroll on every token.
+- Preserve an anchor while prepending older history.
+- Handle aborted requests and ensure a cancelled message leaves streaming mode.
+- Apply a clear trust policy to model-generated links and raw HTML.
+- Add accessible names to the transcript, composer, send button, and jump-to-latest control.
+
+The complete viewport behavior is demonstrated in the [LLM streaming example](/examples/streaming). For individual configuration options, see the [`SvelteVirtualChat` API](/docs/api/svelte-virtual-chat), [props reference](/docs/api/props), and [history-loading guide](/docs/guides/history-loading).
+
+The important design decision is separating responsibilities. Let the markdown renderer own message content, let the virtual chat viewport own conversation geometry, and let your application own transport and persistence. That boundary keeps the implementation small without reducing a chatbot to a generic list.
+
+</BlogPostV2>
+
+<style>
+    .chatbot-demo {
+        margin: 2rem 0;
+    }
+</style>
