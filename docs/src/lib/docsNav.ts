@@ -16,12 +16,22 @@ import {
 export const headerNav: { label: string; href: string }[] = [
     { label: 'docs', href: '/docs' },
     { label: 'examples', href: '/examples' },
-    { label: 'compare', href: '/compare' }
+    { label: 'compare', href: '/compare' },
+    { label: 'blog', href: '/blog' }
 ]
 
 export function buildBreadcrumbs(pathname: string): Breadcrumb[] {
     if (pathname === '/docs') return [{ title: 'Docs' }]
     if (pathname === '/examples') return [{ title: 'Examples' }]
+    if (pathname === '/blog' || pathname === '/blog/') return [{ title: 'Blog' }]
+    if (pathname.startsWith('/blog/')) {
+        const slug = pathname.replace('/blog/', '').replace(/\/$/, '')
+        const title = slug
+            .split('-')
+            .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ')
+        return [{ title: 'Blog', href: '/blog' }, { title }]
+    }
 
     for (const section of docsSections) {
         for (const item of section.items) {
