@@ -20,16 +20,22 @@ export const headerNav: { label: string; href: string }[] = [
     { label: 'blog', href: '/blog' }
 ]
 
+const blogPostTitles: Record<string, string> = {
+    'building-a-chatbot-ui-in-svelte': 'Building a Chatbot UI in Svelte 5'
+}
+
 export function buildBreadcrumbs(pathname: string): Breadcrumb[] {
     if (pathname === '/docs') return [{ title: 'Docs' }]
     if (pathname === '/examples') return [{ title: 'Examples' }]
     if (pathname === '/blog' || pathname === '/blog/') return [{ title: 'Blog' }]
     if (pathname.startsWith('/blog/')) {
         const slug = pathname.replace('/blog/', '').replace(/\/$/, '')
-        const title = slug
-            .split('-')
-            .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(' ')
+        const title =
+            blogPostTitles[slug] ??
+            slug
+                .split('-')
+                .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(' ')
         return [{ title: 'Blog', href: '/blog' }, { title }]
     }
 
