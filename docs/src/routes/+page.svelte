@@ -35,9 +35,9 @@
     // SeoHead renders after children and reads these reactively.
     const seo = getSeoContext()
     if (seo) {
-        seo.title = 'svelte-virtual-chat · high-performance virtual chat viewport for Svelte 5'
+        seo.title = 'VirtualChat: Svelte Chat Component for Streaming LLM UIs'
         seo.description =
-            'A virtualized chat viewport for Svelte 5, purpose-built for LLM conversations — follow-bottom, in-frame streaming correction, and history prepend with scroll anchor preservation. ~20 DOM nodes at 10,000 messages.'
+            'Build fast Svelte chatbots and LLM chat UIs with streaming-safe follow-bottom, virtualized messages, and jump-free history loading.'
         seo.ogTitle = 'Svelte Virtual Chat'
         seo.ogTagline = 'A high-performance virtual chat viewport for Svelte 5.'
         seo.ogFeatures = [
