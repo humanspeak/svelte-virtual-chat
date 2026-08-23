@@ -15,7 +15,8 @@ import {
 
 export const headerNav: { label: string; href: string }[] = [
     { label: 'docs', href: '/docs' },
-    { label: 'examples', href: '/examples' }
+    { label: 'examples', href: '/examples' },
+    { label: 'compare', href: '/compare' }
 ]
 
 export function buildBreadcrumbs(pathname: string): Breadcrumb[] {
