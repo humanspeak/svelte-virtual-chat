@@ -46,12 +46,19 @@
         }
     ],
 
+    "compare_data_paths": ["docs/src/lib/compare-data.ts"],
+    "_compare_data_paths_comment": "Single source of truth behind /compare and /compare/[slug]. Enables automated Tier 1 freshness checks (svelte_peer vs stated framework support, hardcoded download figures, active/dormant framing, dead links) plus Tier 2 release-note review when a competitor's latest_version moves.",
+    "page_validation": {
+        "download_tolerance": 0.3,
+        "_comment": "Flag a hardcoded weekly-download figure on a page when it drifts more than this fraction from live data (0.30 = 30%). compare-data.ts currently states no download figures, so this is a guard against future edits."
+    },
+
     "seo": {
         "enabled": true,
         "docs_domain": "virtualchat.svelte.page",
         "gsc_dir": ".competitive-intel/gsc",
         "gsc_staleness_days": 14,
-        "_comment": "2 keywords in Ahrefs rank tracker (project 9694468) — early. Target terms: 'svelte virtual list', 'svelte chat scroll', 'svelte llm chat ui', 'follow bottom scroll svelte', 'virtualized chat'. No /compare pages yet — a candidate GEO surface later."
+        "_comment": "8 keywords in the Ahrefs rank tracker (project 9694468), 6 ranked as of 2026-08-31. Target terms: 'svelte chat', 'svelte chat component', 'svelte chat ui', 'svelte chatbot', 'svelte llm chat', 'chat svelte', 'virtualized chat', 'virtualchat'. /compare and /blog are live — validated via compare_data_paths."
     },
 
     "slack_channel": "C0BP5BF1UTX",
