@@ -1,19 +1,19 @@
 {
-    "last_run": "2026-08-23",
-    "fetched_at": "2026-08-23T08:30:26Z",
+    "last_run": "2026-08-31",
+    "fetched_at": "2026-08-31T08:32:32Z",
     "project": "@humanspeak/svelte-virtual-chat",
-    "run_type": "baseline",
+    "run_type": "delta",
     "self": {
         "npm": "@humanspeak/svelte-virtual-chat",
         "repo": "humanspeak/svelte-virtual-chat",
         "latest_version": "0.1.23",
         "last_publish": "2026-08-10",
-        "weekly_downloads": 273,
+        "weekly_downloads": 187,
         "svelte_peer": "^5.0.0",
-        "stars": 6,
+        "stars": 7,
         "archived": false,
         "last_release": "2026-08-10",
-        "pushed_at": "2026-08-12",
+        "pushed_at": "2026-08-26",
         "error": null
     },
     "competitors": [
@@ -22,12 +22,12 @@
             "repo": "jonasgeiler/svelte-tiny-virtual-list",
             "latest_version": "4.0.0",
             "last_publish": "2026-08-11",
-            "weekly_downloads": 29655,
+            "weekly_downloads": 19838,
             "svelte_peer": "^5.0.0",
-            "stars": 643,
+            "stars": 644,
             "archived": false,
             "last_release": "2026-08-11",
-            "pushed_at": "2026-08-20",
+            "pushed_at": "2026-08-30",
             "error": null
         },
         {
@@ -35,12 +35,12 @@
             "repo": "TanStack/virtual",
             "latest_version": "3.13.36",
             "last_publish": "2026-08-18",
-            "weekly_downloads": 82514,
+            "weekly_downloads": 75565,
             "svelte_peer": "^3.48.0 || ^4.0.0 || ^5.0.0",
-            "stars": 7080,
+            "stars": 7091,
             "archived": false,
             "last_release": "2026-08-18",
-            "pushed_at": "2026-08-18",
+            "pushed_at": "2026-08-26",
             "error": null
         }
     ],
@@ -50,9 +50,9 @@
             "repo": "sveltejs/svelte-virtual-list",
             "latest_version": "3.0.1",
             "last_publish": "2021-06-22",
-            "weekly_downloads": 786,
+            "weekly_downloads": 1093,
             "svelte_peer": null,
-            "stars": 772,
+            "stars": 773,
             "archived": false,
             "last_release": null,
             "pushed_at": "2023-03-01",
@@ -68,6 +68,15 @@
             "weekly_downloads": 17387,
             "svelte_peer": ">=3.5.0",
             "note": "Surfaced 2026-08-23 by discovery pass. Svelte 3-era, unmaintained, but 17k weekly DL \u2014 addressable demand. Proposed for watchlist, not yet promoted."
+        },
+        {
+            "npm": "svelte-virtual",
+            "repo": "ghostebony/svelte-virtual",
+            "latest_version": "0.6.3",
+            "last_publish": "2024-02-26",
+            "weekly_downloads": 6029,
+            "svelte_peer": "^3.54.0 || ^4.0.0",
+            "note": "Surfaced 2026-08-31 by discovery pass. No Svelte 5 support, dormant since 2024-02, but 6k weekly DL - addressable migration demand. Proposed for watchlist, not yet promoted."
         }
     ],
     "open_gaps": [
@@ -96,6 +105,7 @@
             "first_seen": "2026-08-23"
         }
     ],
+    "closed_gaps": [],
     "not_gaps_by_design": [
         "multi-framework adapters",
         "horizontal/RTL virtualization",
@@ -105,42 +115,97 @@
     ],
     "rank_tracker": {
         "project_id": 9694468,
-        "date": "2026-08-23",
-        "date_compared": "2026-08-16",
+        "date": "2026-08-31",
+        "date_compared": "2026-08-24",
         "summary": {
-            "tracked": 2,
-            "ranked": 2,
+            "tracked": 8,
+            "ranked": 6,
             "top3": 0,
-            "top10": 0,
-            "top100": 2,
-            "improved": 0,
-            "declined": 2,
-            "avg_position": 23.5
+            "top10": 1,
+            "top100": 6,
+            "improved": 3,
+            "declined": 3,
+            "avg_position": 14.3
         },
         "rows": [
             {
-                "keyword": "svelte chat",
-                "volume": 30,
-                "position": 20,
-                "position_diff": 20,
-                "position_prev": null,
+                "keyword": "svelte llm chat",
+                "volume": 0,
+                "position": 8,
+                "position_diff": -3,
+                "position_prev": 11,
                 "url": "https://virtualchat.svelte.page/",
-                "kd": 2
+                "kd": 4
             },
             {
                 "keyword": "svelte chat component",
                 "volume": 20,
-                "position": 27,
-                "position_diff": 3,
-                "position_prev": 24,
+                "position": 11,
+                "position_diff": -1,
+                "position_prev": 12,
                 "url": "https://virtualchat.svelte.page/",
+                "kd": 1
+            },
+            {
+                "keyword": "chat svelte",
+                "volume": 0,
+                "position": 12,
+                "position_diff": -6,
+                "position_prev": 18,
+                "url": "https://virtualchat.svelte.page/",
+                "kd": 1
+            },
+            {
+                "keyword": "svelte chat ui",
+                "volume": 20,
+                "position": 15,
+                "position_diff": 15,
+                "position_prev": null,
+                "url": "https://virtualchat.svelte.page/blog",
                 "kd": 3
+            },
+            {
+                "keyword": "svelte chatbot",
+                "volume": 40,
+                "position": 19,
+                "position_diff": 19,
+                "position_prev": null,
+                "url": "https://virtualchat.svelte.page/blog",
+                "kd": 2
+            },
+            {
+                "keyword": "virtualized chat",
+                "volume": 0,
+                "position": 21,
+                "position_diff": 6,
+                "position_prev": 15,
+                "url": "https://virtualchat.svelte.page/",
+                "kd": 1
+            },
+            {
+                "keyword": "svelte chat",
+                "volume": 30,
+                "position": null,
+                "position_diff": null,
+                "position_prev": null,
+                "url": null,
+                "kd": 0
+            },
+            {
+                "keyword": "virtualchat",
+                "volume": 0,
+                "position": null,
+                "position_diff": null,
+                "position_prev": null,
+                "url": null,
+                "kd": 62
             }
         ],
-        "note": "'svelte chat' had position_prev=null this run \u2014 first reading, not a decline, despite the summary counting it under 'declined'."
+        "note": "ranked 4 -> 6; first top-10 keyword ever ('svelte llm chat' 11 -> 8). 'chat svelte' 18 -> 12, 'svelte chat component' 12 -> 11. 'svelte chat ui' (15) and 'svelte chatbot' (19) are FIRST readings landing on /blog - summary counts them under 'declined' but they are new entries, not declines. Only genuine decline: 'virtualized chat' 15 -> 21 (vol 0). avg_position 14.0 -> 14.3 only because two new keywords joined at 15/19 - 6 ranked at 14.3 beats 4 at 14.0. 'svelte chat' (vol 30) still unranked since falling out of top-100 last run."
     },
     "seo": {
         "export_date": "2026-08-22",
+        "export_unchanged_since_last_run": true,
         "striking_distance": [
             {
                 "query": "svelte chat",
@@ -184,26 +249,43 @@
             }
         ],
         "recommendations_open": [
-            "rewrite homepage title/meta for virtualchat + svelte chat CTR",
-            "publish chatbot-intent guide targeting 'svelte chatbot' (258 impressions, pos 46)",
-            "add 'svelte chatbot' to Ahrefs rank tracker",
-            "add 'virtualchat' to Ahrefs rank tracker",
-            "add 'chat svelte' to Ahrefs rank tracker"
+            "merge seo-geo into main (still 10 commits ahead; production deploys from the branch, so a main deploy would revert the SEO gains)",
+            "add compare_data_paths: ['docs/src/lib/compare-data.ts'] to config so the now-live /compare pages get automated freshness validation",
+            "investigate branded 'virtualchat' snippet - GSC position 6.4, 37 impressions, zero clicks; Ahrefs does not rank it (KD 62, unrelated dominant entity)",
+            "decide promote-or-drop on watchlist candidate svelte-virtual-scroll-list"
         ],
-        "note": "Ahrefs Keywords Explorer returns no volume for this niche's terms; GSC impressions are the demand signal."
+        "recommendations_closed_this_run": [
+            "rewrite homepage title/meta for virtualchat + svelte chat CTR - CONFIRMED live in production and homepage keywords moved up",
+            "publish chatbot-intent guide targeting 'svelte chatbot' - CONFIRMED live, indexed, ranking 19 (was GSC position 46 with 258 impressions and zero clicks)"
+        ],
+        "note": "GSC export_date unchanged (2026-08-22, 8 days, not stale) - no new search data, and it PREDATES the seo-geo indexing, so next export should show the gains. Verified this run that production serves seo-geo content (homepage title exists only on that branch; /blog, chatbot guide and all 3 /compare pages return 200). Deploy half of the seo-geo recommendation is done; the merge half is not."
     },
     "repo_triage": {
-        "since": "2026-07-24",
+        "since": "2026-08-27",
         "new_external_prs": 0,
         "new_external_issues": 0,
         "awaiting_your_reply": 0,
         "bots": {
-            "prs": 1,
+            "prs": 0,
             "issues": 0
         },
         "errors": []
     },
-    "compare_validation": {},
+    "compare_validation": {
+        "_note": "compare_data_paths still not set in config; validation remains manual. Read docs/src/lib/compare-data.ts (seo-geo) on 2026-08-31: Tier 1 clean - Svelte 5 them:true matches both peer ranges, no hardcoded download figures, no dormancy framing, all 4 outbound links 200. Tier 2 not triggered (neither competitor version moved). Pages are now LIVE in production.",
+        "svelte-tiny-virtual-list": {
+            "validated_against_version": "4.0.0",
+            "validated_on": "2026-08-31",
+            "manual": true,
+            "result": "clean - Svelte 5 support them:true matches peer ^5.0.0; links 200"
+        },
+        "@tanstack/svelte-virtual": {
+            "validated_against_version": "3.13.36",
+            "validated_on": "2026-08-31",
+            "manual": true,
+            "result": "clean - Svelte 5 support them:true matches peer range; links 200"
+        }
+    },
     "delivery": {
         "channel": "C0BP5BF1UTX",
         "method": "webhook",
