@@ -9,5 +9,5 @@
         ".github/workflows/run-tests.yml": "2498828979db1ca43513f29475a60944ad88fc3ea92940e284b35d9886e80180"
     },
     "repository": "humanspeak/svelte-diff",
-    "revision": "23ff1d373da36e28c13d41280571101be0e14a4e"
+    "revision": "25fd09929575554caa70e7c8d4d65c26bb602087"
 }
