@@ -109,7 +109,14 @@ export default [
         }
     },
     {
-        files: ['*.mjs', '*.config.js', '*.config.ts', 'vitest.setup.ts', 'scripts/**/*.mjs'],
+        files: [
+            '*.mjs',
+            '*.config.js',
+            '*.config.ts',
+            'vitest.setup.ts',
+            'scripts/**/*.mjs',
+            '.github/scripts/*.mjs'
+        ],
         ...ts.configs.disableTypeChecked,
         languageOptions: {
             parserOptions: {
