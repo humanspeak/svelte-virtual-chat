@@ -20,7 +20,8 @@
         "@humanspeak/docs-kit": "github:humanspeak/docs-kit#2026.9.10",
         "@humanspeak/svelte-markdown": "^1.8.7",
         "@humanspeak/svelte-motion": "^0.9.3",
-        "@humanspeak/svelte-virtual-chat": "workspace:*"
+        "@humanspeak/svelte-virtual-chat": "workspace:*",
+        "posthog-js": "^1.438.1"
     },
     "devDependencies": {
         "@icons-pack/svelte-simple-icons": "^7.2.0",
@@ -43,7 +44,7 @@
         "tsx": "^4.23.12",
         "typescript": "^6.0.3",
         "vite": "^8.2.2",
-        "wrangler": "^4.125.0"
+        "wrangler": "^4.148.0"
     },
     "volta": {
         "node": "24.16.0"
