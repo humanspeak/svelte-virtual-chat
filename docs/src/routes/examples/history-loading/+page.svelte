@@ -6,8 +6,8 @@
         getSeoContext,
         type ExampleSection
     } from '@humanspeak/docs-kit'
-    import { demoCodeSample } from '$lib/demo-loaders'
-    import HistoryLoading from '$lib/examples/history-loading/demos/HistoryLoading.svelte'
+    import { demoCodeSample } from '#lib/demo-loaders.js'
+    import HistoryLoading from '#lib/examples/history-loading/demos/HistoryLoading.svelte'
     import { Anchor, History, Infinity as InfinityIcon, MoveVertical } from '@lucide/svelte'
 
     const seo = getSeoContext()

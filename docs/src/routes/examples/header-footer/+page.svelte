@@ -6,8 +6,8 @@
         getSeoContext,
         type ExampleSection
     } from '@humanspeak/docs-kit'
-    import { demoCodeSample } from '$lib/demo-loaders'
-    import HeaderFooterChat from '$lib/examples/header-footer/demos/HeaderFooterChat.svelte'
+    import { demoCodeSample } from '#lib/demo-loaders.js'
+    import HeaderFooterChat from '#lib/examples/header-footer/demos/HeaderFooterChat.svelte'
     import { ArrowDownToLine, PanelTop, Pin, Sparkles } from '@lucide/svelte'
 
     const seo = getSeoContext()
