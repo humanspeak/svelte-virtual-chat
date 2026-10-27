@@ -14,8 +14,8 @@ readingTime: 9
 
 <script lang="ts">
     import { BlogPostV2, type BlogPostMeta } from '@humanspeak/docs-kit/blog'
-    import { docsConfig } from '$lib/docs-config'
-    import StreamingChat from '$lib/examples/streaming/demos/StreamingChat.svelte'
+    import { docsConfig } from '#lib/docs-config.js'
+    import StreamingChat from '#lib/examples/streaming/demos/StreamingChat.svelte'
 
     const post: BlogPostMeta = {
         slug: 'building-a-chatbot-ui-in-svelte',

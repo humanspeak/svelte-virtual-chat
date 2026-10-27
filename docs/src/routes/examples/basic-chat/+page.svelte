@@ -6,8 +6,8 @@
         getSeoContext,
         type ExampleSection
     } from '@humanspeak/docs-kit'
-    import { demoCodeSample } from '$lib/demo-loaders'
-    import BasicChat from '$lib/examples/basic-chat/demos/BasicChat.svelte'
+    import { demoCodeSample } from '#lib/demo-loaders.js'
+    import BasicChat from '#lib/examples/basic-chat/demos/BasicChat.svelte'
     import { ArrowDownToLine, Gauge, Layers, MessageSquare } from '@lucide/svelte'
 
     const seo = getSeoContext()

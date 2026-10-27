@@ -1,3 +1,4 @@
+import { rehypeKeepCase } from '@humanspeak/docs-kit/mdsvex'
 import {
     demoManifestPlugin,
     docMirrorsPlugin,
@@ -8,8 +9,12 @@ import {
     sitemapManifestPlugin,
     socialCardsPlugin
 } from '@humanspeak/docs-kit/vite'
+import adapter from '@sveltejs/adapter-cloudflare'
 import { sveltekit } from '@sveltejs/kit/vite'
+import { vitePreprocess } from '@sveltejs/vite-plugin-svelte'
 import tailwindcss from '@tailwindcss/vite'
+import { mdsvex } from 'mdsvex'
+import { createHighlighter } from 'shiki'
 import { defineConfig } from 'vite'
 
 import { competitors, ours } from './src/lib/compare-data.js'
@@ -17,6 +22,22 @@ import { docsConfig } from './src/lib/docs-config.js'
 
 const indexNowKey = '3ffcb05f-e81d-415c-b5d3-446fa6ec612d'
 const docsSourceBaseUrl = `https://github.com/${docsConfig.repo}/blob/main/docs`
+
+const highlighter = await createHighlighter({
+    themes: ['github-light', 'one-dark-pro'],
+    langs: [
+        'javascript',
+        'typescript',
+        'html',
+        'css',
+        'json',
+        'bash',
+        'shell',
+        'svelte',
+        'markdown',
+        'text'
+    ]
+})
 
 export default defineConfig({
     // Keep docs-kit filesystem generators together and before SvelteKit.
@@ -88,7 +109,62 @@ export default defineConfig({
             failOnError: false
         }),
         tailwindcss(),
-        sveltekit()
+        sveltekit({
+            preprocess: [
+                vitePreprocess(),
+                mdsvex({
+                    rehypePlugins: [rehypeKeepCase],
+                    extensions: ['.md', '.svx'],
+                    highlight: {
+                        highlighter: async (code, lang) => {
+                            lang ??= 'text'
+                            const lightHtml = highlighter.codeToHtml(code, {
+                                lang,
+                                theme: 'github-light'
+                            })
+                            const darkHtml = highlighter.codeToHtml(code, {
+                                lang,
+                                theme: 'one-dark-pro'
+                            })
+                            const encoded = Buffer.from(code).toString('base64')
+
+                            const combinedHtml = `
+                        <div class="shiki-container" data-code="${encoded}" data-lang="${lang}">
+                            <div class="shiki-light">${lightHtml}</div>
+                            <div class="shiki-dark">${darkHtml}</div>
+                        </div>
+                    `
+
+                            return `{@html ${JSON.stringify(combinedHtml)}}`
+                        }
+                    }
+                })
+            ],
+            extensions: ['.svelte', '.svx'],
+            adapter: adapter(),
+            csp: {
+                mode: 'hash',
+                directives: {
+                    'default-src': ['self'],
+                    'script-src': [
+                        'self',
+                        'https://*.ahrefs.com',
+                        'https://j.svelte.page',
+                        'unsafe-inline',
+                        'wasm-unsafe-eval'
+                    ],
+                    'style-src': ['self', 'unsafe-inline'],
+                    'img-src': ['self', 'data:', 'https:'],
+                    'font-src': ['self', 'data:'],
+                    'worker-src': ['self', 'blob:'],
+                    'connect-src': ['self', 'https:'],
+                    'frame-ancestors': ['none'],
+                    'form-action': ['self'],
+                    'base-uri': ['self'],
+                    'upgrade-insecure-requests': true
+                }
+            }
+        })
     ],
     // docs-kit ships Svelte source so vite-plugin-svelte can preserve scoped
     // styles. The native social-card dependencies also need to stay out of
@@ -106,25 +182,6 @@ export default defineConfig({
         port: 8026,
         fs: {
             allow: ['..']
-        }
-    },
-    build: {
-        rollupOptions: {
-            output: {
-                manualChunks(id) {
-                    // Isolate heavy optional docs dependencies so they only
-                    // load on pages that actually need them.
-                    if (id.includes('node_modules/shiki')) {
-                        return 'shiki'
-                    }
-                    if (id.includes('node_modules/marked')) {
-                        return 'marked'
-                    }
-                    if (id.includes('node_modules/@humanspeak/svelte-motion')) {
-                        return 'svelte-motion'
-                    }
-                }
-            }
         }
     }
 })

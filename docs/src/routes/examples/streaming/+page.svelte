@@ -6,8 +6,8 @@
         getSeoContext,
         type ExampleSection
     } from '@humanspeak/docs-kit'
-    import { demoCodeSample } from '$lib/demo-loaders'
-    import StreamingChat from '$lib/examples/streaming/demos/StreamingChat.svelte'
+    import { demoCodeSample } from '#lib/demo-loaders.js'
+    import StreamingChat from '#lib/examples/streaming/demos/StreamingChat.svelte'
     import { Activity, DollarSign, Lightbulb, Zap } from '@lucide/svelte'
 
     const seo = getSeoContext()

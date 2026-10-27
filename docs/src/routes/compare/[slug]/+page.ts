@@ -1,5 +1,5 @@
 import { createCompareSlugLoad } from '@humanspeak/docs-kit'
-import { competitors } from '$lib/compare-data'
+import { competitors } from '#lib/compare-data.js'
 import type { EntryGenerator } from './$types'
 
 export const { entries, load } = createCompareSlugLoad(competitors) as {

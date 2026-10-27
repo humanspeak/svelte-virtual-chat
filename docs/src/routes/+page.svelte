@@ -1,8 +1,8 @@
 <script lang="ts">
     import { FooterV2, HeaderV2, getBreadcrumbContext, getSeoContext } from '@humanspeak/docs-kit'
-    import { docsConfig } from '$lib/docs-config'
-    import favicon from '$lib/assets/logo.svg'
-    import { headerNav } from '$lib/docsNav'
+    import { docsConfig } from '#lib/docs-config.js'
+    import favicon from '#lib/assets/logo.svg'
+    import { headerNav } from '#lib/docsNav.js'
     import SvelteVirtualChat, {
         type SvelteVirtualChatDebugInfo
     } from '@humanspeak/svelte-virtual-chat'
